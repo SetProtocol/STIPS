@@ -28,7 +28,7 @@ Provide potential solution(s) including the pros and cons of those solutions and
 ## Timeline
 A proposed timeline for completion
 ## Checkpoint 1
-Before more in depth design of the contract flows lets make sure that all the work done to this point has been exhaustive. It should be clear what we're doing, why, and for who. Additionally we should feel that all necessary information on external protocols has been gathered and potential solutions have all been well considered. It is up to the reviewer to determine whether we move onto the next step.
+Before more in depth design of the contract flows lets make sure that all the work done to this point has been exhaustive. It should be clear what we're doing, why, and for who. All necessary information on external protocols should be gathered and potential solutions considered. At this point we should be in alignment with product on the non-technical requirements for this feature. It is up to the reviewer to determine whether we move onto the next step.
 
 **Reviewer**:
 
