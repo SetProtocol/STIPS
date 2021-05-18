@@ -14,12 +14,12 @@ This repo contains the formalized process for adding technical features to Set P
 - The Issues tab contains potential ideas that have not been formalized into a STIP
 
 # Contributing
-1. Review `STIP-process.md` to familiarize yourself with the STIP process
+1. Review `STIP-TEMPLATE.md` to familiarize yourself with the STIP process
 2. Fork the repository by clicking "Fork" in the top right. 
 3. Add your STIP to your fork of the repository. There is a [template STIP here](./STIP-process.md).
 4. Submit a pull request in this repository
 
-It's important to follow the `STIP Process` guidelines, when first opened, a STIP should only include a summary of the problem/feature and a list of requirements of how to address the problem. If any images or graphs need to be added they can be added to the `assets/STIP-xx` folder where `xx` is the STIP's assigned number.
+It's important to follow the `STIP Template` guidelines, when first opened, a STIP should only include a summary of the problem/feature and any background information relevant to the problem. If any images or graphs need to be added they can be added to the `assets/STIP-xx` folder where `xx` is the STIP's assigned number.
 
 For tracking purposes it's important that each step of the STIP is merged sequentially, that's not to say you can't work ahead locally, but we want to be sure all concerned parties have been able to review and approve every step along the way.
 
