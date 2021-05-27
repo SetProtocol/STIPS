@@ -61,6 +61,12 @@ Reviewer: []
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
 |uint256|hodlers|Number of holders of this token|
+#### Functions
+| Name  | Caller  | Description 	|
+|------	|------	|-------------	|
+|startRebalance|Manager|Set rebalance parameters|
+|rebalance|Trader|Rebalance SetToken|
+|ripcord|EOA|Recenter leverage ratio|
 #### Modifiers
 > onlyManager(SetToken _setToken)
 #### Functions
