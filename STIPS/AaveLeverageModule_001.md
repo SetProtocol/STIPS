@@ -233,9 +233,9 @@ However, to use a deposited asset as collateral, we need to notify the LeningPoo
     *   There are 6 lending protocols with TVL > 1B and 13 protocols with TVL > 100M (Source: [DeFi Pulse](https://defipulse.com/))
 *   Allows supporting new lending protocols relatively easier compared to writing a new module for each lending protocol
 *   Reduces development effort required by third party protocols, building on top of Set Protocol, to support lending protocols of their choice
-*   Implementation would involve taking `functionalities from the Compound Leverage Module and dividing them into two buckets, protocol agnostic (GLM) and protocol `dependent (LendingProtocolAdapter)
+*   Implementation would involve taking functionalities from the Compound Leverage Module and dividing them into two buckets, protocol agnostic (GLM) and protocol `dependent (LendingProtocolAdapter)
 *   LendingProtocolAdapter would return calldata for different interactions with the external protocol, which can then be invoked on the SetToken.
-*   `Functions in LendingProtocolAdapter`
+*   Functions in LendingProtocolAdapter
     *   deposit
     *   withdraw
     *   borrow
@@ -244,7 +244,7 @@ However, to use a deposited asset as collateral, we need to notify the LeningPoo
     *   updateBorrowAsset
     *   getCollateralPosition
     *   getBorrowPosition
-*   `Functions in GLM`
+*   Functions in GLM
 
 	
 
