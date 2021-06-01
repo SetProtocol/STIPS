@@ -31,13 +31,13 @@ AaveLeverageModule:
     2. SetToken only has default positions.
     3. SetToken has an aToken as a position.
 2. **Leveraged:** 
-    4. Target leverage is initialized. A 2x position requires calling rebalance twice to get into the target position. 
-    5. SetToken has 2 positions, one aToken default position and one debt token external position.
-    6. Should remain in this state through rebalances in perpetuity barring black swan risk of liquidation.
+    1. Target leverage is initialized. A 2x position requires calling rebalance twice to get into the target position. 
+    2. SetToken has 2 positions, one aToken default position and one debt token external position.
+    3. Should remain in this state through rebalances in perpetuity barring black swan risk of liquidation.
 3. **Liquidated:**
-    7. In a black swan event, SetToken position is synced with Aave.
-    8. If entire borrow position is repaid, remove position during sync.
-    9. Leftover collateral position can be reengaged by calling rebalance.
+    1. In a black swan event, SetToken position is synced with Aave.
+    2. If entire borrow position is repaid, remove position during sync.
+    3. Leftover collateral position can be reengaged by calling rebalance.
 
 
 ### Why is this feature necessary?
