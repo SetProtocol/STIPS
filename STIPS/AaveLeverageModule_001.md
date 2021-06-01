@@ -16,7 +16,7 @@ We are currently in the midst of a bull market. Demand for leverage is extremely
 Add AaveLeverageModule to enable launching products based on Aave.
 
 AaveLeverageModule: 
-    Smart contract that enables leverage trading using Aave as the lending protocol. It is paired with the debt issuance module that will call functions on this module to keep interest accrual and liquidation state updated.
+    Smart contract that enables leverage trading using Aave as the lending protocol. It is paired with the debt issuance module that will call `functions on this module to `keep interest accrual and liquidation state updated.
 
 
 #### Product States
@@ -75,7 +75,7 @@ AaveLeverageModule:
 
 
 
-*   function getLendingPool() external view returns (address)
+*   `function getLendingPool() external view returns (address)`
     *   LendingPool address should be fetched from the LendingPoolAddressesProvider as contract addresses could change in Aave
 
 
@@ -85,16 +85,16 @@ The main entry point into the Aave Protocol. Most interactions with Aave will ha
 
 
 
-*   function deposit(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external
+*   `function deposit(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external`
     *   Deposits an `amount` of underlying asset into the reserve, receiving in return overlying aTokens.
-*   function withdraw(address asset, uint256 amount, address to) external returns (uint256)
+*   `function withdraw(address asset, uint256 amount, address to) external returns (uint256)`
     *   Withdraws an `amount` of underlying asset from the reserve, burning the equivalent aTokens owned
-*   function borrow(address asset, uint256 amount, uint256 interestRateMode, uint16 referralCode, address onBehalfOf) external;
+*   `function borrow(address asset, uint256 amount, uint256 interestRateMode, uint16 referralCode, address onBehalfOf) external;`
     *   Allows users to borrow a specific `amount` of the reserve underlying asset, provided that the borrower already deposited enough collateral
     *   Mints an equivalent `amount` of stable/variable debt tokens depending upon `interestRateMode`
-*   function repay(address asset, uint256 amount, uint256 rateMode, address onBehalfOf) external returns (uint256);
+*   `function repay(address asset, uint256 amount, uint256 rateMode, address onBehalfOf) external returns (uint256);`
     *   Repays a borrowed `amount` on a specific reserve, burning the equivalent debt tokens owned
-*   function setUserUseReserveAsCollateral(address asset, bool useAsCollateral) external;
+*   `function setUserUseReserveAsCollateral(address asset, bool useAsCollateral) external;`
     *   Allows depositors to enable/disable a specific deposited asset as collateral
 
 
@@ -102,7 +102,7 @@ The main entry point into the Aave Protocol. Most interactions with Aave will ha
 
 
 
-*   function getReserveTokensAddresses(address asset)
+*   `function getReserveTokensAddresses(address asset)`
     *   Returns the aToken and variableDebtToken addresses associated with `asset`
 
 
@@ -114,11 +114,11 @@ Value is pegged to the value of the corresponding deposited asset at a 1:1 ratio
 
 
 
-*   function balanceOf()
+*   `function balanceOf()`
     *   Returns the latest collateral balance (principal + interest).
-*   function UNDERLYING_ASSET_ADDRESS() returns (address)
+*   `function UNDERLYING_ASSET_ADDRESS() returns (address)`
     *   Returns the underlying asset of the aToken
-*   function POOL() returns (address)
+*   `function POOL() returns (address)`
     *   Returns the address of associated LendingPool for the aToken
 
 Example: [aWETH](https://etherscan.io/address/0x030bA81f1c18d280636F32af80b9AAd02Cf0854e)
@@ -134,10 +134,10 @@ Represent a debt to the protocol with a variable interest rate.
 
 
 
-*   function balanceOf() 
+*   `function balanceOf() `
     *   Returns the most up to date accumulated debt of the user.
-*   UNDERLYING_ASSET_ADDRESS()
-*   POOL()
+*   `function UNDERLYING_ASSET_ADDRESS()`
+*   `function POOL()`
 
 Example: [Variable debt USDC](https://etherscan.io/token/0x619beb58998eD2278e08620f97007e1116D5D25b#balances)
 
@@ -233,9 +233,9 @@ However, to use a deposited asset as collateral, we need to notify the LeningPoo
     *   There are 6 lending protocols with TVL > 1B and 13 protocols with TVL > 100M (Source: [DeFi Pulse](https://defipulse.com/))
 *   Allows supporting new lending protocols relatively easier compared to writing a new module for each lending protocol
 *   Reduces development effort required by third party protocols, building on top of Set Protocol, to support lending protocols of their choice
-*   Implementation would involve taking functionalities from the Compound Leverage Module and dividing them into two buckets, protocol agnostic (GLM) and protocol dependent (LendingProtocolAdapter)
+*   Implementation would involve taking `functionalities from the Compound Leverage Module and dividing them into two buckets, protocol agnostic (GLM) and protocol `dependent (LendingProtocolAdapter)
 *   LendingProtocolAdapter would return calldata for different interactions with the external protocol, which can then be invoked on the SetToken.
-*   Functions in LendingProtocolAdapter
+*   `Functions in LendingProtocolAdapter`
     *   deposit
     *   withdraw
     *   borrow
@@ -244,16 +244,16 @@ However, to use a deposited asset as collateral, we need to notify the LeningPoo
     *   updateBorrowAsset
     *   getCollateralPosition
     *   getBorrowPosition
-*   Functions in GLM
+*   `Functions in GLM`
 
 	
 
 
 <table>
   <tr>
-   <td>GLM Functions
+   <td>GLM `Functions`
    </td>
-   <td>LendingProtocolAdapter functions called by the GLM function
+   <td>LendingProtocolAdapter `functions called by the GLM `function`
    </td>
   </tr>
   <tr>
