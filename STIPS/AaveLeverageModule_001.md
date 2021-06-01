@@ -16,7 +16,7 @@ We are currently in the midst of a bull market. Demand for leverage is extremely
 Add AaveLeverageModule to enable launching products based on Aave.
 
 AaveLeverageModule: 
-    Smart contract that enables leverage trading using Aave as the lending protocol. It is paired with the debt issuance module that will call `functions on this module to `keep interest accrual and liquidation state updated.
+    Smart contract that enables leverage trading using Aave as the lending protocol. It is paired with the debt issuance module that will call functions on this module to keep interest accrual and liquidation state updated.
 
 
 #### Product States
@@ -181,7 +181,7 @@ Each asset pool in a market is called a reserve.
   <tr>
    <td>In order to supply collateral or borrow in a market it needs to be entered first.
    </td>
-   <td>Can directly deposit/borrow an underlying asset by calling the LenindgPool contract. No explicit step such as entering the markets is required. \
+   <td>Can directly deposit/borrow an underlying asset by calling the LenindgPool contract. No explicit step such as entering the markets is required.
 However, to use a deposited asset as collateral, we need to notify the LeningPool contract by calling `setUserUseReserveAsCollateral()`.
    </td>
   </tr>
@@ -251,9 +251,9 @@ However, to use a deposited asset as collateral, we need to notify the LeningPoo
 
 <table>
   <tr>
-   <td>GLM `Functions`
+   <td>GLM Functions
    </td>
-   <td>LendingProtocolAdapter `functions called by the GLM `function`
+   <td>LendingProtocolAdapter functions called by the GLM function
    </td>
   </tr>
   <tr>
