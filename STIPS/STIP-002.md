@@ -30,7 +30,27 @@ Pub = Uniswap liquidity for pool B
 Psa = Sushiswap liquidity for pool A
 Psb = Sushiswap liquidity for pool B
 ```
-This equation makes a simplifying assumption to make the algebra easier, that the total price impact for a multihop trade is equal to the sum of the price impacts of each individual trade. In actuality, this is not true, but for cases when price impact is low (less than say 20%), it is approximately the sum. Additionally, this strategy assumes that the price on Uniswap is equal to the price on Sushiswap. In cases where the trade size is exceedingly large, it is likely that this assumption is fair, as the price difference is likely much less than the price impact.
+There derivation of this equation is:
+```
+If we begin with the approximation that the price impact for a trade is:
+I = 2T / P
+This approximation holds under the assumption that the trade size does not make up a significant percentage of the total trade volume.
+
+Next, we approximate that the total price impact of a multi hop trade is equal to the sum of the price impacts:
+I = 2Ta / Pa + 2Tb / Pb
+This approximation holds under the assumption that the price impact is a relatively low percentage (after 20% or so it become a bad approximation)
+
+The optimal trade split will be when the Uniswap and Sushiswap trades experience the same price impact. This situation can be represented as:
+2Ts / Psa + 2Ts / Psb = 2Tu / Pua + 2Tu / Pub
+
+Which can be simplified as follows
+Ts / Psa + Ts / Psb = Tu / Pua + Tu / Pub
+(Ts * Psa + Ts * Psb) / (Psa * Psb) = (Tu * Pua + Tu * Pub) / (Pua * Pub)
+Ts * (Psa + Psb) / (Psa * Psb) = Tu * (Pua + Pub) / (Pua * Pub)
+Ts * (Psa + Psb) * Pua * Pub = Tu * (Pua + Pub) * Psa * Psb
+Ts/Tu = ((Pua + Pub) * Psa * Psb) / ((Psa + Psb) * Pua * Pub)
+ ```
+This strategy assumes that the price on Uniswap is equal to the price on Sushiswap. In cases where the trade size is exceedingly large, it is likely that this assumption is fair, as the price difference is likely much less than the price impact.
 
 ## Computing splits between Uniswap V3 and Uniswap V2
 During this section, we will establish different strategies for aggregating trades between Uniswap V2 and V3. One thing to note here is that each of these strategies can be easily modified to aggregate liquidity between Uniswap V3, Uniswap V2, and Sushiswap.
