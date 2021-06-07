@@ -68,6 +68,20 @@ This strategy makes use of the Solidity's try/catch statement, to produce outcom
 ### Recommendation
 Strategy 3 or 4 is likely to produce the best outcomes for the FLI products. While strategy 3 may produce a slightly more optimal split between V3 and V2, it does so with a much higher gas price and complexity. Strategy 4 does not split liquidity between V3 and V2, and instead opts for the one that provides the best quote. While this solution may not be 100% optimal, it will likely perform nearly as well as strategy 3. This is because the efficient split under normal market conditions is generally over 90% to Uniswap V3. Only in abnormal circumstance of the majority of the V3 liquidity being out of range of the current price does the optimal split flip to being majority V2. Additionally, this strategy can be easily modified to instead select between V3, or a UniV2/Sushi perfect split. This means in the worst-case scenario where we use V2 instead of V3, it still performs better than our current strategy. For this reason, I recommend we use strategy 4.
 
+## Implementation Discussion
+### Trade Routing:
+Trade routing, where only the deepest liquidity source is used in each transaction, can be implemented in a variety of different ways. The simplest allows us to only use a single adapter with no need for any periphery contracts. This adapter would get quotes for trades using Uniswap V3, Uniswap V2, and Sushiswap, and then produces the calldata for whichever exchange gave the best quote. Additionally, this strategy can use the adapters of each exchange as a helper for producing the required calldata. This strategy has the benefit of simplicity, but also has additional gas overhead since receiving a quote for Uniswap V3 costs nearly as much as actually performing the swap.
+
+A more gas efficient strategy for routing trades using an optimistic execution of Uniswap V3. This strategy requires that we use a periphery contract to execute the trade, and write an exchange adapter that routes trades through our custom exchange contract. To start, we receive quotes for the trade using Uniswap V2 and Sushiswap, and provide the best quote as the minOutput parameter for a Uniswap V3 swap. If Uniswap V3 provides a better price than Uniswap V2 or Sushiswap, then this trade will execute successfully. If it does not, this trade will revert, and using solidity's try/catch functionality, we can continue execution and instead use Uniswap V2 or Sushiswap. This strategy has the benefit of increased gas efficiency over the prior strategy, since it does not have to make the redundant call to get a Uniswap V3 quote. The main con of this system is the additional complexity.
+
+### Trade Splitting
+Trade splitting, where we send liquidity through multiple liquidity sources in a single transaction can be implemented using a periphery exchange contract, or through a new module. The first strategy is likely the simplest, since it uses the existing trade adapter system, while giving us the most flexibility. This strategy would also allow us to do a combination of trade routing and trade splitting, where we perform strategy four, with a perfect Uniswap V2 / Sushiswap split as the fallback to Uniswap V3.
+
+Creating a new module would give us a system that may be more reusable, but with additional handicaps, since many splits would have to be precomputed, removing the possibility of executing trades optimistically. The TradeSplitterModule would work much like the current TradeModule, but would allow for making multiple trades using different exchanges.
+
+### Recommendation
+The trade splitting and trade routing combo using a peripheral contract is gas efficient, while still performing well in the worst case scenario when V3 cannot be used, since it will then split the trade using Uniswap V2 and Sushiswap. If we want to avoid having a periphery contract, we can implement this strategy using a TradeSplitterModule, with an adapter that will either specify the module to route the entire trade through V3, or a perfect V2 / Sushi split. This adds some additional gas overhead since it must receive a Uniswap V3 quote, but creates a new TradeSplitter module which will be reusable and potentially useful in the future.
+
 ## Timeline
 - Spec + review: 3 days
 - Implementation: 3 days
@@ -75,6 +89,7 @@ Strategy 3 or 4 is likely to produce the best outcomes for the FLI products. Whi
 - Deployment scripts: 1 day
 - Deploy to testnet 1 day
 - Testing 2 days
+
 ## Checkpoint 1
 Before more in depth design of the contract flows lets make sure that all the work done to this point has been exhaustive. It should be clear what we're doing, why, and for who. All necessary information on external protocols should be gathered and potential solutions considered. At this point we should be in alignment with product on the non-technical requirements for this feature. It is up to the reviewer to determine whether we move onto the next step.
 
