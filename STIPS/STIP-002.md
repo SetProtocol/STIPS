@@ -84,7 +84,7 @@ The trade splitting and trade routing combo using a peripheral contract is gas e
 | Strategy | Naive Trade Splitting | Trade Routing | Trade Split / Route Combo |
 |----------|------------------------------|-------------------|---------------------------------------|
 | Pros | Creates most efficient trade | Gas efficient, can be done with no peripheral contracts or new modules| Gas efficient, better trades          |
-| Cons | Very gas inefficient | Suboptimal trades | Trades not as good as the naive split |
+| Cons | Very gas inefficient, requires peripheral contract or new module | Suboptimal trades | Trades not as good as the naive split, requires peripheral contract or new module  |
 
 ## Timeline
 - Spec + review: 4-5 days
