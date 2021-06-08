@@ -87,12 +87,13 @@ The trade splitting and trade routing combo using a peripheral contract is gas e
 | Cons | Very gas inefficient | Suboptimal trades | Trades not as good as the naive split |
 
 ## Timeline
-- Spec + review: 3 days
-- Implementation: 3 days
+- Spec + review: 4-5 days
+- Implementation: 4-5 days
 - Internal review: 2 days
 - Deployment scripts: 1 day
-- Deploy to testnet 1 day
-- Testing 2 days
+- Deploy to testnet: 1 day
+- Testing: 3-5 days
+- Write docs: 1-2 days
 
 ## Checkpoint 1
 Before more in depth design of the contract flows lets make sure that all the work done to this point has been exhaustive. It should be clear what we're doing, why, and for who. All necessary information on external protocols should be gathered and potential solutions considered. At this point we should be in alignment with product on the non-technical requirements for this feature. It is up to the reviewer to determine whether we move onto the next step.
