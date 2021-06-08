@@ -65,9 +65,6 @@ This strategy has the benefits of occurring entirely on-chain, while also being 
 ### Strategy 4: Optimistic execution of V3, with V2 as a fallback
 This strategy makes use of the Solidity's try/catch statement, to produce outcomes similar to strategy 3, but with a reduced gas cost for multihop trades. First calculate the price impact of a V2 swap. Next calculate a minOutput parameter for the V3 swap guarantees that the V3 swap perform better than V2. We can wrap this is a try/catch. If the V3 swap is successful then we finish execution. If the swap reverts (since it could not provide a better price than V2), then it catches and executes the swap on V2. The reason we execute the V3 swap optimistically is because getting a price quote for Uniswap V3 is nearly as expensive as actually executing the trade. This strategy has many of the same positive properties as strategy 3, but at a much lower gas price.
 
-### Recommendation
-Strategy 3 or 4 is likely to produce the best outcomes for the FLI products. While strategy 3 may produce a slightly more optimal split between V3 and V2, it does so with a much higher gas price and complexity. Strategy 4 does not split liquidity between V3 and V2, and instead opts for the one that provides the best quote. While this solution may not be 100% optimal, it will likely perform nearly as well as strategy 3. This is because the efficient split under normal market conditions is generally over 90% to Uniswap V3. Only in abnormal circumstance of the majority of the V3 liquidity being out of range of the current price does the optimal split flip to being majority V2. Additionally, this strategy can be easily modified to instead select between V3, or a UniV2/Sushi perfect split. This means in the worst-case scenario where we use V2 instead of V3, it still performs better than our current strategy. For this reason, I recommend we use strategy 4.
-
 ## Implementation Discussion
 ### Trade Routing:
 Trade routing, where only the deepest liquidity source is used in each transaction, can be implemented in a variety of different ways. The simplest allows us to only use a single adapter with no need for any periphery contracts. This adapter would get quotes for trades using Uniswap V3, Uniswap V2, and Sushiswap, and then produces the calldata for whichever exchange gave the best quote. Additionally, this strategy can use the adapters of each exchange as a helper for producing the required calldata. This strategy has the benefit of simplicity, but also has additional gas overhead since receiving a quote for Uniswap V3 costs nearly as much as actually performing the swap.
@@ -79,8 +76,15 @@ Trade splitting, where we send liquidity through multiple liquidity sources in a
 
 Creating a new module would give us a system that may be more reusable, but with additional handicaps, since many splits would have to be precomputed, removing the possibility of executing trades optimistically. The TradeSplitterModule would work much like the current TradeModule, but would allow for making multiple trades using different exchanges.
 
-### Recommendation
-The trade splitting and trade routing combo using a peripheral contract is gas efficient, while still performing well in the worst case scenario when V3 cannot be used, since it will then split the trade using Uniswap V2 and Sushiswap. If we want to avoid having a periphery contract, we can implement this strategy using a TradeSplitterModule, with an adapter that will either specify the module to route the entire trade through V3, or a perfect V2 / Sushi split. This adds some additional gas overhead since it must receive a Uniswap V3 quote, but creates a new TradeSplitter module which will be reusable and potentially useful in the future.
+## Recommendation
+The trade splitting and trade routing combo using a peripheral contract is gas efficient, while still performing well in the worst case scenario when V3 cannot be used, since it will then split the trade using Uniswap V2 and Sushiswap. This strategy requires a peripheral contract to optimistically execute the V3 trade, which avoids making redundant calls to fetch a Uniswap V3 price quote.
+
+## Table
+
+| Strategy | Naive Trade Splitting | Trade Routing | Trade Split / Route Combo |
+|----------|------------------------------|-------------------|---------------------------------------|
+| Pros | Creates most efficient trade | Gas efficient, can be done with no peripheral contracts or new modules| Gas efficient, better trades          |
+| Cons | Very gas inefficient | Suboptimal trades | Trades not as good as the naive split |
 
 ## Timeline
 - Spec + review: 3 days
