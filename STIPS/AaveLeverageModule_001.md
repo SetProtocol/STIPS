@@ -214,17 +214,6 @@ However, to use a deposited asset as collateral, we need to notify the LeningPoo
 
 
 
-#### Do these differences have an impact on different flows like issuance and redemption?
-
-
-
-*   Issuance flow handles replicating the current debt position by borrowing assets from the Lending protocol, while redemption handles paying back the debt. 
-*   DebtIssuanceModule flows are Lending protocol agnostic.
-    *   The borrowing and repayment parts of the flows are handled entirely by the associated Leverage Module, which is triggered by the issue/redeem hooks.
-*   Issuance/redemption are also not dependent on the interest rate accrual mechanism. The only requirement is that the sync function must be called before issuance/redemption.
-*   Hence **No**, issuance and redemption are not affected by these differences. And we can use our current DebtIssuanceModule along with the new ALM.
-
-
 #### Do these differences affect how often and where we call sync? Do we need to sync balances more/less often in ALM?
 
 
@@ -253,9 +242,22 @@ However, to use a deposited asset as collateral, we need to notify the LeningPoo
             *   Actual balances of SetToken: (1.2 aETH, 120 variableDebtUSDC)
         *   Issuer receives a discount, SetToken becomes undercollateralized
         *   Redeemer pays a premium, SetToken becomes overcollateralized
-*   Using the above analysis, we can conclude that
-*   Sync function is not affected by the way the interest is accrued
-*   It must be called at the right places, which is before issuance and redemption and also before exiting markets
+*   Using above analysis, we can conclude that
+    *   Frequency of calling sync function doesn't depend upon the interest accrual mechanism
+    *   It is not about how often, but when we call sync function that matters
+    *   It must be called at the right places, which is before issuance and redemption and also before exiting markets
+
+
+#### Do these differences have an impact on different flows like issuance and redemption?
+
+
+
+*   Issuance flow handles replicating the current debt position by borrowing assets from the Lending protocol, while redemption handles paying back the debt. 
+*   DebtIssuanceModule flows are Lending protocol agnostic.
+    *   The borrowing and repayment parts of the flows are handled entirely by the associated Leverage Module, which is triggered by the issue/redeem hooks.
+*   Issuance/redemption are also not dependent on the interest rate accrual mechanism. The only requirement is that the sync function must be called before issuance/redemption.
+*   Hence **No**, issuance and redemption are not affected by these differences. And we can use our current DebtIssuanceModule along with the new ALM.
+
 
 
 #### Do these differences in interest accrual mechanisms affect the number of arbitrage opportunities available?
