@@ -437,3 +437,6 @@ Note: We haven’t discussed collecting stAAVE LM rewards in this STIP, as that 
 | Implementation        |               |            |
 | Auditors              |               |            |
 | Launch                |               |            |
+
+**Checkpoint 1**  
+**Reviewer**: @bweick with support of @richardliang
