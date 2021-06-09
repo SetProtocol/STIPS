@@ -1,4 +1,4 @@
-# STIP-[xx]
+# STIP-002
 ## Abstract
 As Set Protocol begins to support larger products, liquidity will increasingly become an issue for rebalances. Currently, we are limiting the size of trades for the FLI products, and using a TWAP strategy to accommodate these liquidity constraints. An on-chain aggregator that allows us to direct our trades to multiple sources can allow us to solve these problems trustlessly.
 
@@ -58,6 +58,10 @@ During this section, we will establish different strategies for aggregating trad
 This is likely the simplest, but least trustless strategy. This requires that we calculate the price impact experienced at regular interval splits between v2 and v3. When we find a percentage split where the price impact is identical for v2 and v3, we have found the one that experiences the least total slippage. An example of this method can be seen here: https://github.com/ncitron/TradeSplitterResearch/blob/master/scripts/offchainV2V3Splitter.ts. This method's main drawback is requiring a trusted keeper to calculate this split off-chain. Additionally, this method is slow to compute with a high degree of accuracy. There may be some optimizations we can make to increase its speed.
 ### Strategy 2: Optimistic execution of V3, with V2 as a fallback
 This strategy makes use of the Solidity's try/catch statement, to perform well in both the average case, and worst case scenario. First calculate the price impact of a V2 swap. Next calculate a minOutput parameter for the V3 swap guarantees that the V3 swap perform better than V2. We can wrap this is a try/catch. If the V3 swap is successful then we finish execution. If the swap reverts (since it could not provide a better price than V2), then it catches and executes the swap on V2. The reason we execute the V3 swap optimistically is because getting a price quote for Uniswap V3 is nearly as expensive as actually executing the trade. This strategy has many of the same positive properties as strategy 3, but at a much lower gas price.
+### Strategy 3: On-chain routing
+On-chain routing would simply select between Uniswap V2 and V3 by receiving quotes for each, and routing the trade using whichever provides the most optimal price. This strategy is simple, but has the drawback of not being particularly gas efficient since receiving a Uniswap V3 quote costs ~120k gas for single-hop trades, and ~170k gas for multi-hop trades.
+### Strategy 4: Off-chain routing
+This strategy is similar to strategy three, except it allows the keeper bot the select whether to execute a trade with Uniswap V3 or V2. The FlexibleLeverageStrategyAdapter will store max trade size for both Uniswap V2 and V3, which if tuned correctly, will prevent keepers from executing large trades on V2. The main benefit of this is increased gas efficiency compared to strategy three.
 
 ## Implementation Discussion
 ### Trade Routing:
@@ -65,20 +69,22 @@ Trade routing, where only the deepest liquidity source is used in each transacti
 
 A more gas efficient strategy for routing trades using an optimistic execution of Uniswap V3. This strategy requires that we use a periphery contract to execute the trade, and write an exchange adapter that routes trades through our custom exchange contract. To start, we receive quotes for the trade using Uniswap V2 and Sushiswap, and provide the best quote as the minOutput parameter for a Uniswap V3 swap. If Uniswap V3 provides a better price than Uniswap V2 or Sushiswap, then this trade will execute successfully. If it does not, this trade will revert, and using solidity's try/catch functionality, we can continue execution and instead use Uniswap V2 or Sushiswap. This strategy has the benefit of increased gas efficiency over the prior strategy, since it does not have to make the redundant call to get a Uniswap V3 quote. This strategy's main drawback is that it not possible to know the trade size prior to execution, meaning we may be left with unused tokens, requiring additional gas costs to handle.
 
+The most gas efficient way to route trades is to decide whether to use V3 or V2 off-chain. This can be accomplished with a view function of the FLIStrategyAdapter. For additional efficiency, we can route between Uniswap V3, or a V2/Sushi split. The implementation can be done by creating an adapter and peripheral contract that allows us split trades between Uniswap V2 and Sushiswap. Then, the FLIStrategyAdapter would need to be modified to be able to select between using this new adapter, or the Uniswap V3 adapter.
+
 ### Trade Splitting
 Trade splitting, where we send liquidity through multiple liquidity sources in a single transaction can be implemented using a periphery exchange contract, or through a new module. The first strategy is likely the simplest, since it uses the existing trade adapter system, while giving us the most flexibility. This strategy would also allow us to do a combination of trade routing and trade splitting, where we perform strategy two, with a perfect Uniswap V2 / Sushiswap split as the fallback to Uniswap V3.
 
 Creating a new module would give us a system that may be more reusable, but with additional handicaps, since many splits would have to be precomputed, removing the possibility of executing trades optimistically. The TradeSplitterModule would work much like the current TradeModule, but would allow for making multiple trades using different exchanges.
 
 ## Recommendation
-The trade splitting and trade routing combo using a peripheral contract is gas efficient, while still performing well in the worst case scenario when V3 cannot be used, since it will then split the trade using Uniswap V2 and Sushiswap. This strategy requires a peripheral contract to optimistically execute the V3 trade, which avoids making redundant calls to fetch a Uniswap V3 price quote.
+The off-chain split/route combo satisfies the most requirements out of all the proposed solutions. It allows us to select between using Uniswap V3 or a V2/Sushi split off-chain, which saves the gas of receiving the Uniswap V3 quote on-chain. Utilizing different max trade sizes for Uniswap V3 and V2 still allows us to potentially open up the rebalancing functions publicly in the future.
 
 ## Table
 
-| Strategy | Naive Trade Splitting | Trade Routing | Trade Split / Route Combo |
+| Strategy | Optimistic Split/Route Combo | On-chain Split/Route combo | Off-chain Split/Route combo |
 |----------|------------------------------|-------------------|----------------|
-| Pros | Creates most efficient trade | Gas efficient, can be done with no peripheral contracts or new modules| Gas efficient, better trades |
-| Cons | Very gas inefficient, requires peripheral contract or new module | Suboptimal trades | Trades not as good as the naive split, requires peripheral contract or new module |
+| Pros | Gas efficient, better trades | More Trustless, ok trades | Gas efficient, ok trades |
+| Cons | Requires peripheral contract or new module, less gas efficient then off-chain | Not gas efficient | Less trustless |
 
 ## Timeline
 - Spec + review: 4-5 days
