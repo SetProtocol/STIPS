@@ -79,6 +79,8 @@ Creating a new module would give us a system that may be more reusable, but with
 ## Recommendation
 The off-chain split/route combo satisfies the most requirements out of all the proposed solutions. It allows us to select between using Uniswap V3 or a V2/Sushi split off-chain, which saves the gas of receiving the Uniswap V3 quote on-chain. Utilizing different max trade sizes for Uniswap V3 and V2 still allows us to potentially open up the rebalancing functions publicly in the future.
 
+Implementing this strategy requires two different changes. First, the FlexibleLeverageStrategyAdapter must be updated to allow for selecting between different exchanges for rebalances. This requires adding a view-only function that informs the keeper bots which exchange to use, adding different max trade sizes for each available exchange, and adding a parameter to each rebalancing function that specifies which exchange to use. The second change will be to write a periphery UniSushiSplitter contract which splits trades into the optimal Uniswap V2 / Sushiswap percentages utilizing the equations derived in the earlier sections of this STIP. A new exchange adapter will be written to connect with this periphery exchange contract.
+
 ## Table
 
 | Strategy | Optimistic Split/Route Combo | On-chain Split/Route combo | Off-chain Split/Route combo |
