@@ -1,4 +1,4 @@
-# **STIP - Aave Leverage Module**
+# **STIP-001 : Aave Leverage Module**
 
 **_Using template v0.1_**
 
@@ -144,7 +144,7 @@ Example: [Variable debt USDC](https://etherscan.io/token/0x619beb58998eD2278e086
 
 ### Differences between Compound and Aave
 
-High level implementation differences in between and Aave. These do not include the obvious difference between their contract interfaces. 
+High level implementation differences in between Compound and Aave. These do not include the obvious difference between their contract interfaces. 
 
 
 <table>
@@ -182,8 +182,8 @@ Each market has a different cToken contract.
   <tr>
    <td>In order to supply collateral or borrow in a market it needs to be entered first.
    </td>
-   <td>Can directly deposit/borrow an underlying asset by calling the LenindgPool contract. No explicit step such as entering the markets is required. \
-However, to use a deposited asset as collateral, we need to notify the LeningPool contract by calling `setUserUseReserveAsCollateral()`.
+   <td>Can directly deposit/borrow an underlying asset by calling the LendingPool contract. No explicit step such as entering the markets is required. \
+However, to use a deposited asset as collateral, we need to notify the LendingPool contract by calling `setUserUseReserveAsCollateral()`.
    </td>
   </tr>
   <tr>
@@ -207,7 +207,7 @@ However, to use a deposited asset as collateral, we need to notify the LeningPoo
   <tr>
    <td>Accrual of interests happen in a market each time the cToken contract associated with that market is invoked. Thus sometimes we use stored debt values to save on gas and avoid paying the gas fees to accrue interest up to the current block.
    </td>
-   <td>Accrual of interests happen each block, irrespective of whether the LeningPool contract was invoked or not. We can always use the most up to date balances (principal + interest).
+   <td>Accrual of interests happen each block, irrespective of whether the LendingPool contract was invoked or not. We can always use the most up to date balances (principal + interest).
    </td>
   </tr>
 </table>
@@ -253,11 +253,12 @@ However, to use a deposited asset as collateral, we need to notify the LeningPoo
 
 
 *   Issuance flow handles replicating the current debt position by borrowing assets from the Lending protocol, while redemption handles paying back the debt. 
-*   DebtIssuanceModule flows are Lending protocol agnostic.
+*   Issuance and redemption flows would work correctly provided the sync function is called before each issuance and redemption.
+    *   In Compound we only synced the debt positions, as the number of cTokens remained constant.
+    *   In Aave, we would need to sync both collateral and debt positions.
+*   We can use our current DebtIssuanceModule along with the new ALM.
+    *   DebtIssuanceModule flows are Lending protocol agnostic.
     *   The borrowing and repayment parts of the flows are handled entirely by the associated Leverage Module, which is triggered by the issue/redeem hooks.
-*   Issuance/redemption are also not dependent on the interest rate accrual mechanism. The only requirement is that the sync function must be called before issuance/redemption.
-*   Hence **No**, issuance and redemption are not affected by these differences. And we can use our current DebtIssuanceModule along with the new ALM.
-
 
 
 #### Do these differences in interest accrual mechanisms affect the number of arbitrage opportunities available?
@@ -265,23 +266,16 @@ However, to use a deposited asset as collateral, we need to notify the LeningPoo
 
 
 *   Arbitrage opportunities arise due to difference in notional value of the SetToken and price of the SetToken on DEXes
-*   Value of a SetToken (in USDC) = (collateral position unit * collateral price in USDC - debt position unit * debt price in USDC) / totalSupply
-*   On Aave the collateral and debt accrue on-chain on every block, unlike compound, but the off-chain bots can calculate the exact balance (principal + interest) value for every block, for both Compound and Aave
-    *   The off-chain bots can invoke the compound market to accrue interest (and they can do it every block, if it’s in their favor)
-    *   Hence the differences between interest accrual mechanism doesn’t affect the number of arbitrage opportunities available
-
-
-#### Does Aave using Chainlink price feeds affect the number of arbitrage opportunities available?
-
-
-
-*   Aave relies on Chainlink price feeds, which has higher granularity compared to Compound price feeds (which many times we have to update ourselves)
-*   Keeping other things equal this allows greater number of arbitrage opportunities 
-*   And it reduces any premium/discount upon the SetToken, and keeps the price of the SetToken on DEXes in close sync with it’s notional value
+    *   Value of a SetToken (in USDC) = `(collateral amount * collateral price in USDC on DEX - debt amount * debt price in USDC on DEX) / totalSupply`, (amount = principal + interest)
+    *   Interest accrual mechanism affects the rate at which collateral and debt amounts update in the above equation, while other factors are decided entirely by the market
+*   Aave updates the collateral and debt amounts at a higher rate (every block), compared to Compound, which updates amounts only when the corresponding market is invoked
+*   But off-chain bots can calculate the exact collateral and debt amounts for every block, for both Compound and Aave.
+    *   And off-chain bots can invoke the corresponding compound market to accrue interest and update the collateral and debt amounts. They can do it every block, if it’s in their favor. 
+    *   Thus the difference in update rate is of no significance to off-chain arbitrage bots.
+*   Hence differences between interest accrual mechanisms doesn’t affect the number of arbitrage opportunities available.
 
 
 #### Does Aave using Chainlink oracles increase the volatility decay of products based on ALM?
-
 
 
 *   Volatility decay in leveraged ETFs is proportional to the choppiness of the price of underlying assets
@@ -413,11 +407,11 @@ However, to use a deposited asset as collateral, we need to notify the LeningPoo
     *   Allow for multiple positions and potentially open it to 3rd party managers
 *   Low initial development cost
 *   External interface would be exactly similar to CLM
-    *   Existing FlexibleLeverageStrategyAdapter contract design can be used to interact with the AaveLeverageModule
-    *   Note: Will need to write a new FlexibleLeverageStrategyAdapter for ALM, cause the existing one is meant specifically for CLM
-    *   Existing off-chain infrastructure can be used to support new leverage products on Aave
-*   Both FlexibleLeverageStrategyAdapter and Aave will use chainlink price feeds
-    *   Increases security of products based on ALM compared to CLM. In CLM we do face the risk of liquidation in case of difference in compound and chainlink oracles prices
+    *   Allows us to use existing FlexibleLeverageStrategyAdapter contract along with the new ALM
+        *   Existing FlexibleLeverageStrategyAdapter uses `collateralBalance = collateralToken.balanceOf(setToken) * exchangeRate`, which is specific to Compound, and would need to be updated to just `collateralBalance = collateralToken.balanceOf(setToken)` to work with Aave
+        *   Both FlexibleLeverageStrategyAdapter and Aave will use chainlink price feeds. Increases security and efficiency of products based on ALM, compared to CLM.
+    *   Existing off-chain infrastructure can be used to support new ALM
+    
 *   Will need to write a new module for every lending protocol that we support in future (if any)
 
 **Why should we go ahead with Option 2?**
