@@ -5,48 +5,28 @@
 
 ## Abstract
 
-We are currently in the midst of a bull market. Demand for leverage is extremely high, and we want to continue building products to satisfy this demand. Currently, our only leverage product in the market. ETH2x-FLI which has already exceeded our expectations and is our most profitable product. We will likely be launching more FLI products on Compound based on this initial success. These include BTC 2x, ETH -1x, BTC -1x, UNI 2x, ETH/BTC Ratio 2x etc. However, Compound does not support other high volume ERC20 tokens such as LINK, YFI, DPI etc. 
+Our suite of trustless leverage products based on Compound, ETH2x-FLI and WBTC2x-FLI, have exceeded our expectations and are our most profitable products. However, Compound does not support other high volume ERC20 tokens such as LINK, YFI, DPI etc. Also, the cost of maintenance of FLI products has been on a rise due to the high gas costs on the Ethereum blockchain, and we need to move towards enabling products on layer 2 scaling solutions, to decrease these costs for our third-party managers.
 
 
 ## Motivation
 
 
-### Feature
+#### Feature
 
-Add AaveLeverageModule to enable launching products based on Aave.
-
-AaveLeverageModule: 
-    Smart contract that enables leverage trading using Aave as the lending protocol. It is paired with the debt issuance module that will call functions on this module to keep interest accrual and liquidation state updated.
+A module which interacts with Aave, another lending protocol similar to Compound, would allow us to launch more leverage products and support assets which are not available on Compound.
 
 
-#### Product States
-
-
-![](../assets/aave-leverage-module-001/image1.png)	
-
-
-
-1. **Pre Initialization:**
-    1. SetToken is deployed with AaveLeverageModule added as a module. 
-    2. SetToken only has default positions.
-    3. SetToken has an aToken as a position.
-2. **Leveraged:** 
-    1. Target leverage is initialized. A 2x position requires calling rebalance twice to get into the target position. 
-    2. SetToken has 2 positions, one aToken default position and one debt token external position.
-    3. Should remain in this state through rebalances in perpetuity barring black swan risk of liquidation.
-3. **Liquidated:**
-    1. In a black swan event, SetToken position is synced with Aave.
-    2. If entire borrow position is repaid, remove position during sync.
-    3. Leftover collateral position can be reengaged by calling rebalance.
-
-
-### Why is this feature necessary?
-
-
+#### Why is this feature necessary?
 
 1. To launch the LINK 2x which is only available on Aave. LINK has over $1B in liquidity and is the most traded ERC20 token higher than UNI, MATIC etc.
 2. To enable third party Set managers to margin trade using Aave.
 3. To deploy on Matic L2 and enable MATIC2x token.
+
+
+#### Who is this feature for and how is it intended to be used?
+
+This feature is for managers and product developers. It enables launching leverage products like ETH2x-FLI using assets on Aave markets. It also enables third party managers to add leverage positions in their SetToken.
+
 
 
 ## Background Information
