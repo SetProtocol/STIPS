@@ -98,50 +98,130 @@ Implementing this strategy requires two different changes. First, the FlexibleLe
 - Write docs: 1-2 days
 
 ## Checkpoint 1
-Before more in depth design of the contract flows lets make sure that all the work done to this point has been exhaustive. It should be clear what we're doing, why, and for who. All necessary information on external protocols should be gathered and potential solutions considered. At this point we should be in alignment with product on the non-technical requirements for this feature. It is up to the reviewer to determine whether we move onto the next step.
-
 **Reviewer**:
 
 ## Proposed Architecture Changes
-A diagram would be helpful here to see where new feature slot into the system. Additionally a brief description of any new contracts is helpful.
+This feature will be built as an exchange adapter, and index exchange adapter, and a peripheral contract. The adapters will utilize the peripheral contract as if it were an exchange, as it will be responsible for executing the trades split.
+
 ## Requirements
-These should be a distillation of the previous two sections taking into account the decided upon high-level implementation. Each flow should have high level requirements taking into account the needs of participants in the flow (users, managers, market makers, app devs, etc) 
+- All calculations performed on-chain
+- Supports at least 2 hops on Uniswap and Sushiswap
+- Works even when there is no liquidity on one of the supported exchanges
+- Has functions for both exact input and exact output
+- Performs slippage checks
+
 ## User Flows
-- Highlight *each* external flow enabled by this feature. It's helpful to use diagrams (add them to the `assets` folder). Examples can be very helpful, make sure to highlight *who* is initiating this flow, *when* and *why*. A reviewer should be able to pick out what requirements are being covered by this flow.
+![flow diagram](../assets/tradeSplitterFlows.png)
+1. Manager calls trade() on TradeModule / GeneralIndexModule / CLM passing in the relevant parameters and “UniswapV2LikeTradeSplitterExchangeAdapter” as exchange.
+2. module invokes a call from SetToken.
+3. Get approval and trade calldata via UniswapV2LikeTradeSplitterExchangeAdapter
+4. The SetToken invokes an approval and trade on the UniswapV2LikeTradeSplitter, a contract we write that is a layer above Uniswap V2 and Sushi. 
+5. UniswapV2LikeTradeSplitter.trade() routes to Uniswap V2 and Sushi, using the optimal trade split
+
+
 ## Checkpoint 2
-Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
-
 **Reviewer**:
-
 Reviewer: []
+
 ## Specification
-### [Contract Name]
+### UniswapV2LikeTradeSplitterExchangeAdapter
 #### Inheritance
-- List inherited contracts
-#### Structs
-| Type 	| Name 	| Description 	|
-|------	|------	|-------------	|
-|address|manager|Address of the manager|
-|uint256|iterations|Number of times manager has called contract|  
+- IExchangeAdapter
 #### Constants
 | Type 	| Name 	| Description 	| Value 	|
 |------	|------	|-------------	|-------	|
-|uint256|ONE    | The number one| 1       	|
+|string |EXACT_INPUT|function signature for exact input trade|"tradeExactInput"|
 #### Public Variables
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|uint256|hodlers|Number of holders of this token|
+|address|tradeSplitter|address of the trade splitter contract|
 #### Functions
 | Name  | Caller  | Description 	|
 |------	|------	|-------------	|
-|startRebalance|Manager|Set rebalance parameters|
-|rebalance|Trader|Rebalance SetToken|
-|ripcord|EOA|Recenter leverage ratio|
-#### Modifiers
-> onlyManager(SetToken _setToken)
+|getTradeCalldata|TradeModule|Gets trade calldata|
+|getSpender|TradeModule|Returns the address of the UniswapV2LikeTradeSplitter so that the tokens can be approved|
 #### Functions
-> issue(SetToken _setToken, uint256 quantity) external
-- Pseudo code
+> function getTradeCalldata(address _sourceToken, address _destinationToken, address _destinationAddress, uint256 _sourceQuantity, uint256 destinationQuantity, bytes calldata /* _data */)
+- _sourceToken: the input token
+- _destinationToken: the output token
+- _destinationAddress: where the outputs should be sent to
+- _sourceQuantity: the input amount
+- _destinationQuantity: the output amount
+- Returns: the calldata for the Uniswap V3 trade
+> function getSpender()
+- Returns: the spender that needs to have the appropriate approvals for the swap
+
+
+### UniswapV2LikeTradeSplitterIndexExchangeAdapter
+#### Inheritance
+- IIndexExchangeAdapter
+#### Constants
+| Type 	| Name 	| Description 	| Value 	|
+|------	|------	|-------------	|-------	|
+|string |EXACT_INPUT|function signature for exact input trade|"tradeExactInput"|
+|string |EXACT_OUTPUT|function signature for exact output trade|"tradeExactOutput"|
+#### Public Variables
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|address|tradeSplitter|address of the trade splitter contract|
+#### Functions
+| Name  | Caller  | Description 	|
+|------	|------	|-------------	|
+|getTradeCalldata|TradeModule|Gets trade calldata|
+|getSpender|TradeModule|Returns the address of the UniswapV2LikeTradeSplitter so that the tokens can be approved|
+#### Functions
+> function getTradeCalldata(address _sourceToken, address _destinationToken, address _destinationAddress, bool _isSendTokenFixed, uint256 _sourceQuantity, uint256 destinationQuantity, bytes calldata /* _data */)
+- _sourceToken: the input token
+- _destinationToken: the output token
+- _destinationAddress: where the outputs should be sent to
+- _isSendTokenFixed is whether to use exactInput or exactOutput for the trade
+- _sourceQuantity: the input amount
+- _destinationQuantity: the output amount
+- Returns: the calldata for the Uniswap V3 trade
+> function getSpender()
+- Returns: the spender that needs to have the appropriate approvals for the swap
+
+
+### UniswapV2LikeTradeSplitter
+#### Constants
+| Type 	| Name 	| Description 	| Value 	|
+|------	|------	|-------------	|-------	|
+|string |EXACT_INPUT|function signature for exact input trade|"swapExactTokensForTokens"|
+|string |EXACT_OUTPUT|function signature for exact output trade|"swapTokensForExactTokens"|
+#### Public Variables
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|IUniswapV2Router|uniRouter|Uniswap Router|
+|IUniswapV2Router|sushiRouter|Sushiswap Router|
+|IUniswapV2Factory|uniFactory|Uniswap Factory|
+|IUniswapV2Factory|sushiFactory|Sushiswap Factory|
+#### Functions
+| Name  | Caller  | Description 	|
+|------	|------	|-------------	|
+|tradeExactInput|Set Token (via invoke)|executes an exact input trade|
+|tradeExactOutput|Set Token (via invoke)|executes an exact output trade|
+|getQuote|manager|helper function for getting a quote|
+#### Functions
+> function tradeExactInput(uint256 _amountIn, uint256 _amountOutMin, address[] calldata_path, address _destination) external returns (uint256)
+- _amountIn: the amount to trade
+- _amountOutMin: the minimum output amount received
+- _path: an array representing the path of the trade
+- _destination: address to send outputs to
+- returns: output amount
+
+> function tradeExactOutput(uint256 _amountInMax, uint256 _amountOut, address[] calldata_path, address _destination) external returns (uint256)
+- _amountInMax: maximum input amount
+- _amountOut: output amount received
+- _path: an array representing the path of the trade
+- _destination: address to send outputs to
+- returns: input amount
+
+> function getQuote(uint256 _amountIn, address[] calldata _path, bool _isExactInput) external view returns (uint256)
+- _amountIn: the amount to trade
+- _path: an array representing the path of the trade
+- _isExactInput: whether to get a quote for an exact input of exact output
+- returns: expected output amount
+
 ## Checkpoint 3
 Before we move onto the implementation phase we want to make sure that we are aligned on the spec. All contracts should be specced out, their state and external function signatures should be defined. For more complex contracts, internal function definition is preferred in order to align on proper abstractions. Reviewer should take care to make sure that all stake holders (product, app engineering) have their needs met in this stage.
 
