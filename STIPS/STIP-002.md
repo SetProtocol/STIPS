@@ -98,7 +98,7 @@ Implementing this strategy requires two different changes. First, the FlexibleLe
 - Write docs: 1-2 days
 
 ## Checkpoint 1
-**Reviewer**:
+**Reviewer**: @bweick backdated to 6/10
 
 ## Proposed Architecture Changes
 This feature will be built as an exchange adapter, and index exchange adapter, and a peripheral contract. The adapters will utilize the peripheral contract as if it were an exchange, as it will be responsible for executing the trades split.
