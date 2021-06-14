@@ -101,7 +101,7 @@ Implementing this strategy requires two different changes. First, the FlexibleLe
 **Reviewer**:
 
 ## Proposed Architecture Changes
-This feature will be built as an exchange adapter, and index exchange adapter, and a peripheral contract. The adapters will utilize the peripheral contract as if it were an exchange, as it will be responsible for executing the trades split.
+This feature will require one contract that conforms to IExchangeAdapter, one that conforms to to IIndexExchangeAdapter, and a peripheral trade-splitting contract. The adapters will utilize the peripheral contract as if it were an exchange, as it will be responsible for executing the trades split.
 
 ## Requirements
 - All calculations performed on-chain
@@ -109,15 +109,35 @@ This feature will be built as an exchange adapter, and index exchange adapter, a
 - Works even when there is no liquidity on one of the supported exchanges
 - Has functions for both exact input and exact output
 - Performs slippage checks
+- Peripheral contract does not rely on checking its own balances
+- Peripheral contract has a view-only quote function
 
 ## User Flows
-![flow diagram](../assets/tradeSplitterFlows.png)
-1. Manager calls trade() on TradeModule / GeneralIndexModule / CLM passing in the relevant parameters and “UniswapV2LikeTradeSplitterExchangeAdapter” as exchange.
-2. module invokes a call from SetToken.
+![flow diagram](../assets/tradeSplitterTradeModule.png)
+1. Manager is looking to trade 10k SNX to 200 ETH.
+2. Manager calls trade() on TradeModule passing in the input tokens, output tokens, path, slippage tolerance, and “UniswapV2LikeTradeSplitterExchangeAdapter” as the exchange
 3. Get approval and trade calldata via UniswapV2LikeTradeSplitterExchangeAdapter
-4. The SetToken invokes an approval and trade on the UniswapV2LikeTradeSplitter, a contract we write that is a layer above Uniswap V2 and Sushi. 
-5. UniswapV2LikeTradeSplitter.trade() routes to Uniswap V2 and Sushi, using the optimal trade split
+4. The SetToken invokes an approval and trade on the UniswapV2LikeTradeSplitter
+5. UniswapV2LikeTradeSplitter calculates the optimal split between Uniswap and Sushiswap, and execute the trades, directing the outputs to the set token
+6. If the sum of the Uniswap and Sushiswap trade output are too low, then revert
 
+![flow diagram](../assets/tradeSplitterGeneralIndex.png)
+1. Manager is looking to trade 10k SNX to 200 ETH.
+2. Manager sets up a rebalance using GeneralIndexModule
+2. Manager calls trade() on GeneralIndexModule passing in the input tokens, output tokens, path, slippage tolerance, and “UniswapV2LikeTradeSplitterIndexExchangeAdapter” as the exchange
+3. Get approval and trade calldata via UniswapV2LikeTradeSplitterIndexExchangeAdapter
+4. The SetToken invokes an approval and trade on the UniswapV2LikeTradeSplitter
+5. UniswapV2LikeTradeSplitter calculates the optimal split between Uniswap and Sushiswap, and execute the trades, directing the outputs to the set token
+6. If the sum of the Uniswap and Sushiswap trade output are too low, then revert
+
+![flow diagram](../assets/tradeSplitterCLM.png)
+1. Keeper bot needs to rebalance ETH2x-FLI because it is overleveraged
+2. Keeper bot calls rebalance on FlexibleLeverageStrategyAdapter.
+3. FlexibleLeverageStrategyAdapter calls delever on CompoundLeverageModule
+4. CompoundLeverageModule gets approval and trade calldata via UniswapV2LikeTradeSplitterIndexExchangeAdapter
+5. The SetToken invokes an approval and trade on the UniswapV2LikeTradeSplitter
+6. UniswapV2LikeTradeSplitter calculates the optimal split between Uniswap and Sushiswap, and execute the trades, directing the outputs to the set token
+7. If the sum of the Uniswap and Sushiswap trade output are too low, then revert
 
 ## Checkpoint 2
 **Reviewer**:
