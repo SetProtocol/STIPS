@@ -139,6 +139,12 @@ This feature will require one contract that conforms to IExchangeAdapter, one th
 6. UniswapV2LikeTradeSplitter calculates the optimal split between Uniswap and Sushiswap, and execute the trades, directing the outputs to the set token
 7. If the sum of the Uniswap and Sushiswap trade output are too low, then revert
 
+## Token Flows
+![flow diagram](../assets/tokenFlow.png)
+1. SetToken sends input tokens to UniswapV2LikeTradeSplitter
+2. UniswapV2LikeTradeSplitter sends input tokens to Uniswap and Sushiswap
+3. Uniswap and Sushiswap sends output tokens to SetToken
+
 ## Checkpoint 2
 **Reviewer**:
 Reviewer: []
