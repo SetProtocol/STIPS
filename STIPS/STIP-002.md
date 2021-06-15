@@ -101,7 +101,7 @@ Implementing this strategy requires two different changes. First, the FlexibleLe
 **Reviewer**: @bweick backdated to 6/10
 
 ## Proposed Architecture Changes
-This feature will require one contract that conforms to IExchangeAdapter, one that conforms to to IIndexExchangeAdapter, and a peripheral trade-splitting contract. The adapters will utilize the peripheral contract as if it were an exchange, as it will be responsible for executing the trades split.
+This feature will require one contract that conforms to `IExchangeAdapter`, one that conforms to to `IIndexExchangeAdapter`, and a peripheral trade-splitting contract. The adapters will utilize the peripheral contract as if it were an exchange, as it will be responsible for executing the trades split.
 
 ## Requirements
 - All calculations performed on-chain
@@ -111,6 +111,7 @@ This feature will require one contract that conforms to IExchangeAdapter, one th
 - Performs slippage checks
 - Peripheral contract does not rely on checking its own balances
 - Peripheral contract has a view-only quote function
+- Works with `TradeModule`, `GeneralIndexModule`, and `CompoundLeverageModule`
 
 ## User Flows
 ![flow diagram](../assets/tradeSplitterTradeModule.png)  
@@ -143,8 +144,8 @@ This feature will require one contract that conforms to IExchangeAdapter, one th
 
 ## Token Flows
 ![flow diagram](../assets/tokenFlow.png)
-1. SetToken sends input tokens to UniswapV2LikeTradeSplitter
-2. UniswapV2LikeTradeSplitter sends input tokens to Uniswap and Sushiswap
+1. SetToken sends input tokens to `TradeSplitter`
+2. `TradeSplitter` sends input tokens to Uniswap and Sushiswap
 3. Uniswap and Sushiswap sends output tokens to SetToken
 
 ## Checkpoint 2
@@ -152,9 +153,9 @@ This feature will require one contract that conforms to IExchangeAdapter, one th
 Reviewer: []
 
 ## Specification
-### UniswapV2LikeTradeSplitterExchangeAdapter
+### `TradeSplitterExchangeAdapter`
 #### Inheritance
-- IExchangeAdapter
+- `IExchangeAdapter`
 #### Constants
 | Type 	| Name 	| Description 	| Value 	|
 |------	|------	|-------------	|-------	|
@@ -180,9 +181,9 @@ Reviewer: []
 - Returns: the spender that needs to have the appropriate approvals for the swap
 
 
-### UniswapV2LikeTradeSplitterIndexExchangeAdapter
+### `TradeSplitterIndexExchangeAdapter`
 #### Inheritance
-- IIndexExchangeAdapter
+- `IIndexExchangeAdapter`
 #### Constants
 | Type 	| Name 	| Description 	| Value 	|
 |------	|------	|-------------	|-------	|
@@ -210,7 +211,7 @@ Reviewer: []
 - Returns: the spender that needs to have the appropriate approvals for the swap
 
 
-### UniswapV2LikeTradeSplitter
+### `TradeSplitter`
 #### Constants
 | Type 	| Name 	| Description 	| Value 	|
 |------	|------	|-------------	|-------	|
