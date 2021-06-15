@@ -147,7 +147,7 @@ This feature will require one contract that conforms to IExchangeAdapter, one th
 
 ## Checkpoint 2
 **Reviewer**:
-Reviewer: []
+Reviewer: @bweick
 
 ## Specification
 ### UniswapV2LikeTradeSplitterExchangeAdapter
