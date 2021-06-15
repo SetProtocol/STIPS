@@ -113,30 +113,32 @@ This feature will require one contract that conforms to IExchangeAdapter, one th
 - Peripheral contract has a view-only quote function
 
 ## User Flows
-![flow diagram](../assets/tradeSplitterTradeModule.png)
-1. Manager is looking to trade 10k SNX to 200 ETH.
-2. Manager calls trade() on TradeModule passing in the input tokens, output tokens, path, slippage tolerance, and “UniswapV2LikeTradeSplitterExchangeAdapter” as the exchange
-3. Get approval and trade calldata via UniswapV2LikeTradeSplitterExchangeAdapter
-4. The SetToken invokes an approval and trade on the UniswapV2LikeTradeSplitter
-5. UniswapV2LikeTradeSplitter calculates the optimal split between Uniswap and Sushiswap, and execute the trades, directing the outputs to the set token
+![flow diagram](../assets/tradeSplitterTradeModule.png)  
+### A manager is looking to trade 10k SNX to 200 ETH.
+1. Manager calls trade() on `TradeModule` passing in the input tokens, output tokens, path, slippage tolerance, and `TradeSplitterExchangeAdapter` as the exchange
+2. `TradeModule` gets approval and trade calldata via `TradeSplitterExchangeAdapter`
+3. `TradeModule` calls invoke on the SetToken twice, with the calldata to execute an approval and trade transaction.
+4. The SetToken approves the input token to `TradeSplitter`, and calls the tradeExactInput() function.
+5. `TradeSplitter` checks if it has the correct DEX approvals, calculates the optimal split between Uniswap and Sushiswap, and execute the trades, directing the outputs to the SetToken
 6. If the sum of the Uniswap and Sushiswap trade output are too low, then revert
 
-![flow diagram](../assets/tradeSplitterGeneralIndex.png)
-1. Manager is looking to trade 10k SNX to 200 ETH.
-2. Manager sets up a rebalance using GeneralIndexModule
-2. Manager calls trade() on GeneralIndexModule passing in the input tokens, output tokens, path, slippage tolerance, and “UniswapV2LikeTradeSplitterIndexExchangeAdapter” as the exchange
-3. Get approval and trade calldata via UniswapV2LikeTradeSplitterIndexExchangeAdapter
-4. The SetToken invokes an approval and trade on the UniswapV2LikeTradeSplitter
-5. UniswapV2LikeTradeSplitter calculates the optimal split between Uniswap and Sushiswap, and execute the trades, directing the outputs to the set token
+![flow diagram](../assets/tradeSplitterGeneralIndex.png)  
+### A manager is looking to trade 10k SNX to 200 ETH.
+1. Manager sets up a rebalance using GeneralIndexModule, then calls trade() on `GeneralIndexModule` passing in the input tokens, output tokens, path, slippage tolerance, whether to use an exact input trade, and `TradeSplitterExchangeAdapter` as the exchange
+2. `GeneralIndexModule` gets approval and trade calldata via `TradeSplitterIndexExchangeAdapter`
+3. `GeneralIndexModule` calls invoke on the SetToken twice, with the calldata to execute an approval and trade transaction.
+4. The SetToken approves the input token to `TradeSplitter`, and calls the tradeExactInput() or tradeExactOutput() function.
+5. `TradeSplitter` checks if it has the correct DEX approvals, calculates the optimal split between Uniswap and Sushiswap, and execute the trades, directing the outputs to the SetToken
 6. If the sum of the Uniswap and Sushiswap trade output are too low, then revert
 
 ![flow diagram](../assets/tradeSplitterCLM.png)
-1. Keeper bot needs to rebalance ETH2x-FLI because it is overleveraged
-2. Keeper bot calls rebalance on FlexibleLeverageStrategyAdapter.
-3. FlexibleLeverageStrategyAdapter calls delever on CompoundLeverageModule
-4. CompoundLeverageModule gets approval and trade calldata via UniswapV2LikeTradeSplitterIndexExchangeAdapter
-5. The SetToken invokes an approval and trade on the UniswapV2LikeTradeSplitter
-6. UniswapV2LikeTradeSplitter calculates the optimal split between Uniswap and Sushiswap, and execute the trades, directing the outputs to the set token
+### Keeper bot needs to rebalance ETH2x-FLI because it is overleveraged
+1. Keeper bot calls rebalance on `FlexibleLeverageStrategyAdapter`.
+2. `FlexibleLeverageStrategyAdapter` calls delever on `CompoundLeverageModule`
+3. `CompoundLeverageModule` gets approval and trade calldata via `TradeSplitterExchangeAdapter`
+4. `CompoundLeverageModule` calls invoke on the SetToken twice, with the calldata to execute an approval and trade transaction.
+5. The SetToken invokes an approval and trade on the `TradeSplitter`
+6. `TradeSplitter` checks if it has the correct DEX approvals, calculates the optimal split between Uniswap and Sushiswap, and execute the trades, directing the outputs to the SetToken
 7. If the sum of the Uniswap and Sushiswap trade output are too low, then revert
 
 ## Token Flows
