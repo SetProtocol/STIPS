@@ -168,7 +168,7 @@ Reviewer: @bweick
 | Name  | Caller  | Description 	|
 |------	|------	|-------------	|
 |getTradeCalldata|TradeModule|Gets trade calldata|
-|getSpender|TradeModule|Returns the address of the UniswapV2LikeTradeSplitter so that the tokens can be approved|
+|getSpender|TradeModule|Returns the address of the TradeSplitter so that the tokens can be approved|
 #### Functions
 > function getTradeCalldata(address _sourceToken, address _destinationToken, address _destinationAddress, uint256 _sourceQuantity, uint256 destinationQuantity, bytes calldata /* _data */)
 - _sourceToken: the input token
@@ -197,7 +197,7 @@ Reviewer: @bweick
 | Name  | Caller  | Description 	|
 |------	|------	|-------------	|
 |getTradeCalldata|TradeModule|Gets trade calldata|
-|getSpender|TradeModule|Returns the address of the UniswapV2LikeTradeSplitter so that the tokens can be approved|
+|getSpender|TradeModule|Returns the address of the TradeSplitter so that the tokens can be approved|
 #### Functions
 > function getTradeCalldata(address _sourceToken, address _destinationToken, address _destinationAddress, bool _isSendTokenFixed, uint256 _sourceQuantity, uint256 destinationQuantity, bytes calldata /* _data */)
 - _sourceToken: the input token
