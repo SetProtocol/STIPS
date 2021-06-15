@@ -150,7 +150,7 @@ This feature will require one contract that conforms to `IExchangeAdapter`, one 
 
 ## Checkpoint 2
 **Reviewer**:
-Reviewer: []
+Reviewer: @bweick
 
 ## Specification
 ### `TradeSplitterExchangeAdapter`
