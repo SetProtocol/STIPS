@@ -245,8 +245,9 @@ Reviewer: @bweick
 - _destination: address to send outputs to
 - returns: input amount
 
-> function getQuote(uint256 _amountIn, address[] calldata _path, bool _isExactInput) external view returns (uint256)
-- _amountIn: the amount to trade
+> function getQuote(uint256 _amountIn, uint256 _amountOut, address[] calldata _path, bool _isExactInput) external view returns (uint256)
+- _amountIn: the input amount to trade (ignored when _isExactInput is false)
+- _amountOut: the output amount to trade (ignored when _isExactInput is true)
 - _path: an array representing the path of the trade
 - _isExactInput: whether to get a quote for an exact input of exact output
 - returns: expected output amount
