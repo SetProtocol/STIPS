@@ -225,7 +225,8 @@ Reviewer: @bweick
 |------	|------	|-------------	|
 |tradeExactInput|Set Token (via invoke)|executes an exact input trade|
 |tradeExactOutput|Set Token (via invoke)|executes an exact output trade|
-|getQuote|manager|helper function for getting a quote|
+|getQuoteExactInput|manager|helper function for getting a quote|
+|getQuoteExactOutput|manager|helper function for getting a quote|
 |_getTradeSizes|internal|helper for getting the Uniswap and Sushiswap trade sizes|
 |_checkApprovals|internal|checks router approvals, increasing them if needed|
 |_executeTrade|internal|helper for executing the trade on Uniswap or Sushiswap|
@@ -240,7 +241,7 @@ Reviewer: @bweick
 ```solidity
 function tradeExactInput(uint256 _amountIn, uint256 _amountOutMin, address[] calldata_path, address _destination) external returns (uint256 totalOutput) {
     
-    require(_path.length <= 3 && _path.length != 0);
+    require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
     
     ERC20 inputToken = ERC20(_path[0]);
     inputToken.transferFrom(msg.sender, address(this), _amountIn);
@@ -254,8 +255,8 @@ function tradeExactInput(uint256 _amountIn, uint256 _amountOutMin, address[] cal
     uint256 uniOutput = _executeTrade(uniRouter, uniTradeSize, _path, _to, _deadline, true);
     uint256 sushiOutput = _executeTrade(sushiRouter, sushiTradeSize, _path, _to, _deadline, true);
 
-    totalOutput = uniOutput + sushiOutput;
-    require(totalOutput > _amountOutMin);
+    totalOutput = uniOutput.add(sushiOutput);
+    require(totalOutput > _amountOutMin, "TradeSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
 }
 ```
 
@@ -268,7 +269,7 @@ function tradeExactInput(uint256 _amountIn, uint256 _amountOutMin, address[] cal
 ```solidity
 function tradeExactOutput(uint256 _amountInMax, uint256 _amountOut, address[] calldata_path, address _destination) external returns (uint256 totalInput) {
     
-    require(_path.length <= 3 && _path.length != 0);
+    require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
 
     (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _amountOut);
 
@@ -288,29 +289,44 @@ function tradeExactOutput(uint256 _amountInMax, uint256 _amountOut, address[] ca
     uint256 uniInput = _executeTrade(uniRouter, uniTradeSize, _path, _to, _deadline, false);
     uint256 sushiInput = _executeTrade(sushiRouter, sushiTradeSize, _path, _to, _deadline, false);
 
-    totalInput = uniInput + sushiInput;
-    require(totalInput < _amountInMax);
+    totalInput = uniInput.add(sushiInput);
+    require(totalInput < _amountInMax, "TradeSplitter: INSUFFICIENT_INPUT_AMOUNT");
 }
 ```
 
-> function getQuote(uint256 _amountIn, uint256 _amountOut, address[] calldata _path, bool _isExactInput) external view returns (uint256)
-- _amountIn: the input amount to trade (ignored when _isExactInput is false)
-- _amountOut: the output amount to trade (ignored when _isExactInput is true)
+> function getQuoteExactInput(uint256 _amountIn, address[] calldata _path) external view returns (uint256)
+- _amountIn: the input amount to trade
 - _path: an array representing the path of the trade
-- _isExactInput: whether to get a quote for an exact input of exact output
 - returns: expected output amount
 ```solidity
-function getQuote(uint256 _amountIn, uint256 _amountOut, address[] calldata _path, bool _isExactInput) external  view returns (uint256) {
+function getQuoteExactInput(uint256 _amountIn, address[] calldata _path) external  view returns (uint256) {
 
-    require(_path.length <= 3 && _path.length != 0);
+    require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
 
-    (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _isExactInput ? _amountIn : _amountOut);
+    (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _amountIn);
 
-    // uses either getAmountsIn or getAmountsOut depending on _isExactInput
-    uint256 uniTradeResult = _getTradeInputOrOutput(uniRouter, uniTradeSize, _path, _isExactInput);
-    uint256 sushiTradeResult = _getTradeInputOrOutput(sushiRouter, sushiTradeSize, _path, _isExactInput);
+    uint256 uniTradeResult = _getTradeInputOrOutput(uniRouter, uniTradeSize, _path, true);
+    uint256 sushiTradeResult = _getTradeInputOrOutput(sushiRouter, sushiTradeSize, _path, true);
 
-    return uniTradeResult + sushiTradeResult;
+    return uniTradeResult.add(sushiTradeResult);
+}
+```
+
+> function getQuoteExactOutput(uint256 _amountOut, address[] calldata _path) external view returns (uint256)
+- _amountOut: the output amount to trade
+- _path: an array representing the path of the trade
+- returns: expected input amount
+```solidity
+function getQuoteExactOutput(uint256 _amountOut, address[] calldata _path) external  view returns (uint256) {
+
+    require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
+
+    (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _amountOut);
+
+    uint256 uniTradeResult = _getTradeInputOrOutput(uniRouter, uniTradeSize, _path, false);
+    uint256 sushiTradeResult = _getTradeInputOrOutput(sushiRouter, sushiTradeSize, _path, false);
+
+    return uniTradeResult.add(sushiTradeResult);
 }
 ```
 
@@ -318,46 +334,48 @@ function getQuote(uint256 _amountIn, uint256 _amountOut, address[] calldata _pat
 - _path: the path of the trade
 - _size: the total trade size
 - returns: (uniswapTradeSize, sushiSwapTradeSize)
+
+Note: PreciseUnitMath and SafeMath not used here for readability
 ```solidity
 function _getTradeSizes(address[] calldata _path, uint256 _size) internal view returns (uint256 uniSize, uint256 sushiSize) {
-        if (_path.length == 2) {
-            
-            address uniPair = uniFactory.getPair(_path[0], _path[1]);
-            uint256 uniValue = ERC20(_path[0]).balanceOf(uniPair);
+    if (_path.length == 2) {
+        
+        address uniPair = uniFactory.getPair(_path[0], _path[1]);
+        uint256 uniValue = ERC20(_path[0]).balanceOf(uniPair);
 
-            address sushiPair = sushiFactory.getPair(_path[0], _path[1]);
-            uint256 sushiValue = ERC20(_path[0]).balanceOf(sushiPair);
+        address sushiPair = sushiFactory.getPair(_path[0], _path[1]);
+        uint256 sushiValue = ERC20(_path[0]).balanceOf(sushiPair);
 
-            uint256 uniPercentage = uniValue / (uniValue + sushiValue);
-            uniSize = _size * uniPercentage;
-            sushiSize = _size - uniSize;
-        }
-
-        if (_path.length == 3) {
-            
-            address uniPairA = uniFactory.getPair(_path[0], _path[1]);
-            address uniPairB = uniFactory.getPair(_path[1], _path[2]);
-
-            uint256 uniValueA = ERC20(_path[1]).balanceOf(uniPairA);
-            uint256 uniValueB = ERC20(_path[1]).balanceOf(uniPairB);
-
-            if(uniValueA == 0 || uniValueB == 0) return (0, _size);
-
-            address sushiPairA = sushiFactory.getPair(_path[0], _path[1]);
-            address sushiPairB = sushiFactory.getPair(_path[1], _path[2]);
-
-            uint256 sushiValueA = ERC20(_path[1]).balanceOf(sushiPairA);
-            uint256 sushiValueB = ERC20(_path[1]).balanceOf(sushiPairB);
-
-            if(sushiValueA == 0 || sushiValueB == 0) return (_size, 0);
-
-            uint256 ratio = (sushiValueA + sushiValueB) * uniValueA * uniValueB / ((uniValueA + uniValueB) * sushiValueA * sushiValueB);
-
-            uint256 uniPercentage = ratio / (ratio + 1);
-            uniSize = _size * uniPercentage;
-            sushiSize = _size - uniSize;
-        }
+        uint256 uniPercentage = uniValue / (uniValue + sushiValue);
+        uniSize = _size * uniPercentage;
+        sushiSize = _size - uniSize;
     }
+
+    if (_path.length == 3) {
+        
+        address uniPairA = uniFactory.getPair(_path[0], _path[1]);
+        address uniPairB = uniFactory.getPair(_path[1], _path[2]);
+
+        uint256 uniValueA = ERC20(_path[1]).balanceOf(uniPairA);
+        uint256 uniValueB = ERC20(_path[1]).balanceOf(uniPairB);
+
+        if(uniValueA == 0 || uniValueB == 0) return (0, _size);
+
+        address sushiPairA = sushiFactory.getPair(_path[0], _path[1]);
+        address sushiPairB = sushiFactory.getPair(_path[1], _path[2]);
+
+        uint256 sushiValueA = ERC20(_path[1]).balanceOf(sushiPairA);
+        uint256 sushiValueB = ERC20(_path[1]).balanceOf(sushiPairB);
+
+        if(sushiValueA == 0 || sushiValueB == 0) return (_size, 0);
+
+        uint256 ratio = (sushiValueA + sushiValueB) * uniValueA * uniValueB / ((uniValueA + uniValueB) * sushiValueA * sushiValueB);
+
+        uint256 uniPercentage = ratio / (ratio + 1);
+        uniSize = _size * uniPercentage;
+        sushiSize = _size - uniSize;
+    }
+}
 ```
 
 ## Checkpoint 3
