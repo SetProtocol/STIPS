@@ -159,7 +159,7 @@ Reviewer: @bweick
 #### Constants
 | Type 	| Name 	| Description 	| Value 	|
 |------	|------	|-------------	|-------	|
-|string |EXACT_INPUT|function signature for exact input trade|"tradeExactInput"|
+|string |EXACT_INPUT|function signature for exact input trade|"tradeExactInput(uint256,uint256,address[],address,uint256)"|
 #### Public Variables
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
@@ -170,13 +170,14 @@ Reviewer: @bweick
 |getTradeCalldata|TradeModule|Gets trade calldata|
 |getSpender|TradeModule|Returns the address of the TradeSplitter so that the tokens can be approved|
 #### Functions
-> function getTradeCalldata(address _sourceToken, address _destinationToken, address _destinationAddress, uint256 _sourceQuantity, uint256 destinationQuantity, bytes calldata /* _data */)
+> function getTradeCalldata(address _sourceToken, address _destinationToken, address _destinationAddress, uint256 _sourceQuantity, uint256 destinationQuantity, bytes calldata _data)
 - _sourceToken: the input token
 - _destinationToken: the output token
 - _destinationAddress: where the outputs should be sent to
 - _sourceQuantity: the input amount
 - _destinationQuantity: the output amount
-- Returns: the calldata for the Uniswap V3 trade
+- _data: the path to use for the trade (if left empty, use [ sourceToken, destinationToken ])
+- Returns: the calldata for the TradeSplitter
 > function getSpender()
 - Returns: the spender that needs to have the appropriate approvals for the swap
 
@@ -187,8 +188,8 @@ Reviewer: @bweick
 #### Constants
 | Type 	| Name 	| Description 	| Value 	|
 |------	|------	|-------------	|-------	|
-|string |EXACT_INPUT|function signature for exact input trade|"tradeExactInput"|
-|string |EXACT_OUTPUT|function signature for exact output trade|"tradeExactOutput"|
+|string |EXACT_INPUT|function signature for exact input trade|"tradeExactInput(uint256,uint256,address[],address,uint256)"|
+|string |EXACT_OUTPUT|function signature for exact output trade|"tradeExactOutput(uint256,uint256,address[],address,uint256)"|
 #### Public Variables
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
@@ -206,17 +207,12 @@ Reviewer: @bweick
 - _isSendTokenFixed is whether to use exactInput or exactOutput for the trade
 - _sourceQuantity: the input amount
 - _destinationQuantity: the output amount
-- Returns: the calldata for the Uniswap V3 trade
+- Returns: the calldata for the TradeSplitter trade
 > function getSpender()
 - Returns: the spender that needs to have the appropriate approvals for the swap
 
 
 ### `TradeSplitter`
-#### Constants
-| Type 	| Name 	| Description 	| Value 	|
-|------	|------	|-------------	|-------	|
-|string |EXACT_INPUT|function signature for exact input trade|"swapExactTokensForTokens"|
-|string |EXACT_OUTPUT|function signature for exact output trade|"swapTokensForExactTokens"|
 #### Public Variables
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
@@ -230,6 +226,7 @@ Reviewer: @bweick
 |tradeExactInput|Set Token (via invoke)|executes an exact input trade|
 |tradeExactOutput|Set Token (via invoke)|executes an exact output trade|
 |getQuote|manager|helper function for getting a quote|
+|_getTradeSizes|internal|helper for getting the Uniswap and Sushiswap trade sizes|
 #### Functions
 > function tradeExactInput(uint256 _amountIn, uint256 _amountOutMin, address[] calldata_path, address _destination) external returns (uint256)
 - _amountIn: the amount to trade
@@ -237,6 +234,25 @@ Reviewer: @bweick
 - _path: an array representing the path of the trade
 - _destination: address to send outputs to
 - returns: output amount
+```solidity
+function tradeExactInput(uint256 _amountIn, uint256 _amountOutMin, address[] calldata_path, address _destination) external returns (uint256 totalOutput) {
+    
+    ERC20 inputToken = ERC20(_path[0]);
+    inputToken.transferFrom(msg.sender, address(this), _amountIn);
+    
+    (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _amountIn);
+
+    // checks approvals to routers, bumping them if needed
+    _checkApprovals(uniTradeSize, sushiTradeSize, inputToken);
+
+    // executes trades
+    uint256 uniOutput = _executeTrade(uniRouter, uniTradeSize, _path, _to, _deadline, true);
+    uint256 sushiOutput = _executeTrade(sushiRouter, sushiTradeSize, _path, _to, _deadline, true);
+
+    totalOutput = uniOutput.add(sushiOutput);
+    require(totalOutput > _amountOutMin, "UniswapV2LikeTradeSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
+}
+```
 
 > function tradeExactOutput(uint256 _amountInMax, uint256 _amountOut, address[] calldata_path, address _destination) external returns (uint256)
 - _amountInMax: maximum input amount
@@ -244,6 +260,31 @@ Reviewer: @bweick
 - _path: an array representing the path of the trade
 - _destination: address to send outputs to
 - returns: input amount
+```solidity
+function tradeExactOutput(uint256 _amountInMax, uint256 _amountOut, address[] calldata_path, address _destination) external returns (uint256 totalInput) {
+    
+    (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _amountOut);
+
+    // uses either getAmountsIn or getAmountsOut depending on _isExactInput (in this case it uses getAmountsIn)
+    // these functions are nice because we need some if statements in there to ensure that the amount is not 0,
+    // otherwise the getAmountsIn or getAmountsOut functions will fail
+    uint256 expectedUniInput = _getTradeInputOrOutput(uniRouter, uniTradeSize, _path, false);
+    uint256 expectedSushiInput = _getTradeInputOrOutput(sushiRouter, sushiTradeSize, _path, false);
+
+    ERC20(_path[0]).transferFrom(msg.sender, address(this), expectedUniInput.add(expectedSushiInput));
+
+    // checks approvals to routers, bumping them if needed
+    _checkApprovals(expectedUniInput, expectedSushiInput, ERC20(_path[0]));
+
+    // executes trades
+    // these functions are useful since we again need to check if the trade sizes are 0 before executing
+    uint256 uniInput = _executeTrade(uniRouter, uniTradeSize, _path, _to, _deadline, false);
+    uint256 sushiInput = _executeTrade(sushiRouter, sushiTradeSize, _path, _to, _deadline, false);
+
+    totalInput = uniInput.add(sushiInput);
+    require(totalInput < _amountInMax, "UniswapV2LikeTradeSplitter: INSUFFICIENT_INPUT_AMOUNT");
+}
+```
 
 > function getQuote(uint256 _amountIn, uint256 _amountOut, address[] calldata _path, bool _isExactInput) external view returns (uint256)
 - _amountIn: the input amount to trade (ignored when _isExactInput is false)
@@ -251,6 +292,71 @@ Reviewer: @bweick
 - _path: an array representing the path of the trade
 - _isExactInput: whether to get a quote for an exact input of exact output
 - returns: expected output amount
+```solidity
+function getQuote(uint256 _amountIn, uint256 _amountOut, address[] calldata _path, bool _isExactInput) external  view returns (uint256) {
+
+    (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _isExactInput ? _amountIn : _amountOut);
+
+    uint256 uniTradeResult = 0;
+    uint256 sushiTradeResult = 0;
+
+    if (uniTradeSize > 0) {
+        // uses either getAmountsIn or getAmountsOut depending on _isExactInput
+        uniTradeResult = _getTradeInputOrOutput(uniRouter, uniTradeSize, _path, _isExactInput);
+    }
+    if (sushiTradeSize > 0) {
+        // uses either getAmountsIn or getAmountsOut depending on _isExactInput
+        sushiTradeResult = _getTradeInputOrOutput(sushiRouter, sushiTradeSize, _path, _isExactInput);
+    }
+
+    return uniTradeResult + sushiTradeResult;
+}
+```
+
+> function _getTradeSizes(address[] calldata _path, uint256 _size)
+- _path: the path of the trade
+- returns: the percentage of the trade to route to Uniswap in precise units
+```solidity
+function _getTradeSizes(address[] calldata _path, uint256 _size) internal view returns (uint256 uniSize, uint256 sushiSize) {
+        if (_path.length == 2) {
+            
+            address uniPair = uniFactory.getPair(_path[0], _path[1]);
+            uint256 uniValue = ERC20(_path[0]).balanceOf(uniPair);
+
+            address sushiPair = sushiFactory.getPair(_path[0], _path[1]);
+            uint256 sushiValue = ERC20(_path[0]).balanceOf(sushiPair);
+
+            uint256 uniPercentage = uniValue / (uniValue + sushiValue);
+            uniSize = _size * uniPercentage;
+            sushiSize = _size - uniSize;
+        }
+
+        if (_path.length == 3) {
+            
+            address uniPairA = uniFactory.getPair(_path[0], _path[1]);
+            address uniPairB = uniFactory.getPair(_path[1], _path[2]);
+
+            uint256 uniValueA = ERC20(_path[1]).balanceOf(uniPairA);
+            uint256 uniValueB = ERC20(_path[1]).balanceOf(uniPairB);
+
+            if(uniValueA == 0 || uniValueB == 0) return (0, _size);
+
+            address sushiPairA = sushiFactory.getPair(_path[0], _path[1]);
+            address sushiPairB = sushiFactory.getPair(_path[1], _path[2]);
+
+            uint256 sushiValueA = ERC20(_path[1]).balanceOf(sushiPairA);
+            uint256 sushiValueB = ERC20(_path[1]).balanceOf(sushiPairB);
+
+            if(sushiValueA == 0 || sushiValueB == 0) return (_size, 0);
+
+            uint256 ratio = (sushiValueA + sushiValueB) * uniValueA * uniValueB / ((uniValueA + uniValueB) * sushiValueA * sushiValueB);
+
+            uint256 uniPercentage = ratio / (ratio + 1);
+            uniSize = _size * uniPercentage;
+            sushiSize = _size - uniSize;
+        }
+    }
+```
 
 ## Checkpoint 3
 Before we move onto the implementation phase we want to make sure that we are aligned on the spec. All contracts should be specced out, their state and external function signatures should be defined. For more complex contracts, internal function definition is preferred in order to align on proper abstractions. Reviewer should take care to make sure that all stake holders (product, app engineering) have their needs met in this stage.
