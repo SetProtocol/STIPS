@@ -318,7 +318,8 @@ function getQuote(uint256 _amountIn, uint256 _amountOut, address[] calldata _pat
 
 > function _getTradeSizes(address[] calldata _path, uint256 _size)
 - _path: the path of the trade
-- returns: the percentage of the trade to route to Uniswap in precise units
+- _size: the total trade size
+- returns: (uniswapTradeSize, sushiSwapTradeSize)
 ```solidity
 function _getTradeSizes(address[] calldata _path, uint256 _size) internal view returns (uint256 uniSize, uint256 sushiSize) {
         if (_path.length == 2) {
