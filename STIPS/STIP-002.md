@@ -240,6 +240,8 @@ Reviewer: @bweick
 ```solidity
 function tradeExactInput(uint256 _amountIn, uint256 _amountOutMin, address[] calldata_path, address _destination) external returns (uint256 totalOutput) {
     
+    require(_path.length <= 3 && _path.length != 0);
+    
     ERC20 inputToken = ERC20(_path[0]);
     inputToken.transferFrom(msg.sender, address(this), _amountIn);
     
@@ -252,8 +254,8 @@ function tradeExactInput(uint256 _amountIn, uint256 _amountOutMin, address[] cal
     uint256 uniOutput = _executeTrade(uniRouter, uniTradeSize, _path, _to, _deadline, true);
     uint256 sushiOutput = _executeTrade(sushiRouter, sushiTradeSize, _path, _to, _deadline, true);
 
-    totalOutput = uniOutput.add(sushiOutput);
-    require(totalOutput > _amountOutMin, "UniswapV2LikeTradeSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
+    totalOutput = uniOutput + sushiOutput;
+    require(totalOutput > _amountOutMin);
 }
 ```
 
@@ -266,6 +268,8 @@ function tradeExactInput(uint256 _amountIn, uint256 _amountOutMin, address[] cal
 ```solidity
 function tradeExactOutput(uint256 _amountInMax, uint256 _amountOut, address[] calldata_path, address _destination) external returns (uint256 totalInput) {
     
+    require(_path.length <= 3 && _path.length != 0);
+
     (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _amountOut);
 
     // uses either getAmountsIn or getAmountsOut depending on _isExactInput (in this case it uses getAmountsIn)
@@ -284,8 +288,8 @@ function tradeExactOutput(uint256 _amountInMax, uint256 _amountOut, address[] ca
     uint256 uniInput = _executeTrade(uniRouter, uniTradeSize, _path, _to, _deadline, false);
     uint256 sushiInput = _executeTrade(sushiRouter, sushiTradeSize, _path, _to, _deadline, false);
 
-    totalInput = uniInput.add(sushiInput);
-    require(totalInput < _amountInMax, "UniswapV2LikeTradeSplitter: INSUFFICIENT_INPUT_AMOUNT");
+    totalInput = uniInput + sushiInput;
+    require(totalInput < _amountInMax);
 }
 ```
 
@@ -297,6 +301,8 @@ function tradeExactOutput(uint256 _amountInMax, uint256 _amountOut, address[] ca
 - returns: expected output amount
 ```solidity
 function getQuote(uint256 _amountIn, uint256 _amountOut, address[] calldata _path, bool _isExactInput) external  view returns (uint256) {
+
+    require(_path.length <= 3 && _path.length != 0);
 
     (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _isExactInput ? _amountIn : _amountOut);
 
