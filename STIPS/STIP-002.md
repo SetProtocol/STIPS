@@ -382,6 +382,7 @@ function _getTradeSizes(address[] calldata _path, uint256 _size) internal view r
 Before we move onto the implementation phase we want to make sure that we are aligned on the spec. All contracts should be specced out, their state and external function signatures should be defined. For more complex contracts, internal function definition is preferred in order to align on proper abstractions. Reviewer should take care to make sure that all stake holders (product, app engineering) have their needs met in this stage.
 
 **Reviewer**:
+Reviewer: @richardliang
 
 ## Implementation
 [Link to implementation PR]()
