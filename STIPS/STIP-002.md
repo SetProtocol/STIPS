@@ -227,6 +227,9 @@ Reviewer: @bweick
 |tradeExactOutput|Set Token (via invoke)|executes an exact output trade|
 |getQuote|manager|helper function for getting a quote|
 |_getTradeSizes|internal|helper for getting the Uniswap and Sushiswap trade sizes|
+|_checkApprovals|internal|checks router approvals, increasing them if needed|
+|_executeTrade|internal|helper for executing the trade on Uniswap or Sushiswap|
+|_getTradeInputOrOutput|internal|helper for getting the expected input/output of a trade|
 #### Functions
 > function tradeExactInput(uint256 _amountIn, uint256 _amountOutMin, address[] calldata_path, address _destination) external returns (uint256)
 - _amountIn: the amount to trade
