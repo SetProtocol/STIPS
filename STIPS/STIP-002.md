@@ -300,17 +300,9 @@ function getQuote(uint256 _amountIn, uint256 _amountOut, address[] calldata _pat
 
     (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _isExactInput ? _amountIn : _amountOut);
 
-    uint256 uniTradeResult = 0;
-    uint256 sushiTradeResult = 0;
-
-    if (uniTradeSize > 0) {
-        // uses either getAmountsIn or getAmountsOut depending on _isExactInput
-        uniTradeResult = _getTradeInputOrOutput(uniRouter, uniTradeSize, _path, _isExactInput);
-    }
-    if (sushiTradeSize > 0) {
-        // uses either getAmountsIn or getAmountsOut depending on _isExactInput
-        sushiTradeResult = _getTradeInputOrOutput(sushiRouter, sushiTradeSize, _path, _isExactInput);
-    }
+    // uses either getAmountsIn or getAmountsOut depending on _isExactInput
+    uint256 uniTradeResult = _getTradeInputOrOutput(uniRouter, uniTradeSize, _path, _isExactInput);
+    uint256 sushiTradeResult = _getTradeInputOrOutput(sushiRouter, sushiTradeSize, _path, _isExactInput);
 
     return uniTradeResult + sushiTradeResult;
 }
