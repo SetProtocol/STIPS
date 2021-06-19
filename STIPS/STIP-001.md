@@ -434,14 +434,13 @@ Smart contract that enables leverage trading using Aave as the lending protocol.
 
 
 *   Make increase / decrease leverage interfaces same as CLM
-*   Ability for managers to increase / decrease leverage using any 2 assets on Aave
-    *   Allow managers to increase leverage by borrowing desired asset A, trade asset A for another asset B, and deposit B as collateral to Aave
-    *   Allow manager to decrease leverage of asset C, by withdrawing asset D from Aave, trading it for asset C, and repay the debt back for C
-*   Ability for manager to unwind all and return debt to 0
-    *   Allow manager to exit a borrow position by repaying entire debt amount on a borrowed asset E, by withdrawing asset F from Aave, trading it for E, an repay the debt back for E
+*   Allow managers to increase / decrease leverage using any 2 assets available on Aave market
+    *   Allow managers to increase leverage by borrowing asset A from Aave, trade asset A for asset B, and deposit B as collateral to Aave
+    *   Allow manager to decrease leverage of asset C, by withdrawing asset D from Aave, trading it for C, and repay debt for C
+*   Allow manager to unwind and return debt to zero
+    *   Allow manager to exit a borrow position by repaying entire debt amount on a borrowed asset E, by withdrawing asset F from Aave, trading it for E, an repay the debt for E
 *   Ability to sync collateral and debt amounts to account for interest accrued
-*   Issue and redeem hooks
-    *   Allow DebtIssuanceModule to call hooks before issuance / redemption to sync SetToken positions
+*   Allow DebtIssuanceModule to call hooks before issuance / redemption to sync SetToken positions
     *   Keep interface same as that expected by DebtIssuanceModule
 *   Ability to charge protocol fee for lever/delever flows.
 *   Allow managers to add / remove collateral and borrow assets to a SetToken
@@ -478,7 +477,6 @@ Smart contract that enables leverage trading using Aave as the lending protocol.
 
 
 ### AaveLeverageModule.lever() 
-
 
 
 *   Flow initiated by Manager
@@ -553,11 +551,12 @@ Smart contract that enables leverage trading using Aave as the lending protocol.
 
 ### AaveLeverageModule.deleverToZeroBorrowBalance()
 
-![](../assets/stip-001/image4.png "")
-
 *   Flow initiated by Manager
 *   To unwind and return debt of an asset to 0
 *   Note: No protocol fee is charged in this flow.
+
+
+![](../assets/stip-001/image4.png "")
 
 
 #### 	Example: WETH2x, Leveraged state
