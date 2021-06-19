@@ -414,3 +414,178 @@ Note: We haven’t discussed collecting stAAVE LM rewards in this STIP, as that 
 
 **Checkpoint 1**  
 **Reviewer**: @bweick with support of @richardliang
+
+
+
+## Proposed Architecture Changes
+
+
+![](../assets/stip-001/image1.png "")
+
+AaveLeverageModule: 
+
+Smart contract that enables leverage trading using Aave as the lending protocol. It is paired with the debt issuance module that will call functions on this module to keep interest accrual and liquidation state updated.
+
+
+## Requirements 
+
+
+#### AaveLeverageModule
+
+
+*   Make increase / decrease leverage interfaces same as CLM
+*   Ability for managers to increase / decrease leverage using any 2 assets on Aave
+    *   Allow managers to increase leverage by borrowing desired asset A, trade asset A for another asset B, and deposit B as collateral to Aave
+    *   Allow manager to decrease leverage of asset C, by withdrawing asset D from Aave, trading it for asset C, and repay the debt back for C
+*   Ability for manager to unwind all and return debt to 0
+    *   Allow manager to exit a borrow position by repaying entire debt amount on a borrowed asset E, by withdrawing asset F from Aave, trading it for E, an repay the debt back for E
+*   Ability to sync collateral and debt amounts to account for interest accrued
+*   Issue and redeem hooks
+    *   Allow DebtIssuanceModule to call hooks before issuance / redemption to sync SetToken positions
+    *   Keep interface same as that expected by DebtIssuanceModule
+*   Ability to charge protocol fee for lever/delever flows.
+*   Allow managers to add / remove collateral and borrow assets to a SetToken
+*   Allow app developers to fetch all enabled collateral and debt assets on a SetToken
+
+
+#### Aave Library
+
+
+
+*   Ability to invoke functions on SetToken to deposit, withdraw, repay, borrow any asset from/to Aave LendingProtocol
+*   Ability to invoke function on SetToken to allow a deposited asset to be used as collateral on Aave
+
+
+## Product States
+
+![](../assets/stip-001/image2.png "")
+
+1. Pre Initialization: 
+    1. SetToken is deployed with AaveLeverageModule added as a module. 
+    2. SetToken only has default positions.
+    3. SetToken has an aToken as a position.
+2. Leveraged: 
+    1. Target leverage is initialized. User flows (explained below) are invoked to get to target leverage position.
+    2. SetToken has 2 positions, one aToken default position and one debt token external position.
+    3. Should remain in this state through rebalances in perpetuity barring black swan risk of liquidation.
+3. Liquidated: 
+    1. In a black swan event, SetToken position is synced with Aave.
+    2. If entire borrow position is repaid, remove position during sync.
+    3. Leftover collateral position can be reengaged by calling lever.
+
+
+## User Flows
+
+
+### AaveLeverageModule.lever() 
+
+
+
+*   Flow initiated by Manager
+*   When current leverage ratio is below the target leverage ratio
+*   To bring the current leverage ratio closer to target leverage ratio
+
+![](../assets/stip-001/image3.png "")
+
+
+#### Example: WETH2x, Leveraged State
+
+1. Manager calls lever() passing in the borrow units (USDC), min collateral receive amount (WETH), and trade adapter.
+2. Module invokes borrow() on LendingPool which mints variableDebtUSDC tokens.
+3. Module invokes _trade() using the trade adapter name passed in (Uniswap) to trade USDC into WETH.
+4. Module invokes deposit() on LendingPool to mint aWETH.
+5. Module reads the balanceOf() of variableDebtUSDC token and balanceOf() of aWETH in the SetToken and updates SetToken position units.
+
+
+#### Example: Inverse WETH, Leveraged State
+
+
+
+1. Manager calls lever() on AaveLeverageModule passing in the borrow units (WETH), min collateral receive amount (USDC), and trade adapter. In this case, the target leverage is above the current leverage ratio.
+2. Module invokes borrow() on LendingPool and mint variableDebtWETH tokens.
+3. Module invokes _trade() using the trade adapter name passed in (Uniswap) to trade WETH into USDC.
+4. Module invokes deposit() on LendingPool to mint aUSDC.
+5. Module reads the balanceOf() of variableDebtWETH token and balanceOf() of aUSDC in the SetToken and updates SetToken position units.
+
+
+#### Example: WETH2x, Liquidated State
+
+
+
+1. Position is liquidated and synced. Only aWETH position exists, variableDebtUSDC position is 0. Manager calls lever() on AaveLeveragedModule passing in the borrow units (USDC), min collateral receive amount (WETH), and trade adapter.
+2. Module invokes borrow() on LendingPool which mints variableDebtUSDC tokens.
+3. Module invokes _trade() using the trade adapter name passed in (Uniswap) to trade USDC into ETH.
+4. Module invokes deposit() on LendingPool to mint aWETH.
+5. Module reads the balanceOf() of variableDebtUSDC token and balanceOf() aWETH in the SetToken and updates SetToken position units.
+
+
+### AaveLeverageModule.delever()
+
+
+
+*   Flow initiated by Manager
+*   When current leverage ratio is above the target leverage ratio
+*   To bring the current leverage ratio closer to target leverage ratio
+
+![](../assets/stip-001/image3.png "")
+
+####	Example: WETH2x, Leveraged state
+
+
+
+1. Manager calls delever() on AaveLeverageModule passing in the collateral units to sell (WETH), min amount of borrowed asset to receive (USDC), and trade adapter (Uniswap). 
+2. Module invokes withdraw() on the LendingPool to receive WETH.
+3. Module invokes _trade() using the trade adapter name passed in (Uniswap) to trade WETH into USDC. 
+4. Module invokes repay() on LendingPool using the newly traded USDC.
+5. Module reads the balanceOf() of variableDebtUSDC token and balanceOf() aWETH in the SetToken and updates SetToken position units. If borrowed units are 0, then return positions to default.
+
+
+#### Example: Inverse WETH, Leveraged state
+
+
+
+1. Manager calls delever() on AaveLeverageModule passing in the collateral units to sell (USDC), min borrow asset receive amount (WETH), and trade adapter. 
+2. Module invokes withdraw() on LendingPool to receive USDC.
+3. Module invokes _trade() using the trade adapter name passed in (Uniswap) to trade USDC into WETH.
+4. Module invokes repay() on LendingPool using the newly traded WETH.
+5. Module reads the balanceOf() of variableDebtUSDC token and balanceOf() aWETH in the SetToken and updates SetToken position units. If borrowed units are 0, then return positions to default.
+
+
+### AaveLeverageModule.deleverToZeroBorrowBalance()
+
+![](../assets/stip-001/image4.png "")
+
+*   Flow initiated by Manager
+*   To unwind and return debt of an asset to 0
+*   Note: No protocol fee is charged in this flow.
+
+
+#### 	Example: WETH2x, Leveraged state
+
+
+1. Manager calls deleverToZeroBorrowBalance() on AaveLeverageModule passing in the collateral units to sell (WETH), borrow asset to repay (USDC) and trade adapter (Uniswap). 
+2. Module invokes withdraw() on the LendingPool to receive WETH.
+3. Module invokes _trade() using the trade adapter name passed in (Uniswap) to trade WETH into USDC. 
+4. Module reads the balanceOf() of variableDebtUSDC in the SetToken to determine the most updated debt amount owed by the SetToken to Aave market.
+5. Module invokes repay() on LendingPool using the newly traded USDC, to repay the entire debt.
+6. Module reads the balanceOf() of aWETH in the SetToken and updates SetToken collateral position units. Any extra borrowed asset (USDC) left in the SetToken is added as default position i.e. added as equity to the SetToken.
+
+
+### AaveLeverageModule.sync()
+
+![](../assets/stip-001/image5.png "")
+
+1. Anyone can call sync() on AaveLeverageModule.
+2. Module reads balanceOf() aWETH in SetToken.
+3. Module reads balanceOf() variableDebtUSDC in SetToken. If the borrow is 0 then remove position. This may happen if the position is liquidated.
+4. Module updates position units on the SetToken.
+
+
+### AaveLeverageModule.initialize()
+
+
+![](../assets/stip-001/image6.png "")
+
+1. Manager calls initialize() to on Aave Leverage Module passing in the collateral tokens and borrow tokens.
+2. The module requires collateral and borrow tokens to be available as a reserve in the Aave market.
+3. Invoke setUserReserverAsCollateral for collateral assets.
