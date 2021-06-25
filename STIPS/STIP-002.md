@@ -101,11 +101,12 @@ Implementing this strategy requires two different changes. First, the FlexibleLe
 **Reviewer**: @bweick backdated to 6/10
 
 ## Proposed Architecture Changes
-This feature will require one contract that conforms to `IExchangeAdapter`, one that conforms to to `IIndexExchangeAdapter`, and a peripheral trade-splitting contract. The adapters will utilize the peripheral contract as if it were an exchange, as it will be responsible for executing the trades split.
+This feature will require a peripheral trade-splitting contract. This peripheral contract will adhere to the UniswapV2Router02 interface, so we can reused the Uniswap V2 exchange and index-exchange adapters.
 
 ## Requirements
 - All calculations performed on-chain
 - Supports at least 2 hops on Uniswap and Sushiswap
+- Conforms to IUniswapV2Router02
 - Works even when there is no liquidity on one of the supported exchanges
 - Has functions for both exact input and exact output
 - Performs slippage checks
@@ -117,7 +118,7 @@ This feature will require one contract that conforms to `IExchangeAdapter`, one 
 ![flow diagram](../assets/tradeSplitterTradeModule.png)  
 ### A manager is looking to trade 10k SNX to 200 ETH.
 1. Manager calls trade() on `TradeModule` passing in the input tokens, output tokens, path, slippage tolerance, and `TradeSplitterExchangeAdapter` as the exchange
-2. `TradeModule` gets approval and trade calldata via `TradeSplitterExchangeAdapter`
+2. `TradeModule` gets approval and trade calldata via `UniswapV2ExchangeAdapter`
 3. `TradeModule` calls invoke on the SetToken twice, with the calldata to execute an approval and trade transaction.
 4. The SetToken approves the input token to `TradeSplitter`, and calls the tradeExactInput() function.
 5. `TradeSplitter` checks if it has the correct DEX approvals, calculates the optimal split between Uniswap and Sushiswap, and execute the trades, directing the outputs to the SetToken
@@ -125,8 +126,8 @@ This feature will require one contract that conforms to `IExchangeAdapter`, one 
 
 ![flow diagram](../assets/tradeSplitterGeneralIndex.png)  
 ### A manager is looking to trade 10k SNX to 200 ETH.
-1. Manager sets up a rebalance using GeneralIndexModule, then calls trade() on `GeneralIndexModule` passing in the input tokens, output tokens, path, slippage tolerance, whether to use an exact input trade, and `TradeSplitterExchangeAdapter` as the exchange
-2. `GeneralIndexModule` gets approval and trade calldata via `TradeSplitterIndexExchangeAdapter`
+1. Manager sets up a rebalance using GeneralIndexModule, then calls trade() on `GeneralIndexModule` passing in the input tokens, output tokens, path, slippage tolerance, whether to use an exact input trade, and `UniswapV2IndexExchangeAdapter` as the exchange
+2. `GeneralIndexModule` gets approval and trade calldata via `UniswapV2IndexExchangeAdapter`
 3. `GeneralIndexModule` calls invoke on the SetToken twice, with the calldata to execute an approval and trade transaction.
 4. The SetToken approves the input token to `TradeSplitter`, and calls the tradeExactInput() or tradeExactOutput() function.
 5. `TradeSplitter` checks if it has the correct DEX approvals, calculates the optimal split between Uniswap and Sushiswap, and execute the trades, directing the outputs to the SetToken
@@ -136,7 +137,7 @@ This feature will require one contract that conforms to `IExchangeAdapter`, one 
 ### Keeper bot needs to rebalance ETH2x-FLI because it is overleveraged
 1. Keeper bot calls rebalance on `FlexibleLeverageStrategyAdapter`.
 2. `FlexibleLeverageStrategyAdapter` calls delever on `CompoundLeverageModule`
-3. `CompoundLeverageModule` gets approval and trade calldata via `TradeSplitterExchangeAdapter`
+3. `CompoundLeverageModule` gets approval and trade calldata via `UniswapV2ExchangeAdapter`
 4. `CompoundLeverageModule` calls invoke on the SetToken twice, with the calldata to execute an approval and trade transaction.
 5. The SetToken invokes an approval and trade on the `TradeSplitter`
 6. `TradeSplitter` checks if it has the correct DEX approvals, calculates the optimal split between Uniswap and Sushiswap, and execute the trades, directing the outputs to the SetToken
@@ -152,66 +153,6 @@ This feature will require one contract that conforms to `IExchangeAdapter`, one 
 **Reviewer**:
 Reviewer: @bweick
 
-## Specification
-### `TradeSplitterExchangeAdapter`
-#### Inheritance
-- `IExchangeAdapter`
-#### Constants
-| Type 	| Name 	| Description 	| Value 	|
-|------	|------	|-------------	|-------	|
-|string |EXACT_INPUT|function signature for exact input trade|"tradeExactInput(uint256,uint256,address[],address,uint256)"|
-#### Public Variables
-| Type 	| Name 	| Description 	|
-|------	|------	|-------------	|
-|address|tradeSplitter|address of the trade splitter contract|
-#### Functions
-| Name  | Caller  | Description 	|
-|------	|------	|-------------	|
-|getTradeCalldata|TradeModule|Gets trade calldata|
-|getSpender|TradeModule|Returns the address of the TradeSplitter so that the tokens can be approved|
-#### Functions
-> function getTradeCalldata(address _sourceToken, address _destinationToken, address _destinationAddress, uint256 _sourceQuantity, uint256 destinationQuantity, bytes calldata _data)
-- _sourceToken: the input token
-- _destinationToken: the output token
-- _destinationAddress: where the outputs should be sent to
-- _sourceQuantity: the input amount
-- _destinationQuantity: the output amount
-- _data: the path to use for the trade (if left empty, use [ sourceToken, destinationToken ])
-- Returns: the calldata for the TradeSplitter
-> function getSpender()
-- Returns: the spender that needs to have the appropriate approvals for the swap
-
-
-### `TradeSplitterIndexExchangeAdapter`
-#### Inheritance
-- `IIndexExchangeAdapter`
-#### Constants
-| Type 	| Name 	| Description 	| Value 	|
-|------	|------	|-------------	|-------	|
-|string |EXACT_INPUT|function signature for exact input trade|"tradeExactInput(uint256,uint256,address[],address,uint256)"|
-|string |EXACT_OUTPUT|function signature for exact output trade|"tradeExactOutput(uint256,uint256,address[],address,uint256)"|
-#### Public Variables
-| Type 	| Name 	| Description 	|
-|------	|------	|-------------	|
-|address|tradeSplitter|address of the trade splitter contract|
-#### Functions
-| Name  | Caller  | Description 	|
-|------	|------	|-------------	|
-|getTradeCalldata|TradeModule|Gets trade calldata|
-|getSpender|TradeModule|Returns the address of the TradeSplitter so that the tokens can be approved|
-#### Functions
-> function getTradeCalldata(address _sourceToken, address _destinationToken, address _destinationAddress, bool _isSendTokenFixed, uint256 _sourceQuantity, uint256 destinationQuantity, bytes calldata /* _data */)
-- _sourceToken: the input token
-- _destinationToken: the output token
-- _destinationAddress: where the outputs should be sent to
-- _isSendTokenFixed is whether to use exactInput or exactOutput for the trade
-- _sourceQuantity: the input amount
-- _destinationQuantity: the output amount
-- Returns: the calldata for the TradeSplitter trade
-> function getSpender()
-- Returns: the spender that needs to have the appropriate approvals for the swap
-
-
 ### `TradeSplitter`
 #### Public Variables
 | Type 	| Name 	| Description 	|
@@ -223,23 +164,23 @@ Reviewer: @bweick
 #### Functions
 | Name  | Caller  | Description 	|
 |------	|------	|-------------	|
-|tradeExactInput|Set Token (via invoke)|executes an exact input trade|
-|tradeExactOutput|Set Token (via invoke)|executes an exact output trade|
-|getQuoteExactInput|manager|helper function for getting a quote|
-|getQuoteExactOutput|manager|helper function for getting a quote|
+|swapExactTokensForToken|Set Token (via invoke)|executes an exact input trade|
+|swapTokensForExactTokens|Set Token (via invoke)|executes an exact output trade|
+|getAmountsOut|manager|helper function for getting a quote|
+|getAmountsIn|manager|helper function for getting a quote|
 |_getTradeSizes|internal|helper for getting the Uniswap and Sushiswap trade sizes|
 |_checkApprovals|internal|checks router approvals, increasing them if needed|
 |_executeTrade|internal|helper for executing the trade on Uniswap or Sushiswap|
 |_getTradeInputOrOutput|internal|helper for getting the expected input/output of a trade|
 #### Functions
-> function tradeExactInput(uint256 _amountIn, uint256 _amountOutMin, address[] calldata_path, address _destination) external returns (uint256)
+> function swapExactTokensForToken(uint256 _amountIn, uint256 _amountOutMin, address[] calldata_path, address _destination) external returns (uint256)
 - _amountIn: the amount to trade
 - _amountOutMin: the minimum output amount received
 - _path: an array representing the path of the trade
 - _destination: address to send outputs to
 - returns: output amount
 ```solidity
-function tradeExactInput(uint256 _amountIn, uint256 _amountOutMin, address[] calldata_path, address _destination) external returns (uint256 totalOutput) {
+function swapExactTokensForToken(uint256 _amountIn, uint256 _amountOutMin, address[] calldata_path, address _destination) external returns (uint256 totalOutput) {
     
     require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
     
@@ -260,14 +201,14 @@ function tradeExactInput(uint256 _amountIn, uint256 _amountOutMin, address[] cal
 }
 ```
 
-> function tradeExactOutput(uint256 _amountInMax, uint256 _amountOut, address[] calldata_path, address _destination) external returns (uint256)
+> function swapTokensForExactTokens(uint256 _amountOut, uint256 _amountInMax, address[] calldata_path, address _destination) external returns (uint256)
 - _amountInMax: maximum input amount
 - _amountOut: output amount received
 - _path: an array representing the path of the trade
 - _destination: address to send outputs to
 - returns: input amount
 ```solidity
-function tradeExactOutput(uint256 _amountInMax, uint256 _amountOut, address[] calldata_path, address _destination) external returns (uint256 totalInput) {
+function swapTokensForExactTokens(uint256 _amountOut, uint256 _amountInMax, address[] calldata_path, address _destination) external returns (uint256 totalInput) {
     
     require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
 
@@ -294,12 +235,12 @@ function tradeExactOutput(uint256 _amountInMax, uint256 _amountOut, address[] ca
 }
 ```
 
-> function getQuoteExactInput(uint256 _amountIn, address[] calldata _path) external view returns (uint256)
+> function getAmountsOut(uint256 _amountIn, address[] calldata _path) external view returns (uint256[] memory)
 - _amountIn: the input amount to trade
 - _path: an array representing the path of the trade
-- returns: expected output amount
+- returns: input, intermediary, and output amounts array
 ```solidity
-function getQuoteExactInput(uint256 _amountIn, address[] calldata _path) external  view returns (uint256) {
+function getAmountsOut(uint256 _amountIn, address[] calldata _path) external  view returns (uint256) {
 
     require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
 
@@ -312,12 +253,12 @@ function getQuoteExactInput(uint256 _amountIn, address[] calldata _path) externa
 }
 ```
 
-> function getQuoteExactOutput(uint256 _amountOut, address[] calldata _path) external view returns (uint256)
+> function getAmountsIn(uint256 _amountOut, address[] calldata _path) external view returns (uint256[] memory)
 - _amountOut: the output amount to trade
 - _path: an array representing the path of the trade
-- returns: expected input amount
+- returns: input, intermediary, and output amounts array
 ```solidity
-function getQuoteExactOutput(uint256 _amountOut, address[] calldata _path) external  view returns (uint256) {
+function getAmountsIn(uint256 _amountOut, address[] calldata _path) external  view returns (uint256) {
 
     require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
 
