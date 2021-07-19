@@ -53,11 +53,11 @@ Solution 2: New issuance module
 In this solution, we would write a new `DebtIssuanceModule` that does much of this internal accounting itself. This removes the need to perform redundant syncs and swaps to pay off debt or to collect refunds. To do this, very careful accounting would be needed to ensure that these actions do not change the leverage ratios by too much. If the leverage ratios are changed by a certain unacceptable amount, then it would perform a correcting rebalance directly before the issuance or redemption. While this solution may require significantly less gas for most users, it comes at the cost of increased complexity and risk. For that reason, I do not recommend we go forward with this solution.
 
 ## Timeline
-Spec: 7/23
-Implementation: 7/28
-Internal audit: 8/4
-Staging deployment and tests: 8/6
-Production deployment: 8/8
+Spec: 7/23  
+Implementation: 7/28  
+Internal audit: 8/4  
+Staging deployment and tests: 8/6  
+Production deployment: 8/8  
 
 ## Checkpoint 1
 Before more in depth design of the contract flows lets make sure that all the work done to this point has been exhaustive. It should be clear what we're doing, why, and for who. All necessary information on external protocols should be gathered and potential solutions considered. At this point we should be in alignment with product on the non-technical requirements for this feature. It is up to the reviewer to determine whether we move onto the next step.
