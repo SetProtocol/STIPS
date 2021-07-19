@@ -1,0 +1,118 @@
+# STIP-003
+## Abstract
+The `DebtIssuance` module for issuing leveraged products has poor UX. For issuing, users initially pay a greater value of the collateral asset than the received leverage token value, and returns an additional refund denominated in the borrow asset. For redeeming, users must pay off all debt for the Set token by providing an additional amount of the borrow asset along with the leveraged token.
+
+## Motivation
+A new exchange issuance contract can significantly improve UX, with the downside of increased gas costs. In short we would allow users to issue Sets by sending the exact price of the amount they wish to issue. It would remove the need to send extra funds, and the user would not receive a refund at the end. For redemption, users would not have to manually pay off the debt of the leveraged token.
+
+This feature has two main uses. First, large whales may prefer the better UX, especially since the increased gas costs are negligible compared to their trade size. An additional use case for this feature is for leveraged products issued on Polygon. Since the gas price is so low on Polygon, we can perform issuance and redemption using this contract for regular users. This removes the need to fund large liquidity mining campaigns to incentivize liquidity provision.
+
+## Background Information
+Flash loan notes
+- Aave is one of the largest issuers of flash loans.
+- They currently provide this service on both Ethereum and Polygon.
+
+Leverage token notes:
+- For exact input issuances and exact output redemptions we need to call sync on `CompoundLeverageModule` before calculating the price
+
+
+Useful links:  
+Aave flash loans: https://docs.aave.com/developers/guides/flash-loans  
+DebtIssuanceModule: https://github.com/SetProtocol/set-protocol-v2/blob/master/contracts/protocol/modules/DebtIssuanceModule.sol  
+ExchangeIssuance: https://github.com/SetProtocol/index-coop-smart-contracts/blob/master/contracts/exchangeIssuance/ExchangeIssuance.sol  
+
+## Open Questions
+- How to we calculate the issuance amount for an exact input issuance.
+- How to we calculate the redemption amount for an exact output redemption
+- Can we assume the leveraged tokens only have one debt position?
+
+## Feasibility Analysis
+Solution 1: Aave flash loans with a Periphery smart contract  
+In this solution we would write a periphery contract called to abstract away the interactions with `DebtIssuanceModule`.   
+
+Issuance:
+- user sends an input token
+- entire amount of the input token is swapped into the collateral asset (if collateral asset is not equal to input asset)
+- the amount of additional collateral needed is calculated
+- the additional amount needed is flash loaned from Aave
+- Issuance is performed
+- Refund amount is swapped back to collateral asset
+- Aave flash loan is repaid
+
+Redemption:
+- user sends input leveraged token
+- calculate amount of borrow asset required to redeem
+- flash loan borrow asset amount from Aave
+- redeem leveraged token
+- sell some of returned collateral asset back to the borrow asset
+- pay back Aave flash loan
+- swap the rest of the collateral asset into the output asset (if borrow asset is not equal to output asset)
+- send output asset to user
+
+Solution 2: New issuance module  
+In this solution, we would write a new `DebtIssuanceModule` that does much of this internal accounting itself. This removes the need to perform redundant syncs and swaps to pay off debt or to collect refunds. To do this, very careful accounting would be needed to ensure that these actions do not change the leverage ratios by too much. If the leverage ratios are changed by a certain unacceptable amount, then it would perform a correcting rebalance directly before the issuance or redemption. While this solution may require significantly less gas for most users, it comes at the cost of increased complexity and risk. For that reason, I do not recommend we go forward with this solution.
+
+## Timeline
+Spec: 7/23
+Implementation: 7/28
+Internal audit: 8/4
+Staging deployment and tests: 8/6
+Production deployment: 8/8
+
+## Checkpoint 1
+Before more in depth design of the contract flows lets make sure that all the work done to this point has been exhaustive. It should be clear what we're doing, why, and for who. All necessary information on external protocols should be gathered and potential solutions considered. At this point we should be in alignment with product on the non-technical requirements for this feature. It is up to the reviewer to determine whether we move onto the next step.
+
+**Reviewer**:
+
+## Proposed Architecture Changes
+A diagram would be helpful here to see where new feature slot into the system. Additionally a brief description of any new contracts is helpful.
+## Requirements
+These should be a distillation of the previous two sections taking into account the decided upon high-level implementation. Each flow should have high level requirements taking into account the needs of participants in the flow (users, managers, market makers, app devs, etc) 
+## User Flows
+- Highlight *each* external flow enabled by this feature. It's helpful to use diagrams (add them to the `assets` folder). Examples can be very helpful, make sure to highlight *who* is initiating this flow, *when* and *why*. A reviewer should be able to pick out what requirements are being covered by this flow.
+## Checkpoint 2
+Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
+
+**Reviewer**:
+
+Reviewer: []
+## Specification
+### [Contract Name]
+#### Inheritance
+- List inherited contracts
+#### Structs
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|address|manager|Address of the manager|
+|uint256|iterations|Number of times manager has called contract|  
+#### Constants
+| Type 	| Name 	| Description 	| Value 	|
+|------	|------	|-------------	|-------	|
+|uint256|ONE    | The number one| 1       	|
+#### Public Variables
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|uint256|hodlers|Number of holders of this token|
+#### Functions
+| Name  | Caller  | Description 	|
+|------	|------	|-------------	|
+|startRebalance|Manager|Set rebalance parameters|
+|rebalance|Trader|Rebalance SetToken|
+|ripcord|EOA|Recenter leverage ratio|
+#### Modifiers
+> onlyManager(SetToken _setToken)
+#### Functions
+> issue(SetToken _setToken, uint256 quantity) external
+- Pseudo code
+## Checkpoint 3
+Before we move onto the implementation phase we want to make sure that we are aligned on the spec. All contracts should be specced out, their state and external function signatures should be defined. For more complex contracts, internal function definition is preferred in order to align on proper abstractions. Reviewer should take care to make sure that all stake holders (product, app engineering) have their needs met in this stage.
+
+**Reviewer**:
+
+## Implementation
+[Link to implementation PR]()
+## Documentation
+[Link to Documentation on feature]()
+## Deployment
+[Link to Deployment script PR]()  
+[Link to Deploy outputs PR]()
