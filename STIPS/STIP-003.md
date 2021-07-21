@@ -14,6 +14,8 @@ Flash loan notes
 
 Leverage token notes:
 - For exact input issuances and exact output redemptions we need to call sync on `CompoundLeverageModule` before calculating the price
+- For Aave and Compound, we need different ways to fetch the values of the underlying asset. In Aave, it is a 1 to 1 relationship. In Compound, we need to call `balanceOfUnderlying` on the CToken contract.
+- Before fetching the required collateral and debt amounts for a leveraged token, we must call sync on the associated leverage module.
 
 
 Useful links:  
@@ -33,17 +35,21 @@ In this solution we would write a periphery contract called to abstract away the
 Issuance:
 - user sends an input token
 - entire amount of the input token is swapped into the collateral asset (if collateral asset is not equal to input asset)
-- the amount of additional collateral needed is calculated
+- sync called on leverage module
+- the amount of additional collateral including Uniswap and Aave flash loan fees needed is calculated
 - the additional amount needed is flash loaned from Aave
+- collateral is wrapped into CToken / AToken
 - Issuance is performed
 - Refund amount is swapped back to collateral asset
 - Aave flash loan is repaid
 
 Redemption:
 - user sends input leveraged token
-- calculate amount of borrow asset required to redeem
+- sync called on leverage module
+- calculate amount of borrow asset required to redeem including flash loan and Uniswap fees
 - flash loan borrow asset amount from Aave
 - redeem leveraged token
+- unwrap CToken / AToken
 - sell some of returned collateral asset back to the borrow asset
 - pay back Aave flash loan
 - swap the rest of the collateral asset into the output asset (if borrow asset is not equal to output asset)
@@ -55,9 +61,10 @@ In this solution, we would write a new `DebtIssuanceModule` that does much of th
 ## Timeline
 Spec: 7/23  
 Implementation: 7/28  
-Internal audit: 8/4  
-Staging deployment and tests: 8/6  
-Production deployment: 8/8  
+Internal audit: 8/6  
+Audit: 8/8  
+Staging deployment and tests: 8/12  
+Production deployment: 8/15  
 
 ## Checkpoint 1
 Before more in depth design of the contract flows lets make sure that all the work done to this point has been exhaustive. It should be clear what we're doing, why, and for who. All necessary information on external protocols should be gathered and potential solutions considered. At this point we should be in alignment with product on the non-technical requirements for this feature. It is up to the reviewer to determine whether we move onto the next step.
