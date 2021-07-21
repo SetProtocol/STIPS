@@ -78,7 +78,7 @@ A new contract will be built, called `LeverageTokenExchangeIssuance` which can b
 - exact input issuance
 - exact output issuance
 - exact input redemption
-- users can user above functions with either and ERC20 or WETH
+- users can use above functions with ERC20s
 - users can get quotes for the above trades
 - users can supply exchanges and trade paths for the input/out token -> collateral/debt trades
 - users can supply exchanges and trade paths for the debt -> collateral trades
@@ -93,7 +93,7 @@ User wants to use 1000 DAI to purchase at last 20 ETH2xFLI
 - `LeverageTokenExchangeIssuance` returns as much ETH2xFLI as it can issue with the full 1000 DAI
 - if the purchase amount is below 20, revert
 
-User want to issue 20 ETH2xFLI for at max 0.7  ETH
+User want to issue 20 ETH2xFLI for at max 0.7  WETH
 - user calls `issueExactOutputETH` on `LeverageTokenExchangeIssuance` with a msg.value of 0.7
 - `LeverageTokenExchangeIssuance` issues 20 ETH2xFLI with the sent ETH
 - `LeverageTokenExchangeIssuance` returns 20 ETH2xFLI and refunds the unused ETH
@@ -112,33 +112,86 @@ Before we spec out the contract(s) in depth we want to make sure that we are ali
 
 Reviewer: []
 ## Specification
-### [Contract Name]
-#### Inheritance
-- List inherited contracts
-#### Structs
-| Type 	| Name 	| Description 	|
-|------	|------	|-------------	|
-|address|manager|Address of the manager|
-|uint256|iterations|Number of times manager has called contract|  
-#### Constants
-| Type 	| Name 	| Description 	| Value 	|
-|------	|------	|-------------	|-------	|
-|uint256|ONE    | The number one| 1       	|
+### LeverageTokenExchangeIssuance
 #### Public Variables
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|uint256|hodlers|Number of holders of this token|
+|ILeverageModule|CompoundLeverageModule|leverage module address|
+|ILeverageModule|AaveLeverageModule|leverage module address|
 #### Functions
 | Name  | Caller  | Description 	|
 |------	|------	|-------------	|
-|startRebalance|Manager|Set rebalance parameters|
-|rebalance|Trader|Rebalance SetToken|
-|ripcord|EOA|Recenter leverage ratio|
-#### Modifiers
-> onlyManager(SetToken _setToken)
+|issueExactInput|trader|exact input issuance|
+|issueExactOutput|trader|exact output issuance|
+|redeemExactInput|trader|exact input redemption|
+|getIssueExactInput|trader|exact input issuance quote|
+|getIssueExactOutput|trader|exact output issuance quote|
+|getRedeemExactInput|trader|exact input redemption quote|
 #### Functions
-> issue(SetToken _setToken, uint256 quantity) external
-- Pseudo code
+> issueExactInput(SetToken _setToken, uint256 _amountIn, uint256, _minOut, IERC20 _inputToken, IRouter _inputSwapRouter, address[] memory _inputSwapPath, IRouter _debtSwapRouter, address[] memory _debtSwapPath) external returns (uint256)
+- _setToken: set token to issue
+- _amountIn: input token amount
+- _minOut: minimum output amount
+- _inputToken: input token to be used by contract
+- _inputSwapRouter: Uniswap V2 router address to perform the swap from the input token to collateral token
+- _inputSwapPath: trade path for the swap from the input token to collateral token
+- _debtSwapRouter: Uniswap V2 router address to perform the swap from the debt token to collateral token
+- _debtSwapPath: trade path for the swap from the debt token to collateral token
+- returns: output amount
+
+> issueExactOutput(SetToken _setToken, uint256 _amountOut, uint256, _maxIn, IERC20 _inputToken, IRouter _inputSwapRouter, address[] memory _inputSwapPath, IRouter _debtSwapRouter, address[] memory _debtSwapPath) external returns (uint256)
+- _setToken: set token to issue
+- _amountOut: output set amount
+- _maxIn: maximum input amount
+- _inputToken: input token to be used by contract
+- _inputSwapRouter: Uniswap V2 router address to perform the swap from the input token to collateral token
+- _inputSwapPath: trade path for the swap from the input token to collateral token
+- _debtSwapRouter: Uniswap V2 router address to perform the swap from the debt token to collateral token
+- _debtSwapPath: trade path for the swap from the debt token to collateral token
+- returns: input amount
+
+> redeemExactInput(SetToken _setToken, uint256 _amountIn, uint256, _minOut, IERC20 _outputToken, IRouter _outputSwapRouter, address[] memory _outputSwapPath, IRouter _debtSwapRouter, address[] memory _debtSwapPath) external returns (uint256)
+- _setToken: set token to issue
+- _amountIn: input set amount
+- _minOut: minimum output amount
+- _outputToken: output token to be received by user
+- _outputSwapRouter: Uniswap V2 router address to perform the swap from the collateral token to the output token
+- _outputSwapPath: trade path for the swap from the collateral token to the output token
+- _debtSwapRouter: Uniswap V2 router address to perform the swap from the collateral token to the debt token
+- _debtSwapPath: trade path for the swap from the collateral token to the debt token
+- returns: output amount
+
+> getIssueExactInput(SetToken _setToken, uint256 _amountIn, IERC20 _inputToken, IRouter _inputSwapRouter, address[] memory _inputSwapPath, IRouter _debtSwapRouter, address[] memory _debtSwapPath) external view returns (uint256)
+- _setToken: set token to issue
+- _amountIn: input token amount
+- _inputToken: input token to be used by contract
+- _inputSwapRouter: Uniswap V2 router address to perform the swap from the input token to collateral token
+- _inputSwapPath: trade path for the swap from the input token to collateral token
+- _debtSwapRouter: Uniswap V2 router address to perform the swap from the debt token to collateral token
+- _debtSwapPath: trade path for the swap from the debt token to collateral token
+- returns: expected output amount
+
+> getIssueExactOutput(SetToken _setToken, uint256 _amountOut, IERC20 _inputToken, IRouter _inputSwapRouter, address[] memory _inputSwapPath, IRouter _debtSwapRouter, address[] memory _debtSwapPath) external view returns (uint256)
+- _setToken: set token to issue
+- _amountOut: output set amount
+- _inputToken: input token to be used by contract
+- _inputSwapRouter: Uniswap V2 router address to perform the swap from the input token to collateral token
+- _inputSwapPath: trade path for the swap from the input token to collateral token
+- _debtSwapRouter: Uniswap V2 router address to perform the swap from the debt token to collateral token
+- _debtSwapPath: trade path for the swap from the debt token to collateral token
+- returns: expected input amount
+
+> getRedeemExactInput(SetToken _setToken, uint256 _amountIn, IERC20 _outputToken, IRouter _outputSwapRouter, address[] memory _outputSwapPath, IRouter _debtSwapRouter, address[] memory _debtSwapPath) external view returns (uint256)
+- _setToken: set token to issue
+- _amountIn: input set amount
+- _outputToken: output token to be received by user
+- _outputSwapRouter: Uniswap V2 router address to perform the swap from the collateral token to the output token
+- _outputSwapPath: trade path for the swap from the collateral token to the output token
+- _debtSwapRouter: Uniswap V2 router address to perform the swap from the collateral token to the debt token
+- _debtSwapPath: trade path for the swap from the collateral token to the debt token
+- returns: expected output amount
+
+
 ## Checkpoint 3
 Before we move onto the implementation phase we want to make sure that we are aligned on the spec. All contracts should be specced out, their state and external function signatures should be defined. For more complex contracts, internal function definition is preferred in order to align on proper abstractions. Reviewer should take care to make sure that all stake holders (product, app engineering) have their needs met in this stage.
 
