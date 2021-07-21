@@ -69,7 +69,7 @@ Staging deployment and tests: 8/12
 Production deployment: 8/15  
 
 ## Checkpoint 1
-**Reviewer**:
+**Reviewer**: @richardliang
 
 ## Proposed Architecture Changes
 A new contract will be built, called `LeverageTokenExchangeIssuance` which can be utilized to issue basic leveraged tokens that contain just one collateral asset and one debt position. This contract interfaces with the `DebtIssuanceModule`, `CompoundLeverageModule` and `AaveLeverageModule`. Since it is a periphery contract, it will not be a dependency of any core Set Protocol systems, nor will it have any privileged access.
@@ -108,7 +108,7 @@ User wants to redeem 10 BTC2xFLI and receive a minimum of 300 USDC
 ## Checkpoint 2
 Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
 
-**Reviewer**:
+**Reviewer**: @richardliang
 
 Reviewer: []
 ## Specification
