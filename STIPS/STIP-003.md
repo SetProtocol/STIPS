@@ -106,8 +106,6 @@ User wants to redeem 10 BTC2xFLI and receive a minimum of 300 USDC
 - if USDC proceeds are less than 300, revert
 
 ## Checkpoint 2
-Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
-
 **Reviewer**: @richardliang
 
 Reviewer: []
