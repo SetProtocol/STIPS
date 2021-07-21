@@ -55,6 +55,8 @@ Redemption:
 - swap the rest of the collateral asset into the output asset (if borrow asset is not equal to output asset)
 - send output asset to user
 
+Calculating the required amount to flash loan for an exact input issuance is quite complicated. For an overview of how to derive the required equations, take a look at [this pdf](../assets/STIP-003/debt_exchange_issuance_math.pdf)
+
 Solution 2: New issuance module  
 In this solution, we would write a new `DebtIssuanceModule` that does much of this internal accounting itself. This removes the need to perform redundant syncs and swaps to pay off debt or to collect refunds. To do this, very careful accounting would be needed to ensure that these actions do not change the leverage ratios by too much. If the leverage ratios are changed by a certain unacceptable amount, then it would perform a correcting rebalance directly before the issuance or redemption. While this solution may require significantly less gas for most users, it comes at the cost of increased complexity and risk. For that reason, I do not recommend we go forward with this solution.
 
@@ -67,16 +69,42 @@ Staging deployment and tests: 8/12
 Production deployment: 8/15  
 
 ## Checkpoint 1
-Before more in depth design of the contract flows lets make sure that all the work done to this point has been exhaustive. It should be clear what we're doing, why, and for who. All necessary information on external protocols should be gathered and potential solutions considered. At this point we should be in alignment with product on the non-technical requirements for this feature. It is up to the reviewer to determine whether we move onto the next step.
-
 **Reviewer**:
 
 ## Proposed Architecture Changes
-A diagram would be helpful here to see where new feature slot into the system. Additionally a brief description of any new contracts is helpful.
+A new contract will be built, called `DebtExchangeIssuance` which can be utilized to issue basic leveraged tokens that contain just one collateral asset and one debt position. This contract interfaces with the `DebtIssuanceModule`, `CompoundLeverageModule` and `AaveLeverageModule`. Since it is a periphery contract, it will not be a dependency of any core Set Protocol systems, nor will it have any privileged access.
+
 ## Requirements
-These should be a distillation of the previous two sections taking into account the decided upon high-level implementation. Each flow should have high level requirements taking into account the needs of participants in the flow (users, managers, market makers, app devs, etc) 
+- exact input issuance
+- exact output issuance
+- exact input redemption
+- users can user above functions with either and ERC20 or WETH
+- users can get quotes for the above trades
+- users can supply exchanges and trade paths for the input/out token -> collateral/debt trades
+- users can supply exchanges and trade paths for the debt -> collateral trades
+- trade paths can be up to three in length
+- works for set tokens with a single collateral and debt position (only basic leveraged tokens)
+- produces 0 dust
+
 ## User Flows
-- Highlight *each* external flow enabled by this feature. It's helpful to use diagrams (add them to the `assets` folder). Examples can be very helpful, make sure to highlight *who* is initiating this flow, *when* and *why*. A reviewer should be able to pick out what requirements are being covered by this flow.
+User wants to use 1000 DAI to purchase at last 20 ETH2xFLI
+- user approves at least 100 DAI to `DebtExchangeIssuance`
+- user calls `issueExactInput` on `DebtExchangeIssuance`
+- `DebtExchangeIssuance` returns as much ETH2xFLI as it can issue with the full 1000 DAI
+- if the purchase amount is below 20, revert
+
+User want to issue 20 ETH2xFLI for at max 0.7  ETH
+- user calls `issueExactOutputETH` on `DebtExchangeIssuance` with a msg.value of 0.7
+- `DebtExchangeIssuance` issues 20 ETH2xFLI with the sent ETH
+- `DebtExchangeIssuance` returns 20 ETH2xFLI and refunds the unused ETH
+- if the issuance costs more than 0.7 ETH, revert
+
+User wants to redeem 10 BTC2xFLI and receive a minimum of 300 USDC
+- user calls `redeemExactInput` on `DebtExchangeIssuance`
+- `DebtExchangeIssuance` redeems 10 BTC2xFLI
+- `DebtExchangeIssuance` returns proceeds of the redemption in USDC
+- if USDC proceeds are less than 300, revert
+
 ## Checkpoint 2
 Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
 
