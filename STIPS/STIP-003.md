@@ -72,7 +72,7 @@ Production deployment: 8/15
 **Reviewer**:
 
 ## Proposed Architecture Changes
-A new contract will be built, called `DebtExchangeIssuance` which can be utilized to issue basic leveraged tokens that contain just one collateral asset and one debt position. This contract interfaces with the `DebtIssuanceModule`, `CompoundLeverageModule` and `AaveLeverageModule`. Since it is a periphery contract, it will not be a dependency of any core Set Protocol systems, nor will it have any privileged access.
+A new contract will be built, called `LeverageTokenExchangeIssuance` which can be utilized to issue basic leveraged tokens that contain just one collateral asset and one debt position. This contract interfaces with the `DebtIssuanceModule`, `CompoundLeverageModule` and `AaveLeverageModule`. Since it is a periphery contract, it will not be a dependency of any core Set Protocol systems, nor will it have any privileged access.
 
 ## Requirements
 - exact input issuance
@@ -88,21 +88,21 @@ A new contract will be built, called `DebtExchangeIssuance` which can be utilize
 
 ## User Flows
 User wants to use 1000 DAI to purchase at last 20 ETH2xFLI
-- user approves at least 100 DAI to `DebtExchangeIssuance`
-- user calls `issueExactInput` on `DebtExchangeIssuance`
-- `DebtExchangeIssuance` returns as much ETH2xFLI as it can issue with the full 1000 DAI
+- user approves at least 100 DAI to `LeverageTokenExchangeIssuance`
+- user calls `issueExactInput` on `LeverageTokenExchangeIssuance`
+- `LeverageTokenExchangeIssuance` returns as much ETH2xFLI as it can issue with the full 1000 DAI
 - if the purchase amount is below 20, revert
 
 User want to issue 20 ETH2xFLI for at max 0.7  ETH
-- user calls `issueExactOutputETH` on `DebtExchangeIssuance` with a msg.value of 0.7
-- `DebtExchangeIssuance` issues 20 ETH2xFLI with the sent ETH
-- `DebtExchangeIssuance` returns 20 ETH2xFLI and refunds the unused ETH
+- user calls `issueExactOutputETH` on `LeverageTokenExchangeIssuance` with a msg.value of 0.7
+- `LeverageTokenExchangeIssuance` issues 20 ETH2xFLI with the sent ETH
+- `LeverageTokenExchangeIssuance` returns 20 ETH2xFLI and refunds the unused ETH
 - if the issuance costs more than 0.7 ETH, revert
 
 User wants to redeem 10 BTC2xFLI and receive a minimum of 300 USDC
-- user calls `redeemExactInput` on `DebtExchangeIssuance`
-- `DebtExchangeIssuance` redeems 10 BTC2xFLI
-- `DebtExchangeIssuance` returns proceeds of the redemption in USDC
+- user calls `redeemExactInput` on `LeverageTokenExchangeIssuance`
+- `LeverageTokenExchangeIssuance` redeems 10 BTC2xFLI
+- `LeverageTokenExchangeIssuance` returns proceeds of the redemption in USDC
 - if USDC proceeds are less than 300, revert
 
 ## Checkpoint 2
