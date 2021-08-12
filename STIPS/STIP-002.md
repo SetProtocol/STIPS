@@ -13,7 +13,7 @@ internal review 8/20
 deployment: 8/25
 
 ## Checkpoint 1
-**Reviewer**:
+**Reviewer**: @richardliang
 
 ## Proposed Architecture Changes
 - Add a `_wrapData` parameter to the `wrap` and `wrapWithEther` functions of `WrapModuleV2`
@@ -29,7 +29,7 @@ deployment: 8/25
 - Ability to pass in arbitrary wrapData and unwrapData bytes
 
 ## Checkpoint 2
-**Reviewer**:
+**Reviewer**: @richardliang
 
 ## Specification
 Note: only functions that will be modified  between WrapModule and WrapModuleV2 are shown
@@ -66,7 +66,7 @@ Note: only functions that will be modified  between WrapModule and WrapModuleV2 
 > function getUnwrapCallData(address _underlyingToken, address _wrappedToken,uint256 _wrappedUnits, address _toAddress, bytes memory _unwrapData)
 
 ## Checkpoint 3
-**Reviewer**:
+**Reviewer**: @richardliang
 
 ## Implementation
 [Link to implementation PR]()
