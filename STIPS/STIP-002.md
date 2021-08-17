@@ -55,60 +55,7 @@ newScaledBalance = initialScaledBalance + (quantity/index)
 ### Option 1:
 Instead of over-optimizing our checks to test for both undercollaterlization and overcollaterlization. We can just have checks to prevent undercollaterlization. This would prevent reverting in cases when `newBalance` of aToken is greater than `existingBalance + quantity` by 1 wei, and thus decrease the failure rate of issuance/redemption (maybe to 33%, cause we can consider less than, equal to, and greater than to be 3 equal cases). This option is the best considering time. The change is contained within the smart contracts and doesn't bubble up the stack leading to bigger changes in our backend.
 
-Pseudocode:
-```javascript
 
-// Based on the answer of the "open questions" (discussed below), we can either
-// 1. modify existing function implementations in existing libraries
-// 2. or, add new functions to existing libraries
-// 3. or, add new libraries with same function name as before, but new function implementation (this option might lead to confusion)
-// 2nd one seems to be the best option.
-library Invoke {
-    ... // other functions from Invoke library
-    function strictInvokeTransfer(ISetToken _setToken, address _token, address _to, uint256 _quantity) internal {
-        ../// existing implementations
-    }
-    function strictInvokeTransferWithCollaterlizationChecks(ISetToken _setToken, address _token, address _to, uint256 _quantity) internal {
-        if (_quantity > 0) {
-            // Retrieve current balance of token for the SetToken
-            uint256 existingBalance = IERC20(_token).balanceOf(address(_setToken));
-
-            Invoke.invokeTransfer(_setToken, _token, _to, _quantity);
-
-            // Get new balance of transferred token for SetToken
-            uint256 newBalance = IERC20(_token).balanceOf(address(_setToken));
-
-            // prevent undercollateralization
-            require(newBalance >= existingBalance.sub(_quantity)), "Invalid post transfer balance");
-        }
-    }
-}
-
-// Options available are same as above.
-// however, 2nd option would also require, updating the basicIssuanceModule and adding a new function (or modifiying the exisitng function), cause it uses the [ExplcicitERC20#transferFrom here](https://github.com/SetProtocol/set-protocol-v2/blob/8605312796b9851fde4771eb3b69f3044135d326/contracts/protocol/lib/ModuleBase.sol#L117)
-library ExplicitERC20 {
-    function transferFromWithCollaterlizationChecks(IERC20 _token, address _from, address _to, uint256 _quantity) internal {
-        if (_quantity > 0) {
-            uint256 existingBalance = _token.balanceOf(_to);
-            SafeERC20.safeTransferFrom(_token, _from, _to, _quantity);
-            uint256 newBalance = _token.balanceOf(_to);
-
-            // prevent undercollateralization
-            require(
-                newBalance >= existingBalance.add(_quantity)), "Invalid post transfer balance"
-            );
-        }
-    }
-}
-
-abstract contract ModuleBase is IModule {
-    ...//other existing functions
-    function transferFromWithCollaterlizationChecks(IERC20 _token, address _from, address _to, uint256 _quantity) internal {
-        ExplicitERC20.transferFromWithCollaterlizationChecks(_token, _from, _to, _quantity);
-    }
-}
-```
-Next, when deploying the new issuance modules we link the modified new libraries to them.
 
 ## Open Questions
 
@@ -138,6 +85,70 @@ Next, when deploying the new issuance modules we link the modified new libraries
     - This is a possible case for aTokens, since `(quantity/index) * index` can be less than `quantity`.
     - We have seen this case once during testing.
 
+
 ## Checkpoint 1
+
+**Reviewer**:
+
+## Proposed Architecture Changes
+
+Pseudocode of option1 :
+```javascript
+
+// Based on the answer of the "open questions" , we can either
+// 1. modify existing function implementations in existing libraries
+// 2. or, add new functions to existing libraries
+// 3. or, add new libraries with same function name as before, but new function implementation (this option might lead to confusion)
+// 2nd one seems to be the best option.
+library Invoke {
+    ... // other functions from Invoke library
+    function strictInvokeTransfer(ISetToken _setToken, address _token, address _to, uint256 _quantity) internal {
+        ../// existing implementations
+    }
+    function strictInvokeTransferWithCollaterlizationChecks(ISetToken _setToken, address _token, address _to, uint256 _quantity) internal {
+        if (_quantity > 0) {
+            // Retrieve current balance of token for the SetToken
+            uint256 existingBalance = IERC20(_token).balanceOf(address(_setToken));
+
+            Invoke.invokeTransfer(_setToken, _token, _to, _quantity);
+
+            // Get new balance of transferred token for SetToken
+            uint256 newBalance = IERC20(_token).balanceOf(address(_setToken));
+
+            // prevent undercollateralization
+            require(newBalance >= existingBalance.sub(_quantity)), "Invalid post transfer balance");
+        }
+    }
+}
+
+
+// Options available are same as above. (Again decision would be taken based on answers to Open questions)
+// however, 2nd option would also require, updating the basicIssuanceModule and adding a new function (or modifiying the exisitng function), cause it uses the [ExplcicitERC20#transferFrom here](https://github.com/SetProtocol/set-protocol-v2/blob/8605312796b9851fde4771eb3b69f3044135d326/contracts/protocol/lib/ModuleBase.sol#L117)
+library ExplicitERC20 {
+    function transferFromWithCollaterlizationChecks(IERC20 _token, address _from, address _to, uint256 _quantity) internal {
+        if (_quantity > 0) {
+            uint256 existingBalance = _token.balanceOf(_to);
+            SafeERC20.safeTransferFrom(_token, _from, _to, _quantity);
+            uint256 newBalance = _token.balanceOf(_to);
+
+            // prevent undercollateralization
+            require(
+                newBalance >= existingBalance.add(_quantity)), "Invalid post transfer balance"
+            );
+        }
+    }
+}
+
+abstract contract ModuleBase is IModule {
+    ...//other existing functions
+    function transferFromWithCollaterlizationChecks(IERC20 _token, address _from, address _to, uint256 _quantity) internal {
+        ExplicitERC20.transferFromWithCollaterlizationChecks(_token, _from, _to, _quantity);
+    }
+}
+```
+Next, when deploying the new issuance modules we link the modified new libraries to them.
+
+
+## Checkpoint 2
 
 **Reviewer**:
