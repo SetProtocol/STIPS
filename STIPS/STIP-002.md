@@ -58,9 +58,17 @@ Instead of over-optimizing our checks to test for both undercollaterlization and
 Pseudocode:
 ```javascript
 
+// Based on the answer of the "open questions" (discussed below), we can either
+// 1. modify existing function implementations in existing libraries
+// 2. or, add new functions to existing libraries
+// 3. or, add new libraries with same function name as before, but new function implementation (this option might lead to confusion)
+// 2nd one seems to be the best option.
 library Invoke {
     ... // other functions from Invoke library
     function strictInvokeTransfer(ISetToken _setToken, address _token, address _to, uint256 _quantity) internal {
+        ../// existing implementations
+    }
+    function strictInvokeTransferWithCollaterlizationChecks(ISetToken _setToken, address _token, address _to, uint256 _quantity) internal {
         if (_quantity > 0) {
             // Retrieve current balance of token for the SetToken
             uint256 existingBalance = IERC20(_token).balanceOf(address(_setToken));
@@ -76,8 +84,10 @@ library Invoke {
     }
 }
 
+// Options available are same as above.
+// however, 2nd option would also require, updating the basicIssuanceModule and adding a new function (or modifiying the exisitng function), cause it uses the [ExplcicitERC20#transferFrom here](https://github.com/SetProtocol/set-protocol-v2/blob/8605312796b9851fde4771eb3b69f3044135d326/contracts/protocol/lib/ModuleBase.sol#L117)
 library ExplicitERC20 {
-    function transferFrom(IERC20 _token, address _from, address _to, uint256 _quantity) internal {
+    function transferFromWithCollaterlizationChecks(IERC20 _token, address _from, address _to, uint256 _quantity) internal {
         if (_quantity > 0) {
             uint256 existingBalance = _token.balanceOf(_to);
             SafeERC20.safeTransferFrom(_token, _from, _to, _quantity);
@@ -90,11 +100,19 @@ library ExplicitERC20 {
         }
     }
 }
+
+abstract contract ModuleBase is IModule {
+    ...//other existing functions
+    function transferFromWithCollaterlizationChecks(IERC20 _token, address _from, address _to, uint256 _quantity) internal {
+        ExplicitERC20.transferFromWithCollaterlizationChecks(_token, _from, _to, _quantity);
+    }
+}
 ```
+Next, when deploying the new issuance modules we link the modified new libraries to them.
 
 ## Open Questions
 
-1. Do we restrict usage of these modified issuance modules which have newer checks?
+1. Do we restrict usage of these modified issuance modules (which are linked to the new libraries) from third-party use?
     - Why did we have the strict checks in the first place?
         - To make sure the set is not undercollateralized 
             - Eg. To stop tokens which collects fees on transfer from being a component in a SetToken
@@ -103,7 +121,10 @@ library ExplicitERC20 {
         - We do not want Set to be undercollateralized
         - We are fine with overcollaterlization (discussed below)
     - Thus, the new checks full fill our requirements.
-        - So, we make the new issuance modules as the default Issuance modules going forward
+        - So, we need not restrict usage of these modified issuance modules
+
+2. Do we restrict these new modified issuance modules (which are linked to the new libraries) only to SetToken which hold aTokens? Or do we make these issuance modules the default going forward?
+    - If we are restricting it only to Aave, 
 
 2. Are we fine with Set being overcollaterlized?
     - Yes, SetToken can resync the extra assets present to increase their default positions with help of modules
