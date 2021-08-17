@@ -71,8 +71,7 @@ Instead of over-optimizing our checks to test for both undercollaterlization and
         - So, we need not restrict usage of these modified issuance modules
 
 2. Do we restrict these new modified issuance modules (which are linked to the new libraries) only to SetToken which hold aTokens? Or do we make these issuance modules the default going forward?
-    - If we are restricting it only to Aave, 
-
+    
 2. Are we fine with Set being overcollaterlized?
     - Yes, SetToken can resync the extra assets present to increase their default positions with help of modules
         - ALM and CLM can resync positions for leveraged tokens
@@ -95,17 +94,12 @@ Instead of over-optimizing our checks to test for both undercollaterlization and
 Pseudocode of option1 :
 ```javascript
 
-// Based on the answer of the "open questions" , we can either
-// 1. modify existing function implementations in existing libraries
-// 2. or, add new functions to existing libraries
-// 3. or, add new libraries with same function name as before, but new function implementation (this option might lead to confusion)
-// 2nd one seems to be the best option.
 library Invoke {
     ... // other functions from Invoke library
     function strictInvokeTransfer(ISetToken _setToken, address _token, address _to, uint256 _quantity) internal {
         ../// existing implementations
     }
-    function strictInvokeTransferWithCollaterlizationChecks(ISetToken _setToken, address _token, address _to, uint256 _quantity) internal {
+    function invokeTransferWithCollaterlizationChecks(ISetToken _setToken, address _token, address _to, uint256 _quantity) internal {
         if (_quantity > 0) {
             // Retrieve current balance of token for the SetToken
             uint256 existingBalance = IERC20(_token).balanceOf(address(_setToken));
@@ -122,9 +116,9 @@ library Invoke {
 }
 
 
-// Options available are same as above. (Again decision would be taken based on answers to Open questions)
-// however, 2nd option would also require, updating the basicIssuanceModule and adding a new function (or modifiying the exisitng function), cause it uses the [ExplcicitERC20#transferFrom here](https://github.com/SetProtocol/set-protocol-v2/blob/8605312796b9851fde4771eb3b69f3044135d326/contracts/protocol/lib/ModuleBase.sol#L117)
-library ExplicitERC20 {
+// Here we can either add a new library with a new transferFrom function
+// or add a new function in the ExplicitERC20 library.
+library ExplicitERC20V2 {
     function transferFromWithCollaterlizationChecks(IERC20 _token, address _from, address _to, uint256 _quantity) internal {
         if (_quantity > 0) {
             uint256 existingBalance = _token.balanceOf(_to);
@@ -139,6 +133,8 @@ library ExplicitERC20 {
     }
 }
 
+// Since we use ModuleBase#transferFrom in our issuance modules we would also need to add a new function in the ModuleBase contract which uses the new ExplicitERC20#transferFromWithCollaterlizationChecks
+// Or we can skip calling ModuleBase#transferFrom in our new issuance modules and directly call ExplicitERC20#transferFromWithCollaterlizationChecks
 abstract contract ModuleBase is IModule {
     ...//other existing functions
     function transferFromWithCollaterlizationChecks(IERC20 _token, address _from, address _to, uint256 _quantity) internal {
