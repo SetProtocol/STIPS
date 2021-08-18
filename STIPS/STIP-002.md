@@ -69,9 +69,11 @@ Note: only functions that will be modified  between WrapModule and WrapModuleV2 
 **Reviewer**: @richardliang
 
 ## Implementation
-[Link to implementation PR]()
+[Link to implementation PR](https://github.com/SetProtocol/set-protocol-v2/pull/124)
 ## Documentation
-[Link to Documentation on feature]()
+Diff between WrapModule and WrapModuleV2: https://www.diffchecker.com/vIQcDGRl  
+Diff between YearnWrapAdapter and YearnWrapV2Adapter: https://www.diffchecker.com/ryNAsWAs  
+Diff between CompoundWrapAdapter and CompoundWrapV2Adapter: https://www.diffchecker.com/o7qYa0j7
 ## Deployment
 [Link to Deployment script PR]()  
 [Link to Deploy outputs PR]()
