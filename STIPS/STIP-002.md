@@ -21,7 +21,7 @@ Similarly, during redemption of a SetToken, we make sure the quantity of compone
 In both cases, if the requirement is not met then we revert with "Invalid post transfer balance" message.
 
 - In _DebtIssuanceModule#issue_ and _BasicIssuanceModule#issue_, we transfer the component token from the issuer to the SetToken using the _ModuleBase#transferFrom_ function, which internally calls the _ExplicitERC20#transferFrom_ function, which performs the above mentioned check.
-- In _DebtIssuanceModule#redeem_ and _BasicIssuanceModule#redeem_, we transfer the component from the SetToken to the redeemer using _Invoke#strictInvokeTransfer_ library function which internally calls _ExplicitERC20#transferFrom_ function, which performs the above mentioned check.
+- In _DebtIssuanceModule#redeem_ and _BasicIssuanceModule#redeem_, we transfer the component from the SetToken to the redeemer using _Invoke#invokeTransfer_ library function along with performing the the above mentioned check.
 
 Now, when issuing/redeeming a SetToken which contain aToken as components, the above check fails. Cause of the failure:
 
@@ -53,24 +53,38 @@ newScaledBalance = initialScaledBalance + (quantity/index)
 ## Feasibility Analysis
 
 ### Option 1:
-Instead of over-optimizing our checks to test for both undercollaterlization and overcollaterlization. We can just have checks to prevent undercollaterlization. This would prevent reverting in cases when `newBalance` of aToken is greater than `existingBalance + quantity` by 1 wei, and thus decrease the failure rate of issuance/redemption (maybe to 33%, cause we can consider less than, equal to, and greater than to be 3 equal cases). This option is the best considering time. The change is contained within the smart contracts and doesn't bubble up the stack leading to bigger changes in our backend.
 
+Instead of over-optimizing our checks to check for balances which effectively prevent both undercollaterlization and overcollaterlization. We can just have checks to prevent undercollaterlization. 
+Pseudocode:
+```javascript
+    positionUnit = // Get position unit of transferred token for SetToken
+    newTotalSupply = // Get new total supply after issuance / redemption
+    Invoke.invokeTransfer(...);   // Perform transfer
+    uint256 newBalance = token.balanceOf(_setToken);  // Get new balance of transferred token for SetToken
+    // prevent undercollateralization
+    require(
+        newBalance >= newTotalSupply.preciseMul(positionUnit),
+        "Invalid transfer results in undercollateralization"
+    );
+```
 
+- We have reduced the strictness in the above checks and replaced balance checks with checks to prevent undercollateralization.
+- The change is contained within the smart contracts and doesn't bubble up the stack leading to bigger changes in our backend.
+
+`NOTE`: Introduction of above checks means a token which charges a fee upon transfer could in theory be used to get any excess amount of that token held by the Set. Excess amount being defined as a remaining amount of wei from a manager action OR any potential tokens accrued to the Set via farming but not yet "absorbed" into a position via the AirdropModule. Although, this can NOT affect other tokens in the Set but only the token that charges the transfer fees (i.e. any other token that has not been absorbed into a position could not be stolen).
 
 ## Open Questions
 
-1. Do we restrict usage of these modified issuance modules (which are linked to the new libraries) from third-party use?
+1. Do we restrict usage of these modified issuance modules (which replace balance checks with collateralization checks) from third-party use?
     - Why did we have the strict checks in the first place?
         - To make sure the set is not undercollateralized 
             - Eg. To stop tokens which collects fees on transfer from being a component in a SetToken
-        - This strict check achieved the above requirement, but at the same time it also prevented overcollateralization
+        - This strict check achieved the above requirement, but at the same time it also prevented overcollateralization during issuance/redemption.
     - What are the only requirements for our system to function well?
         - We do not want Set to be undercollateralized
-        - We are fine with overcollaterlization (discussed below)
-    - Thus, the new checks full fill our requirements.
+        - We are fine with overcollateralization (discussed below)
+    - Thus, the new checks fulfill our requirements.
         - So, we need not restrict usage of these modified issuance modules
-
-2. Do we restrict these new modified issuance modules (which are linked to the new libraries) only to SetToken which hold aTokens? Or do we make these issuance modules the default going forward?
     
 2. Are we fine with Set being overcollaterlized?
     - Yes, SetToken can resync the extra assets present to increase their default positions with help of modules
@@ -80,71 +94,12 @@ Instead of over-optimizing our checks to test for both undercollaterlization and
         - For it to happen, we would need the special case of a token which rewards holders on a transfer
         - we can handle that case using Airdrop module
 
-3. How to handle `newBalance < existingBalance.add(_quantity))`?
-    - This is a possible case for aTokens, since `(quantity/index) * index` can be less than `quantity`.
-    - We have seen this case once during testing.
+3. Do we restrict these new modified issuance modules (which replace balance checks with collateralization checks) only to SetToken which hold aTokens? Or do we make these issuance modules the default going forward?
+    -  Current approach is leaning towards not restricting module usage but providing it as a potential different offering for manager's to choose when selecting the issuance module they want to use
+    - They can choose the default issuance modules with stricter checks if they are sure of not using any aToken or tokens which take fees on transfer as components in their SetToken
+    - But if they plan to use aTokens or tokens which take fees on transfer as SetToken components, then they can use the new issuance modules
 
 
 ## Checkpoint 1
-
-**Reviewer**:
-
-## Proposed Architecture Changes
-
-Pseudocode of option1 :
-```javascript
-
-library Invoke {
-    ... // other functions from Invoke library
-    function strictInvokeTransfer(ISetToken _setToken, address _token, address _to, uint256 _quantity) internal {
-        ../// existing implementations
-    }
-    function invokeTransferWithCollaterlizationChecks(ISetToken _setToken, address _token, address _to, uint256 _quantity) internal {
-        if (_quantity > 0) {
-            // Retrieve current balance of token for the SetToken
-            uint256 existingBalance = IERC20(_token).balanceOf(address(_setToken));
-
-            Invoke.invokeTransfer(_setToken, _token, _to, _quantity);
-
-            // Get new balance of transferred token for SetToken
-            uint256 newBalance = IERC20(_token).balanceOf(address(_setToken));
-
-            // prevent undercollateralization
-            require(newBalance >= existingBalance.sub(_quantity)), "Invalid post transfer balance");
-        }
-    }
-}
-
-
-// Here we can either add a new library with a new transferFrom function
-// or add a new function in the ExplicitERC20 library.
-library ExplicitERC20V2 {
-    function transferFromWithCollaterlizationChecks(IERC20 _token, address _from, address _to, uint256 _quantity) internal {
-        if (_quantity > 0) {
-            uint256 existingBalance = _token.balanceOf(_to);
-            SafeERC20.safeTransferFrom(_token, _from, _to, _quantity);
-            uint256 newBalance = _token.balanceOf(_to);
-
-            // prevent undercollateralization
-            require(
-                newBalance >= existingBalance.add(_quantity)), "Invalid post transfer balance"
-            );
-        }
-    }
-}
-
-// Since we use ModuleBase#transferFrom in our issuance modules we would also need to add a new function in the ModuleBase contract which uses the new ExplicitERC20#transferFromWithCollaterlizationChecks
-// Or we can skip calling ModuleBase#transferFrom in our new issuance modules and directly call ExplicitERC20#transferFromWithCollaterlizationChecks
-abstract contract ModuleBase is IModule {
-    ...//other existing functions
-    function transferFromWithCollaterlizationChecks(IERC20 _token, address _from, address _to, uint256 _quantity) internal {
-        ExplicitERC20.transferFromWithCollaterlizationChecks(_token, _from, _to, _quantity);
-    }
-}
-```
-Next, when deploying the new issuance modules we link the modified new libraries to them.
-
-
-## Checkpoint 2
 
 **Reviewer**:
