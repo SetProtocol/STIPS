@@ -271,6 +271,240 @@ i * 500
 </table>
 
 
+### Understanding flow of tokens through SetToken during **REDEEMING**
+
+
+* Let, initial set token supply = s
+* And, redeem amount **net fees** = r
+
+
+<table>
+  <tr>
+   <td>
+Default Position unit (in 10^18)
+   </td>
+   <td>
+External Position units (in 10^18)
+   </td>
+   <td>
+Description
+   </td>
+   <td>
+<strong>BEFORE</strong> redeeming (10 ^ 18)
+   </td>
+   <td>
+In<strong> </strong>resolve debt positions <strong>AFTER </strong>the debt is transferred from the user but  <strong>BEFORE</strong> the external position hooks are called (in 10 ^ 18)
+   </td>
+   <td>
+In resolve debt positions <strong>AFTER </strong>external position hooks are called (10 ^ 18)
+   </td>
+   <td>
+In<strong> </strong>resolve  equity positions <strong>AFTER </strong>the external position hooks are called but <strong>BEFORE</strong> the equity is transferred to the user (in 10 ^ 18)
+   </td>
+   <td>
+In resolve equity positions <strong>AFTER </strong>the equity is transferred to the user (10 ^ 18)
+   </td>
+  </tr>
+  <tr>
+   <td>
+1000
+   </td>
+   <td>
+0
+   </td>
+   <td>
+Only default position
+   </td>
+   <td>
+s * 1000
+   </td>
+   <td>
+s * 1000 + r * 0
+   </td>
+   <td>
+s * 1000
+   </td>
+   <td>
+s * 1000
+   </td>
+   <td>
+s * 1000 - r * 1000
+   </td>
+  </tr>
+  <tr>
+   <td>
+1000
+   </td>
+   <td>
+-500
+   </td>
+   <td>
+Default & negative external. 
+   </td>
+   <td>
+s * 1000
+   </td>
+   <td>
+s * 1000 + r * 500
+   </td>
+   <td>
+s * 1000
+   </td>
+   <td>
+s * 1000
+   </td>
+   <td>
+s * 1000 - r * 1000
+   </td>
+  </tr>
+  <tr>
+   <td>
+1000
+   </td>
+   <td>
+500
+   </td>
+   <td>
+Default & positive external
+   </td>
+   <td>
+s * 1000
+   </td>
+   <td>
+s * 1000
+   </td>
+   <td>
+s * 1000
+   </td>
+   <td>
+s * 1000 + r * 500
+   </td>
+   <td>
+s * 1000 - r * 1000
+   </td>
+  </tr>
+  <tr>
+   <td>
+1000
+   </td>
+   <td>
+-500, 1000
+   </td>
+   <td>
+Default, positive and negative external
+   </td>
+   <td>
+s * 1000
+   </td>
+   <td>
+s * 1000 + r * 500
+   </td>
+   <td>
+s * 1000
+   </td>
+   <td>
+s * 1000 + r * 1000
+   </td>
+   <td>
+s * 1000 - r * 1000
+   </td>
+  </tr>
+  <tr>
+   <td>
+0
+   </td>
+   <td>
+-500
+   </td>
+   <td>
+Only negative external 
+   </td>
+   <td>
+0
+   </td>
+   <td>
+r * 500
+   </td>
+   <td>
+0
+   </td>
+   <td>
+0
+   </td>
+   <td>
+0
+   </td>
+  </tr>
+  <tr>
+   <td>
+0
+   </td>
+   <td>
+500
+   </td>
+   <td>
+Only positive external
+   </td>
+   <td>
+0
+   </td>
+   <td>
+0
+   </td>
+   <td>
+0
+   </td>
+   <td>
+r * 500
+   </td>
+   <td>
+0
+   </td>
+  </tr>
+  <tr>
+   <td>
+0
+   </td>
+   <td>
+-500, 1000
+   </td>
+   <td>
+Negative and positive external
+   </td>
+   <td>
+0
+   </td>
+   <td>
+r * 500
+   </td>
+   <td>
+0
+   </td>
+   <td>
+r * 1000
+   </td>
+   <td>
+0
+   </td>
+  </tr>
+</table>
+
+
+
+
+**Note**
+
+* All 7 possible combination of position units that a given component can have are covered in the above table.
+    * Default: 0, External: n, p, np (3 cases)
+    * Default: 1, External:  0, n, p, np (4 cases)
+* Multiple negative external positions are the same as a single negative external position because we are summing up all the negative external positions in `DebtIssuanceModule#_getTotalIssuanceUnits`.
+* Multiple positive external positions are the same as a single positive external position because we are summing up all the positive external positions in `DebtIssuanceModule#_getTotalIssuanceUnits`.
+
+
+**Note (for redeeming)**: 
+
+* SetToken's are burned at the very beginning of the DebtIssuanceModule#redeem() function, hence in columns 5,6,7,8 (count starting with 1) of the above table, setToken.totalSupply() is `s - r'`, where `r'` is the redeem quantity **without** fees.
+* After column 8, fees are minted to the fee receiver and setToken’s total supply becomes `s - r`.
 
 ## Feasibility Analysis
 
