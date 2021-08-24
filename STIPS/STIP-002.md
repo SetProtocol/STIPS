@@ -2,7 +2,7 @@
 *Using template v0.1*
 ## Abstract
 
-Issuance modules including BasicIssuanceModule and DebtIssuanceModule revert while trying to issue SetTokens with Aave's aToken as components.
+Issuance modules revert while trying to issue SetTokens with Aave's aToken as components.
 
 ## Motivation
 
@@ -526,14 +526,16 @@ The proposed checks for undercollateralization are performed right after the tra
 * Proposed check:
 
 ```javascript
-uint256   defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
-cumulativeEquity = defaultPositionUnit
-externalPositionModules = setToken.getExternalPositionModules(component)
-For each externalPositionModule in externalPositionModules
-   externalPositionUnit = setToken.getExternalPositionRealUnit(component, externalPositionModule)
-   If (externalPositionUnit > 0)
+// pseudocode
+uint256 defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
+uint256 cumulativeEquity = defaultPositionUnit
+address[] externalPositionModules = setToken.getExternalPositionModules(component)
+for externalPositionModule in externalPositionModules {
+   uint256 externalPositionUnit = setToken.getExternalPositionRealUnit(component, externalPositionModule)
+   if (externalPositionUnit > 0)
       cumulativeEquity = cumulativeEquity.add(externalPositionUnit);
-newBalance = component.balanceOf(setToken)
+}
+uint256 newBalance = component.balanceOf(setToken)
 require(newBalance > s * defaultPositionUnit + i * cumulativeEquity)
 ```
 
@@ -541,6 +543,7 @@ require(newBalance > s * defaultPositionUnit + i * cumulativeEquity)
 * Proposed check:
 
 ```javascript
+// pseudocode
 defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
 newBalance = component.balanceOf(setToken)
 require(newBalance >= (s+i) * defaultPositionUnit)
@@ -553,6 +556,7 @@ require(newBalance >= (s+i) * defaultPositionUnit)
 * Check:
 
 ```javascript
+// pseudocode
 defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
 cumulativeDebt = 0
 externalPositionModules = setToken.getExternalPositionModules(component)
@@ -568,6 +572,7 @@ require(newBalance >= s * defaultPositionUnit + r *  cumulativeDebt.mul(-1).toUi
 * Check:
 
 ```javascript
+// pseudocode
 defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
 newBalance = component.balanceOf(setToken)
 require(newBalance >= (s-r) * defaultPositionUnit)
