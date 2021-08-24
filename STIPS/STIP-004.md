@@ -1,4 +1,4 @@
-# STIP-[002]: Fix aToken issuance bug
+# STIP-[004]: Fix aToken issuance bug
 *Using template v0.1*
 ## Abstract
 
