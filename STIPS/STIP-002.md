@@ -565,7 +565,9 @@ newBalance = component.balanceOf(setToken)
 require(newBalance >= (s-r) * defaultPositionUnit)
 ```
 
-`NOTE`: Introduction of above checks means a token which charges a fee upon transfer could in theory be used to get any excess amount of that token held by the Set. Excess amount being defined as a remaining amount of wei from a manager action OR any potential tokens accrued to the Set via farming but not yet "absorbed" into a position via the AirdropModule. Although, this can NOT affect other tokens in the Set but only the token that charges the transfer fees (i.e. any other token that has not been absorbed into a position could not be stolen).
+`NOTE`: Introduction of above checks means a token which charges a fee upon transfer could in theory be used to get any excess amount of that token held by the Set. Excess amount being defined as a remaining amount of wei from a manager action OR any potential tokens accrued to the Set via farming but not yet "absorbed" into a position via the AirdropModule or via syncing positions. Although, this can *NOT* affect other tokens in the Set but only the token that charges the transfer fees (i.e. any other token that has not been absorbed into a position could not be stolen).
+
+`Example`. Consider a SetToken with component A, B & C. Let token A charge fees on transfer. Let default position unit of A be 1000 units (1 unit = 10^18 wei). Let set total supply be 2, then minimum amount of A held in the set is 2 * 1000 units. Now, if there is any extra A held in the Set, which can be due to airdrops or due to A accruing interest. While issuing 1 more SetToken, when we transfer 1000 units from the issuer, let's say 10 units is charged as the transfer fee, thus the effective amount transferred in is 990 units. Now, if the Set balance had been 10 units more than the min balance, i.e. >= 2 * 1000 + 10 units, the extra 10 units is absorbed into the set as position units, and the transaction doesn't revert. Also, note that these actions do not affect other components, B & C in the Set. Because during issuance/redemption we deal with each component individually.
 
 ## Open Questions
 
@@ -581,12 +583,13 @@ require(newBalance >= (s-r) * defaultPositionUnit)
         - So, we need not restrict usage of these modified issuance modules
     
 2. Are we fine with Set being overcollaterlized?
-    - Yes, SetToken can resync the extra assets present to increase their default positions with help of modules
-        - ALM and CLM can resync positions for leveraged tokens
-        - Airdrop module can add extra assets as positions for other SetTokens
-    - Also, issuance/redemption generally would not lead to overcollaterlization
-        - For it to happen, we would need the special case of a token which rewards holders on a transfer
-        - we can handle that case using Airdrop module
+   * Yes, SetToken can resync the extra assets present to increase their default positions with help of modules
+      * ALM and CLM can resync positions for leveraged tokens
+      * Airdrop module can add extra assets as positions for other SetTokens
+   * Also, issuance/redemption generally would not lead to overcollaterlization of more than 1 wei
+      * Over-collateralization of 1 wei can be introduced to rounding errors
+      * For over collateralization greater than 1 wei, we would need the special case of a token which rewards holders on a transfer
+      * We can handle that case using Airdrop module
 
 3. Do we restrict these new modified issuance modules (which replace balance checks with collateralization checks) only to SetToken which hold aTokens? Or do we make these issuance modules the default going forward?
     -  Current approach is leaning towards not restricting module usage but providing it as a potential different offering for manager's to choose when selecting the issuance module they want to use
