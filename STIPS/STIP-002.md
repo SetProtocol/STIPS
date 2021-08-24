@@ -565,7 +565,22 @@ newBalance = component.balanceOf(setToken)
 require(newBalance >= (s-r) * defaultPositionUnit)
 ```
 
-`NOTE`: Introduction of above checks means a token which charges a fee upon transfer could in theory be used to get any excess amount of that token held by the Set. Excess amount being defined as a remaining amount of wei from a manager action OR any potential tokens accrued to the Set via farming but not yet "absorbed" into a position via the AirdropModule or via syncing positions. Although, this can *NOT* affect other tokens in the Set but only the token that charges the transfer fees (i.e. any other token that has not been absorbed into a position could not be stolen).
+### How are proposed checks better than the naive balance checks?
+* Naive balance checks for undercollateralization would be:
+   * `require(newBalance >= existingBalance + quantityTransferred)`
+   * These checks fail when returned `newBalance` is rounded down by 1 wei, i.e., `newBalance = existingBalance + quantityTransferred - 1`.
+   * Considering rounding down, rounding up and not rounding are equally likely, these checks fail 33% of the time.
+* All the proposed checks can be simplified to the naive checks if our SetTokens were exactly collateralized to the last wei.
+   * Example, consider the check in `_resolveEquityPositions` during issuance, which is `require(newBalance > s * defaultPositionUnit + i * cumulativeEquity)`.
+   * Now, `quantityTransferred = i * cumulativeEquity` always.
+   * And, if our set was exactly collateralized, then `existingBalance = s * defaultPositionUnit`.
+   * Thus, the proposed check becomes, `require(newBalance >= existingBalance + quantityTransferred)`, same as naive checks.
+* But, our Sets are generally slightly overcollalteralized by design. We use `preciseMul` and `preciseMulCeil` at various places to favor over-collateralization.
+   * So, generally, `existingBalance > s * defaultPositionUnit` by a few wei.
+   * This decreases the lower bound of the proposed checks compared to naive checks.
+   * Thus allowing the proposed checks to not revert even in cases when returned `newBalance` has been rounded down by 1 wei, while the naive checks would have always reverted.
+
+`NOTE`: Introduction of proposed checks means a token which charges a fee upon transfer could in theory be used to get any excess amount of that token held by the Set. Excess amount being defined as a remaining amount of wei from a manager action OR any potential tokens accrued to the Set via farming but not yet "absorbed" into a position via the AirdropModule or via syncing positions. Although, this can *NOT* affect other tokens in the Set but only the token that charges the transfer fees (i.e. any other token that has not been absorbed into a position could not be stolen).
 
 `Example`. Consider a SetToken with component A, B & C. Let token A charge fees on transfer. Let default position unit of A be 1000 units (1 unit = 10^18 wei). Let set total supply be 2, then minimum amount of A held in the set is 2 * 1000 units. Now, if there is any extra A held in the Set, which can be due to airdrops or due to A accruing interest. While issuing 1 more SetToken, when we transfer 1000 units from the issuer, let's say 10 units is charged as the transfer fee, thus the effective amount transferred in is 990 units. Now, if the Set balance had been 10 units more than the min balance, i.e. >= 2 * 1000 + 10 units, the extra 10 units is absorbed into the set as position units, and the transaction doesn't revert. Also, note that these actions do not affect other components, B & C in the Set. Because during issuance/redemption we deal with each component individually.
 
@@ -579,7 +594,7 @@ require(newBalance >= (s-r) * defaultPositionUnit)
     - What are the only requirements for our system to function well?
         - We do not want Set to be undercollateralized
         - We are fine with overcollateralization (discussed below)
-    - Thus, the new checks fulfill our requirements.
+    - Thus, the proposed checks fulfill our requirements.
         - So, we need not restrict usage of these modified issuance modules
     
 2. Are we fine with Set being overcollaterlized?
