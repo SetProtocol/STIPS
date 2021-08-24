@@ -1,11 +1,16 @@
 # STIP-[002]: Fix aToken issuance bug
 *Using template v0.1*
 ## Abstract
+
 Issuance modules including BasicIssuanceModule and DebtIssuanceModule revert while trying to issue SetTokens with Aave's aToken as components.
+
 ## Motivation
+
 We need to fix this bug to launch our next set of structured products which would include SetTokens holding aTokens as components. Fixing this bug would also enable third party managers to gain exposure to yield bearing Aave aTokens in their SetTokens.
+
 ## Background Information
 In all our issuance modules, during issuing a SetToken, we make sure the sum of existing balance of the component token in the SetToken and the quantity of component token being transferred from the issuer to the SetToken is equal to the new balance of the component token in the SetToken.
+
 ```javascript
 uint256 existingBalance = _componentToken.balanceOf(_setToken);
 SafeERC20.transferFrom(
@@ -582,7 +587,7 @@ require(newBalance >= (s-r) * defaultPositionUnit)
 
 `NOTE`: Introduction of proposed checks means a token which charges a fee upon transfer could in theory be used to get any excess amount of that token held by the Set. Excess amount being defined as a remaining amount of wei from a manager action OR any potential tokens accrued to the Set via farming but not yet "absorbed" into a position via the AirdropModule or via syncing positions. Although, this can *NOT* affect other tokens in the Set but only the token that charges the transfer fees (i.e. any other token that has not been absorbed into a position could not be stolen).
 
-`Example`. Consider a SetToken with component A, B & C. Let token A charge fees on transfer. Let default position unit of A be 1000 units (1 unit = 10^18 wei). Let set total supply be 2, then minimum amount of A held in the set is 2 * 1000 units. Now, if there is any extra A held in the Set, which can be due to airdrops or due to A accruing interest. While issuing 1 more SetToken, when we transfer 1000 units from the issuer, let's say 10 units is charged as the transfer fee, thus the effective amount transferred in is 990 units. Now, if the Set balance had been 10 units more than the min balance, i.e. >= 2 * 1000 + 10 units, the extra 10 units is absorbed into the set as position units, and the transaction doesn't revert. Also, note that these actions do not affect other components, B & C in the Set. Because during issuance/redemption we deal with each component individually.
+`Example`. Consider a SetToken with component A, B & C. Let token A charge fees on transfer. Let default position unit of A be `1000 units (1 unit = 10^18 wei)`. Let set total supply be `2 units`, then minimum amount of A held in the set is `2 * 1000 units`. Now, if there is any extra A held in the Set, which can be due to airdrops or due to A accruing interest. While issuing 1 more SetToken, when we transfer `1000 units` from the issuer, let's say `10 units` is charged as the transfer fee, thus the effective amount transferred in is 990 units. Now, if the Set balance had been 10 units more than the min balance, i.e. `>= 2 * 1000 + 10 units`, the extra `10 units` is absorbed into the set as position units, and the transaction doesn't revert. Also, note that these actions do not affect other components, B & C in the Set. Because during issuance/redemption we deal with each component individually.
 
 ## Open Questions
 
