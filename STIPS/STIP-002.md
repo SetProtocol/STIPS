@@ -578,8 +578,8 @@ newBalance = component.balanceOf(setToken)
 require(newBalance >= (s-r) * defaultPositionUnit)
 ```
 
-### How are proposed checks better than the naive balance checks?
-* Naive balance checks for undercollateralization would be:
+### How are proposed checks better than the naive balance checks during issuance?
+* Naive balance checks for undercollateralization during issuance would be:
    * `require(newBalance >= existingBalance + quantityTransferred)`
    * These checks fail when returned `newBalance` is rounded down by 1 wei, i.e., `newBalance = existingBalance + quantityTransferred - 1`.
    * Considering rounding down, rounding up and not rounding are equally likely, these checks fail 33% of the time.
@@ -589,9 +589,20 @@ require(newBalance >= (s-r) * defaultPositionUnit)
    * And, if our set was exactly collateralized, then `existingBalance = s * defaultPositionUnit`.
    * Thus, the proposed check becomes, `require(newBalance >= existingBalance + quantityTransferred)`, same as naive checks.
 * But, our Sets are generally slightly overcollalteralized by design. We use `preciseMul` and `preciseMulCeil` at various places to favor over-collateralization.
-   * So, generally, `existingBalance > s * defaultPositionUnit` by a few wei.
+   * Generally, `existingBalance > s * defaultPositionUnit` by a few wei.
    * This decreases the lower bound of the proposed checks compared to naive checks.
    * Thus allowing the proposed checks to not revert even in cases when returned `newBalance` has been rounded down by 1 wei, while the naive checks would have always reverted.
+
+
+### How are proposed checks better than naive balance checks during redemption?
+* Naive balance checks for undercollateralization during redemption would be:
+   * `require(newBalance >= existingBalance - quantityTransferred)`;
+   * These checks fail when `newBalance` is rounded down by 1 wei or `existingBalance` is increased by 1 wei.
+* Our Sets are generally slightly overcollalteralized by design.
+   * Generally, `existingBalance > s * defaultPositionUnit` by a few wei.
+   * This decreases the lower bound of the proposed checks compared to naive checks.
+   * Thus allowing the proposed checks to not revert even in cases when returned `newBalance` has been rounded down by 1 wei, while the naive checks would have always reverted.
+
 
 `NOTE`: Introduction of proposed checks means a token which charges a fee upon transfer could in theory be used to get any excess amount of that token held by the Set. Excess amount being defined as a remaining amount of wei from a manager action OR any potential tokens accrued to the Set via farming but not yet "absorbed" into a position via the AirdropModule or via syncing positions. Although, this can *NOT* affect other tokens in the Set but only the token that charges the transfer fees (i.e. any other token that has not been absorbed into a position could not be stolen).
 
