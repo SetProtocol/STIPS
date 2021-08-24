@@ -50,6 +50,228 @@ newScaledBalance = initialScaledBalance + (quantity/index)
 - We essentially require, (quantity/index) * index == quantity, with index > 1
 - Which will not always be true because solidity uint256 has limited precision and there is a chance of `(quantity/index) * index` to be greater/lesser than `quantity` by 1 wei.
 
+
+
+### Understanding flow of tokens through SetToken during **ISSUANCE**
+
+
+* Let, initial set token supply = s
+* And, issue amount **with** **fees** = i
+
+
+<table>
+  <tr>
+   <td>
+    Default Position units (in 10^18)
+   </td>
+   <td>
+    External Position units (in 10^ 18)
+   </td>
+   <td>
+    Description
+   </td>
+   <td>
+    <strong>BEFORE</strong> issuance
+   </td>
+   <td>
+    In<strong> </strong>resolve equity positions <strong>AFTER </strong>the equity is transferred from the user but <strong>BEFORE</strong> the external position hooks are called (in 10 ^ 18)
+   </td>
+   <td>
+    In resolve equity positions call <strong>AFTER </strong>external position hooks are called (10 ^ 18)
+   </td>
+   <td>
+    In<strong> </strong>resolve Debt Positions <strong>AFTER </strong>the external position hooks are called but <strong>BEFORE</strong> the debt is transferred to the  issuer (in 10 ^ 18)
+   </td>
+   <td>
+    In resolve debt positions <strong>AFTER </strong>the borrowed debt is transferred to the issuer (10 ^ 18)
+   </td>
+  </tr>
+  <tr>
+   <td>
+1000
+   </td>
+   <td>
+0
+   </td>
+   <td>
+Only default position
+   </td>
+   <td>
+s * 1000
+   </td>
+   <td>
+s * 1000 + i * 1000
+   </td>
+   <td>
+s * 1000 + i * 1000
+   </td>
+   <td>
+s * 1000 + i * 1000
+   </td>
+   <td>
+s * 1000 + i * 1000
+   </td>
+  </tr>
+  <tr>
+   <td>
+1000
+   </td>
+   <td>
+-500
+   </td>
+   <td>
+Default & negative external. 
+   </td>
+   <td>
+s * 1000
+   </td>
+   <td>
+s * 1000 + i * 1000
+   </td>
+   <td>
+s * 1000 + i * 1000
+   </td>
+   <td>
+s * 1000 + i * 1500
+   </td>
+   <td>
+s * 1000 + i * 1000
+   </td>
+  </tr>
+  <tr>
+   <td>
+1000
+   </td>
+   <td>
+500
+   </td>
+   <td>
+Default & positive external
+   </td>
+   <td>
+s * 1000
+   </td>
+   <td>
+s * 1000 + i * 1500
+   </td>
+   <td>
+s * 1000 + i * 1000
+   </td>
+   <td>
+s * 1000 + i * 1000
+   </td>
+   <td>
+s * 1000 + i * 1000
+   </td>
+  </tr>
+  <tr>
+   <td>
+1000
+   </td>
+   <td>
+-500, 1000
+   </td>
+   <td>
+Default, positive and negative external
+   </td>
+   <td>
+s * 1000
+   </td>
+   <td>
+s * 1000 + i * 2000
+   </td>
+   <td>
+s * 1000 + i * 1000
+   </td>
+   <td>
+s * 1000 + i * 1500
+   </td>
+   <td>
+s * 1000 + i * 1000
+   </td>
+  </tr>
+  <tr>
+   <td>
+0
+   </td>
+   <td>
+-500
+   </td>
+   <td>
+Only negative external 
+   </td>
+   <td>
+0
+   </td>
+   <td>
+0
+   </td>
+   <td>
+0
+   </td>
+   <td>
+i * 500
+   </td>
+   <td>
+0
+   </td>
+  </tr>
+  <tr>
+   <td>
+0
+   </td>
+   <td>
+500
+   </td>
+   <td>
+Only positive external
+   </td>
+   <td>
+0
+   </td>
+   <td>
+i * 500
+   </td>
+   <td>
+0
+   </td>
+   <td>
+0
+   </td>
+   <td>
+0
+   </td>
+  </tr>
+  <tr>
+   <td>
+0
+   </td>
+   <td>
+-500, 1000
+   </td>
+   <td>
+Negative and positive external
+   </td>
+   <td>
+0
+   </td>
+   <td>
+i * 1000
+   </td>
+   <td>
+0
+   </td>
+   <td>
+i * 500
+   </td>
+   <td>
+0
+   </td>
+  </tr>
+</table>
+
+
+
 ## Feasibility Analysis
 
 ### Option 1:
@@ -57,15 +279,9 @@ newScaledBalance = initialScaledBalance + (quantity/index)
 Instead of over-optimizing our checks to check for balances which effectively prevent both undercollaterlization and overcollaterlization. We can just have checks to prevent undercollaterlization. 
 Pseudocode:
 ```javascript
-    positionUnit = // Get position unit of transferred token for SetToken
-    newTotalSupply = // Get new total supply after issuance / redemption
-    Invoke.invokeTransfer(...);   // Perform transfer
-    uint256 newBalance = token.balanceOf(_setToken);  // Get new balance of transferred token for SetToken
-    // prevent undercollateralization
-    require(
-        newBalance >= newTotalSupply.preciseMul(positionUnit),
-        "Invalid transfer results in undercollateralization"
-    );
+defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
+newBalance = component.balanceOf(setToken)
+require(newBalance >= (s-r) * defaultPositionUnit)
 ```
 
 - We have reduced the strictness in the above checks and replaced balance checks with checks to prevent undercollateralization.
