@@ -33,29 +33,30 @@ When issuing/redeeming a SetToken which contain aToken as components, the above 
 ### Possible cause of revert
 
 Aave accrues interest every block for an aToken. Internally it updates it's state only when the core functions of LendingPool are called, but view functions such as _aToken.balanceOf()_ always return the most up-to-date value, as they account for the current block number in calculating the balance. Basically they store a scaledBalance for every user and multiply it by the current liquidity index to determine the total aToken balance of the user.
-- `aToken.balanceOf()` returns `scaledBalance * liquidityIndex`
-- `aToken.transfer(quantity)` updates the scaledBalance by adding `(quantity/liquidityIndex)` to it.
-    - `liquidityIndex = (timeDiff/secondsPerYear)*interestRate + 1, hence liquidityIndex is always > 1`
-    - `timeDiff = block.timestamp - lastUpdatedTimestamp`
-    - `lastUpdatedTimestamp` = timestamp of last block in which there was an interaction with this aToken specific reserve, interactions include calling deposit, withdraw, repay, borrow, flashloan and swapBorrowRate functions on the reserve.
+- _aToken.balanceOf()_ returns _scaledBalance * liquidityIndex_
+- _aToken.transfer(quantity)_ updates the scaledBalance by adding _(quantity/liquidityIndex)_ to it.
+    - _liquidityIndex = (timeDiff/secondsPerYear)*interestRate + 1, hence liquidityIndex is always > 1_
+    - _timeDiff = block.timestamp - lastUpdatedTimestamp_
+    - _lastUpdatedTimestamp_ = timestamp of last block in which there was an interaction with this aToken specific reserve, interactions include calling deposit, withdraw, repay, borrow, flashloan and swapBorrowRate functions on the reserve.
 
 Now in our _ExplicitERC20#transferFrom_ function,
-- We call `existingBalance = aToken.balanceOf(setToken)`, which sets 
-   - `existingBalance = initialScaledBalance * index`
-- By calling `aToken.transfer(quantity)`, we update `baseBalance` to `newScaledBalance`
-   - `newScaledBalance = initialScaledBalance + (quantity/index)`
-- Then we set `newBalance = aToken.balanceOf(setToken)`
-    - `newBalance = newScaledBalance * index`
-- Finally we require, `newBalance == existingBalance + quantity`
-    - `LHS = newBalance`
-        - `= newScaledBalance * index`
-        - `= (initialScaledBalance + (quantity/index)) * index`
-        - `= (initialScaledBalance * index) + (quantity/index)*index`
-    - `RHS = existingBalance + quantity`
-        - `= (initialScaledBalance * index) + quantity`
-- Cancelling, `initialScaledBalance * index` from LHS and RHS,
-- We essentially require, `(quantity/index) * index == quantity`, with index > 1
-- Which will not always be true because solidity uint256 has limited precision and there is a chance of `(quantity/index) * index` to be greater/lesser than `quantity` by 1 wei.
+- We call _existingBalance = aToken.balanceOf(setToken)_, which sets 
+   - _existingBalance = initialScaledBalance * index_
+- By calling _aToken.transfer(quantity)_, we update _baseBalance_ to _newScaledBalance_
+   - _newScaledBalance = initialScaledBalance + (quantity/index)_
+- Then we set _newBalance = aToken.balanceOf(setToken)_
+    - _newBalance = newScaledBalance * index_
+- Finally we require, _newBalance == existingBalance + quantity_
+    - _LHS = newBalance_
+        - _= newScaledBalance * index_
+        - _= (initialScaledBalance + (quantity/index)) * index_
+        - _= (initialScaledBalance * index) + (quantity/index)*index_
+    - _RHS = existingBalance + quantity_
+        - _= (initialScaledBalance * index) + quantity_
+
+- Cancelling, _initialScaledBalance * index_ from LHS and RHS,
+- We essentially require, _(quantity/index) * index == quantity_, with index > 1
+- Which will not always be true because solidity uint256 has limited precision and there is a chance of _(quantity/index) * index_ to be greater/lesser than _quantity_ by 1 wei.
 
 
 Now, in order to improve our checks to make them less strict, and remove the dependency on external fetched token balances and rounding errors in external protocols, we would need to first understand the flow of tokens through the SetToken during issuance/redemption.
@@ -580,33 +581,33 @@ require(newBalance >= (s-r) * defaultPositionUnit)
 
 ### How are proposed checks better than the naive balance checks during issuance?
 * Naive balance checks for undercollateralization during issuance would be:
-   * `require(newBalance >= existingBalance + quantityTransferred)`
-   * These checks fail when returned `newBalance` is rounded down by 1 wei, i.e., `newBalance = existingBalance + quantityTransferred - 1`.
+   * _require(newBalance >= existingBalance + quantityTransferred)_
+   * These checks fail when returned _newBalance_ is rounded down by 1 wei, i.e., _newBalance = existingBalance + quantityTransferred - 1_.
    * Considering rounding down, rounding up and not rounding are equally likely, these checks fail 33% of the time.
 * All the proposed checks can be simplified to the naive checks if our SetTokens were exactly collateralized to the last wei.
-   * Example, consider the check in `_resolveEquityPositions` during issuance, which is `require(newBalance > s * defaultPositionUnit + i * cumulativeEquity)`.
-   * Now, `quantityTransferred = i * cumulativeEquity` always.
-   * And, if our set was exactly collateralized, then `existingBalance = s * defaultPositionUnit`.
-   * Thus, the proposed check becomes, `require(newBalance >= existingBalance + quantityTransferred)`, same as naive checks.
-* But, our Sets are generally slightly overcollalteralized by design. We use `preciseMul` and `preciseMulCeil` at various places to favor over-collateralization.
-   * Generally, `existingBalance > s * defaultPositionUnit` by a few wei.
+   * Example, consider the check in __resolveEquityPositions_ during issuance, which is _require(newBalance > s * defaultPositionUnit + i * cumulativeEquity)_.
+   * Now, _quantityTransferred = i * cumulativeEquity_ always.
+   * And, if our set was exactly collateralized, then _existingBalance = s * defaultPositionUnit_.
+   * Thus, the proposed check becomes, _require(newBalance >= existingBalance + quantityTransferred)_, same as naive checks.
+* But, our Sets are generally slightly overcollalteralized by design. We use _preciseMul_ and _preciseMulCeil_ at various places to favor over-collateralization.
+   * Generally, _existingBalance > s * defaultPositionUnit_ by a few wei.
    * This decreases the lower bound of the proposed checks compared to naive checks.
-   * Thus allowing the proposed checks to not revert even in cases when returned `newBalance` has been rounded down by 1 wei, while the naive checks would have always reverted.
+   * Thus allowing the proposed checks to not revert even in cases when returned _newBalance_ has been rounded down by 1 wei, while the naive checks would have always reverted.
 
 
 ### How are proposed checks better than naive balance checks during redemption?
 * Naive balance checks for undercollateralization during redemption would be:
-   * `require(newBalance >= existingBalance - quantityTransferred)`;
-   * These checks fail when `newBalance` is rounded down by 1 wei or `existingBalance` is increased by 1 wei.
+   * _require(newBalance >= existingBalance - quantityTransferred)_;
+   * These checks fail when _newBalance_ is rounded down by 1 wei or _existingBalance_ is increased by 1 wei.
 * Our Sets are generally slightly overcollalteralized by design.
-   * Generally, `existingBalance > s * defaultPositionUnit` by a few wei.
+   * Generally, _existingBalance > s * defaultPositionUnit_ by a few wei.
    * This decreases the lower bound of the proposed checks compared to naive checks.
-   * Thus allowing the proposed checks to not revert even in cases when returned `newBalance` has been rounded down by 1 wei, while the naive checks would have always reverted.
+   * Thus allowing the proposed checks to not revert even in cases when returned _newBalance_ has been rounded down by 1 wei, while the naive checks would have always reverted.
 
 
 `NOTE`: Introduction of proposed checks means a token which charges a fee upon transfer could in theory be used to get any excess amount of that token held by the Set. Excess amount being defined as a remaining amount of wei from a manager action OR any potential tokens accrued to the Set via farming but not yet "absorbed" into a position via the AirdropModule or via syncing positions. Although, this can *NOT* affect other tokens in the Set but only the token that charges the transfer fees (i.e. any other token that has not been absorbed into a position could not be stolen).
 
-`Example`. Consider a SetToken with component A, B & C. Let token A charge fees on transfer. Let default position unit of A be `1000 units (1 unit = 10^18 wei)`. Let set total supply be `2 units`, then minimum amount of A held in the set is `2 * 1000 units`. Now, if there is any extra A held in the Set, which can be due to airdrops or due to A accruing interest. While issuing 1 more SetToken, when we transfer `1000 units` from the issuer, let's say `10 units` is charged as the transfer fee, thus the effective amount transferred in is 990 units. Now, if the Set balance had been 10 units more than the min balance, i.e. `>= 2 * 1000 + 10 units`, the extra `10 units` is absorbed into the set as position units, and the transaction doesn't revert. Also, note that these actions do not affect other components, B & C in the Set. Because during issuance/redemption we deal with each component individually.
+`Example`. Consider a SetToken with component A, B & C. Let token A charge fees on transfer. Let default position unit of A be _1000 units (1 unit = 10^18 wei)_. Let set total supply be _2 units_, then minimum amount of A held in the set is _2 * 1000 units_. Now, if there is any extra A held in the Set, which can be due to airdrops or due to A accruing interest. While issuing 1 more SetToken, when we transfer _1000 units_ from the issuer, let's say _10 units_ is charged as the transfer fee, thus the effective amount transferred in is 990 units. Now, if the Set balance had been 10 units more than the min balance, i.e. _>= 2 * 1000 + 10 units_, the extra _10 units_ is absorbed into the set as position units, and the transaction doesn't revert. Also, note that these actions do not affect other components, B & C in the Set. Because during issuance/redemption we deal with each component individually.
 
 ## Open Questions
 
