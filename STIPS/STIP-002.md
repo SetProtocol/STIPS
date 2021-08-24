@@ -28,34 +28,37 @@ In both cases, if the requirement is not met then we revert with "Invalid post t
 - In _DebtIssuanceModule#issue_ and _BasicIssuanceModule#issue_, we transfer the component token from the issuer to the SetToken using the _ModuleBase#transferFrom_ function, which internally calls the _ExplicitERC20#transferFrom_ function, which performs the above mentioned check.
 - In _DebtIssuanceModule#redeem_ and _BasicIssuanceModule#redeem_, we transfer the component from the SetToken to the redeemer using _Invoke#invokeTransfer_ library function along with performing the the above mentioned check.
 
-Now, when issuing/redeeming a SetToken which contain aToken as components, the above check fails. Cause of the failure:
+When issuing/redeeming a SetToken which contain aToken as components, the above check fails. 
+
+### Possible cause of revert
 
 Aave accrues interest every block for an aToken. Internally it updates it's state only when the core functions of LendingPool are called, but view functions such as _aToken.balanceOf()_ always return the most up-to-date value, as they account for the current block number in calculating the balance. Basically they store a scaledBalance for every user and multiply it by the current liquidity index to determine the total aToken balance of the user.
-- aToken.balanceOf() returns scaledBalance * liquidityIndex
-- aToken.transfer(quantity) updates the scaledBalance by adding (quantity/liquidityIndex) to it.
-    - liquidityIndex = (timeDiff/secondsPerYear)*interestRate + 1, hence liquidityIndex is always > 1
-    - timeDiff = block.timestamp - lastUpdatedTimestamp
-    - lastUpdatedTimestamp = timestamp of last block in which there was an interaction with this aToken specific reserve, interactions include calling deposit, withdraw, repay, borrow, flashloan and swapBorrowRate functions on the reserve.
+- `aToken.balanceOf()` returns `scaledBalance * liquidityIndex`
+- `aToken.transfer(quantity)` updates the scaledBalance by adding `(quantity/liquidityIndex)` to it.
+    - `liquidityIndex = (timeDiff/secondsPerYear)*interestRate + 1, hence liquidityIndex is always > 1`
+    - `timeDiff = block.timestamp - lastUpdatedTimestamp`
+    - `lastUpdatedTimestamp` = timestamp of last block in which there was an interaction with this aToken specific reserve, interactions include calling deposit, withdraw, repay, borrow, flashloan and swapBorrowRate functions on the reserve.
 
-Now in our ExplicitERC20#transferFrom function,
-- We call existingBalance = aToken.balanceOf(setToken), which sets 
-existingBalance = initialScaledBalance * index
-- By calling aToken.transfer(quantity), we update baseBalance to newScaledBalance
-newScaledBalance = initialScaledBalance + (quantity/index)
-- Then we set newBalance = aToken.balanceOf(setToken)
-    - newBalance = newScaledBalance * index
-- Finally we require, newBalance == existingBalance + quantity
-    - LHS = newBalance
-        - = newScaledBalance * index
-        - = (initialScaledBalance + (quantity/index)) * index
-        - = (initialScaledBalance * index) + (quantity/index)*index
-    - RHS = existingBalance + quantity
-        - = (initialScaledBalance * index) + quantity
-- Cancelling, initialScaledBalance * index from LHS and RHS,
-- We essentially require, (quantity/index) * index == quantity, with index > 1
+Now in our _ExplicitERC20#transferFrom_ function,
+- We call `existingBalance = aToken.balanceOf(setToken)`, which sets 
+   - `existingBalance = initialScaledBalance * index`
+- By calling `aToken.transfer(quantity)`, we update `baseBalance` to `newScaledBalance`
+   - `newScaledBalance = initialScaledBalance + (quantity/index)`
+- Then we set `newBalance = aToken.balanceOf(setToken)`
+    - `newBalance = newScaledBalance * index`
+- Finally we require, `newBalance == existingBalance + quantity`
+    - `LHS = newBalance`
+        - `= newScaledBalance * index`
+        - `= (initialScaledBalance + (quantity/index)) * index`
+        - `= (initialScaledBalance * index) + (quantity/index)*index`
+    - `RHS = existingBalance + quantity`
+        - `= (initialScaledBalance * index) + quantity`
+- Cancelling, `initialScaledBalance * index` from LHS and RHS,
+- We essentially require, `(quantity/index) * index == quantity`, with index > 1
 - Which will not always be true because solidity uint256 has limited precision and there is a chance of `(quantity/index) * index` to be greater/lesser than `quantity` by 1 wei.
 
 
+Now, in order to improve our checks to make them less strict, and remove the dependency on external fetched token balances and rounding errors in external protocols, we would need to first understand the flow of tokens through the SetToken during issuance/redemption.
 
 ### Understanding flow of tokens through SetToken during **ISSUANCE**
 
