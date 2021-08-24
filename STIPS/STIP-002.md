@@ -492,8 +492,7 @@ r * 1000
 
 
 
-**Note**
-
+#### Note
 * All 7 possible combination of position units that a given component can have are covered in the above table.
     * Default: 0, External: n, p, np (3 cases)
     * Default: 1, External:  0, n, p, np (4 cases)
@@ -501,7 +500,7 @@ r * 1000
 * Multiple positive external positions are the same as a single positive external position because we are summing up all the positive external positions in `DebtIssuanceModule#_getTotalIssuanceUnits`.
 
 
-**Note (for redeeming)**: 
+#### Note (for redeeming): 
 
 * SetToken's are burned at the very beginning of the DebtIssuanceModule#redeem() function, hence in columns 5,6,7,8 (count starting with 1) of the above table, setToken.totalSupply() is `s - r'`, where `r'` is the redeem quantity **without** fees.
 * After column 8, fees are minted to the fee receiver and setToken’s total supply becomes `s - r`.
@@ -510,16 +509,61 @@ r * 1000
 
 ### Option 1:
 
-Instead of over-optimizing our checks to check for balances which effectively prevent both undercollaterlization and overcollaterlization. We can just have checks to prevent undercollaterlization. 
-Pseudocode:
+Instead of over-optimizing our checks to check for balances which effectively prevent both undercollaterlization and overcollaterlization. We can just have checks to prevent undercollaterlization. The change is contained within the smart contracts and doesn't bubble up the stack leading to bigger changes in our backend.
+
+The proposed checks for undercollateralization are performed right after the transfer happens, so that we revert immediately and save gas. When token is transferred in, we wish to check the right amount of equity/debt was passed in before we try to transfer it out to external protocols. When token is transferred out, we validate that we are not undercollateralized after the transfer.
+
+### Proposed checks during Issuance
+* In `_resolveEquityPositions` we can validate balances after the equity is transferred but before the external position hooks are called, because
+* Proposed check:
+
+```javascript
+uint256   defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
+cumulativeEquity = defaultPositionUnit
+externalPositionModules = setToken.getExternalPositionModules(component)
+For each externalPositionModule in externalPositionModules
+   externalPositionUnit = setToken.getExternalPositionRealUnit(component, externalPositionModule)
+   If (externalPositionUnit > 0)
+      cumulativeEquity = cumulativeEquity.add(externalPositionUnit);
+newBalance = component.balanceOf(setToken)
+require(newBalance > s * defaultPositionUnit + i * cumulativeEquity)
+```
+
+* In `_resolveDebtPositions` we validate set collateralization after debt is transferred back to the user.
+* Proposed check:
+
+```javascript
+defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
+newBalance = component.balanceOf(setToken)
+require(newBalance >= (s+i) * defaultPositionUnit)
+```
+
+
+### Proposed checks during Redeeming
+
+* In `_resolveDebtPositions` we can check balances after debt is transferred but before the external position hooks are called.
+* Check:
+
+```javascript
+defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
+cumulativeDebt = 0
+externalPositionModules = setToken.getExternalPositionModules(component)
+For each externalPositionModule in externalPositionModules
+   externalPositionUnit = setToken.getExternalPositionRealUnit(component, externalPositionModule)
+   If (externalPositionUnit &lt; 0)
+      cumulativeDebt = cumulativeDebt.add(externalPositionUnit);
+newBalance = component.balanceOf(setToken)
+require(newBalance >= s * defaultPositionUnit + r *  cumulativeDebt.mul(-1).toUint256())
+```
+
+* In `_resolveEquityPositions` we validate collateralization after equity is transferred from the SetToken to the redeemer
+* Check:
+
 ```javascript
 defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
 newBalance = component.balanceOf(setToken)
 require(newBalance >= (s-r) * defaultPositionUnit)
 ```
-
-- We have reduced the strictness in the above checks and replaced balance checks with checks to prevent undercollateralization.
-- The change is contained within the smart contracts and doesn't bubble up the stack leading to bigger changes in our backend.
 
 `NOTE`: Introduction of above checks means a token which charges a fee upon transfer could in theory be used to get any excess amount of that token held by the Set. Excess amount being defined as a remaining amount of wei from a manager action OR any potential tokens accrued to the Set via farming but not yet "absorbed" into a position via the AirdropModule. Although, this can NOT affect other tokens in the Set but only the token that charges the transfer fees (i.e. any other token that has not been absorbed into a position could not be stolen).
 
