@@ -40,18 +40,18 @@ Aave accrues interest every block for an aToken. Internally it updates it's stat
     - _lastUpdatedTimestamp_ = timestamp of last block in which there was an interaction with this aToken specific reserve, interactions include calling deposit, withdraw, repay, borrow, flashloan and swapBorrowRate functions on the reserve.
 
 Now in our _ExplicitERC20#transferFrom_ function,
-- We call _existingBalance = aToken.balanceOf(setToken)_, which sets 
-   - _existingBalance = initialScaledBalance * index_
-- By calling _aToken.transfer(quantity)_, we update _baseBalance_ to _newScaledBalance_
-   - _newScaledBalance = initialScaledBalance + (quantity/index)_
-- Then we set _newBalance = aToken.balanceOf(setToken)_
-    - _newBalance = newScaledBalance * index_
-- Finally we require, _newBalance == existingBalance + quantity_
-    - _LHS = newBalance_
+* We call _existingBalance = aToken.balanceOf(setToken)_, which sets 
+   * _existingBalance = initialScaledBalance * index_
+* By calling _aToken.transfer(quantity)_, we update _baseBalance_ to _newScaledBalance_
+   * _newScaledBalance = initialScaledBalance + (quantity/index)_
+* Then we set _newBalance = aToken.balanceOf(setToken)_
+   * _newBalance = newScaledBalance * index_
+* Finally we require, _newBalance == existingBalance + quantity_
+   * _LHS = newBalance_
         - _= newScaledBalance * index_
         - _= (initialScaledBalance + (quantity/index)) * index_
         - _= (initialScaledBalance * index) + (quantity/index)*index_
-    - _RHS = existingBalance + quantity_
+   * _RHS = existingBalance + quantity_
         - _= (initialScaledBalance * index) + quantity_
 
 - Cancelling, _initialScaledBalance * index_ from LHS and RHS,
@@ -656,7 +656,7 @@ A library contract containing a collection of utility functions to help during i
 - On transfer OUT, we ensure collateralization by making sure the new component balance is greater than the `required` balance considering the new SetToken supply.
 
 
-1. **validateCollateralizationPostTransferInPreHook**
+> **validateCollateralizationPostTransferInPreHook**
 * Checks for *newBalance >= s * defaultPositionUnit + _componentQuantity*, where *s* is token supply before issuance/redemption. 
 ```solidity
 /**
@@ -691,7 +691,7 @@ function validateCollateralizationPostTransferInPreHook(
 
 * If we write a new *BasicIssuanceModule* contract, then this function can be used to validate collateralization after component transfer in the *issue()* function.
 
-2. **validateCollateralizationPostTransferOut**
+>  **validateCollateralizationPostTransferOut**
 * Checks for *newBalance >= newTotalSupply * defaultPositionUnit*.
 ```solidity
 /**
@@ -711,6 +711,14 @@ function validateCollateralizationPostTransferOut(
    internal 
    view 
 ```
+
+* Called in *DebtIssuanceModuleV2#_resolveDebtPositions* during redemption after each debt is transferred out to the redeemer.
+   * Check we devised above: _require(newBalance >= (s+i) * defaultPositionUnit)_ which is equivalent to the check performed by the function.
+   
+* Called in *DebtIssuanceModuleV2#_resolveDebtPositions* during issuance after each debt component is transferred out to the redeemer.
+   * Check we devised above: _require(newBalance >= (s-r) * defaultPositionUnit)_ which is equivalent to the check performed by the function.
+   
+* If we write a new *BasicIssuanceModule* contract, then this function can be used to validate collateralization after each component is transfer out in the *redeem()* function.
 
 #### DebtIssuanceModuleV2
 * Extends the existing DebtIssuanceModule contract.
