@@ -667,7 +667,8 @@ A library contract containing a collection of utility functions to help during i
  * @param _component            Address of component being transferred in/out
  * @param _componentQuantity    Amount of component transferred into SetToken
  * @param _isIssue              True if issuing SetToken, false if redeeming
- * @param _setQuantity          Amount of SetToken being issued/redeemed with/net fees
+ * @param _setQuantity          Amount of SetToken burnt in this transaction. If being issued, pass 0.
+ *                              This value is used to calculate the current SetToken supply.
  */
 function validateCollateralizationPostTransferInPreHook(
    ISetToken _setToken, 
@@ -700,7 +701,8 @@ function validateCollateralizationPostTransferInPreHook(
  * @param _setToken         Instance of the SetToken being issued/redeemed
  * @param _component        Address of component being transferred in/out
  * @param _isIssue          True if issuing SetToken, false if redeeming
- * @param _setQuantity      Amount of SetToken being issued/redeemed with/net fees
+ * @param _setQuantity      Amount of SetToken being issued with fees. If being redeemed, pass 0.
+ *                          This value is used to calculate the new SetToken total supply.
  */
 function validateCollateralizationPostTransferOut(
    ISetToken _setToken, 
