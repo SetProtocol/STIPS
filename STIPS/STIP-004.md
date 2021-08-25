@@ -523,11 +523,11 @@ Instead of over-optimizing our checks to check for balances which effectively pr
 The proposed checks for undercollateralization are performed right after the transfer happens, so that we revert immediately and save gas. When token is transferred in, we wish to check the right amount of equity/debt was passed in before we try to transfer it out to external protocols. When token is transferred out, we validate that we are not undercollateralized after the transfer.
 
 ### Proposed checks during Issuance
-* In `_resolveEquityPositions` we can validate balances after the equity is transferred but before the external position hooks are called, because
+* In *_resolveEquityPositions* we can validate balances after the equity is transferred but before the external position hooks are called, because
 * Proposed check:
 
-```javascript
-// This is pseudocode. It is not optimized and explicitly shows all the steps to give a better understanding of what the checks entail.
+```solidity
+// This is non-optimized pseudocode and explicitly includes all the steps to give a better understanding of what the checks entail.
 // Find the optimized and implementable version in Checkpoint 2
 uint256 defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
 uint256 cumulativeEquity = defaultPositionUnit
@@ -541,10 +541,10 @@ uint256 newBalance = component.balanceOf(setToken)
 require(newBalance >= s * defaultPositionUnit + i * cumulativeEquity)
 ```
 
-* In `_resolveDebtPositions` we validate set collateralization after debt is transferred back to the user.
+* In *_resolveDebtPositions* we validate set collateralization after debt is transferred back to the user.
 * Proposed check:
 
-```javascript
+```solidity
 // Non-optimized pseudocode
 defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
 newBalance = component.balanceOf(setToken)
@@ -554,11 +554,11 @@ require(newBalance >= (s+i) * defaultPositionUnit)
 
 ### Proposed checks during Redeeming
 
-* In `_resolveDebtPositions` we can check balances after debt is transferred but before the external position hooks are called.
+* In *_resolveDebtPositions* we can check balances after debt is transferred but before the external position hooks are called.
 * Check:
 
-```javascript
-// This is pseudocode. It is not optimized and explicitly shows all the steps to give a better understanding of what the checks entail.
+```solidity
+// This is non-optimized pseudocode and explicitly includes all the steps to give a better understanding of what the checks entail.
 // Find the optimized and implementable version in Checkpoint 2
 defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
 cumulativeDebt = 0
@@ -571,10 +571,10 @@ newBalance = component.balanceOf(setToken)
 require(newBalance >= s * defaultPositionUnit + r *  cumulativeDebt.mul(-1).toUint256())
 ```
 
-* In `_resolveEquityPositions` we validate collateralization after equity is transferred from the SetToken to the redeemer
+* In *_resolveEquityPositions* we validate collateralization after equity is transferred from the SetToken to the redeemer
 * Check:
 
-```javascript
+```solidity
 // Non-optimized pseudocode
 defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
 newBalance = component.balanceOf(setToken)
@@ -642,3 +642,68 @@ require(newBalance >= (s-r) * defaultPositionUnit)
 ## Checkpoint 1
 
 **Reviewer**:
+
+## Proposed Architecture Changes
+### IssuanceUtils 
+A library contract containing a collection of utility functions to help during issuance/redemption of SetToken. This contract would contain the proposed collateralization checks and would be called from issuance modules.
+
+#### Methods
+
+* The methods are categorized into validate collateralization after components are transferred
+   * IN to the SetToken during issuance/redemption
+   * OUT of the SetToken during issuance/redemption
+
+* On transfer IN, we ensure collateralization by making sure the new component balance is greater than the sum of the `required` existing balance and component quantity transferred in.
+* On transfer OUT, we ensure collateralization by making sure the new component balance is greater than the `required` balance considering the new SetToken supply.
+
+
+1. **validateCollateralizationPostTransferInPreHook**
+* Checks for *newBalance >= s * defaultPositionUnit + _componentQuantity*, where *s* is token supply before issuance/redemption. 
+```solidity
+/**
+ * Validates component transfer IN to SetToken during issuance/redemption. Reverts if Set is undercollateralized post transfer.
+ * NOTE: Call this function immediately after transfer IN but before calling external hooks (if any).
+ *
+ * @param _setToken             Instance of the SetToken being issued/redeemed
+ * @param _component            Address of component being transferred in/out
+ * @param _componentQuantity    Amount of component transferred into SetToken
+ * @param _isIssue              True if issuing SetToken, false if redeeming
+ * @param _setQuantity          Amount of SetToken being issued/redeemed with/net fees
+ */
+function validateCollateralizationPostTransferInPreHook(
+   ISetToken _setToken, 
+   address _component, 
+   uint256 _componentQuantity, 
+   bool _isIssue, 
+   uint256 _setQuantity
+) 
+   internal view
+```
+
+2. **validateCollateralizationPostTransferOut**
+* Checks for *newBalance >= newTotalSupply * defaultPositionUnit*.
+```solidity
+/**
+ * Validates component transfer OUT of SetToken during issuance/redemption. Reverts if Set is undercollateralized post transfer.
+ *
+ * @param _setToken         Instance of the SetToken being issued/redeemed
+ * @param _component        Address of component being transferred in/out
+ * @param _isIssue          True if issuing SetToken, false if redeeming
+ * @param _setQuantity      Amount of SetToken being issued/redeemed with/net fees
+ */
+function validateCollateralizationPostTransferOut(
+   ISetToken _setToken, 
+   address _component, 
+   bool _isIssue, 
+   uint256 _setQuantity
+) 
+   internal 
+   view 
+```
+
+#### DebtIssuanceModuleV2
+* Extends the existing DebtIssuanceModule contract.
+* Overrides the `_resolveEquityPositions` and `_resolveDebtPositions` internal functions and includes the new checks in place of old stricter checks.
+
+## Checkpoint 2
+Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
