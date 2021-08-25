@@ -1,4 +1,4 @@
-# STIP-[004]: Fix aToken issuance bug
+# STIP-[004]: Issuance Modules V2
 *Using template v0.1*
 ## Abstract
 
@@ -527,7 +527,8 @@ The proposed checks for undercollateralization are performed right after the tra
 * Proposed check:
 
 ```javascript
-// pseudocode
+// This is pseudocode. It is not optimized and explicitly shows all the steps to give a better understanding of what the checks entail.
+// Find the optimized and implementable version in Checkpoint 2
 uint256 defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
 uint256 cumulativeEquity = defaultPositionUnit
 address[] externalPositionModules = setToken.getExternalPositionModules(component)
@@ -537,14 +538,14 @@ for externalPositionModule in externalPositionModules {
       cumulativeEquity = cumulativeEquity.add(externalPositionUnit);
 }
 uint256 newBalance = component.balanceOf(setToken)
-require(newBalance > s * defaultPositionUnit + i * cumulativeEquity)
+require(newBalance >= s * defaultPositionUnit + i * cumulativeEquity)
 ```
 
 * In `_resolveDebtPositions` we validate set collateralization after debt is transferred back to the user.
 * Proposed check:
 
 ```javascript
-// pseudocode
+// Non-optimized pseudocode
 defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
 newBalance = component.balanceOf(setToken)
 require(newBalance >= (s+i) * defaultPositionUnit)
@@ -557,7 +558,8 @@ require(newBalance >= (s+i) * defaultPositionUnit)
 * Check:
 
 ```javascript
-// pseudocode
+// This is pseudocode. It is not optimized and explicitly shows all the steps to give a better understanding of what the checks entail.
+// Find the optimized and implementable version in Checkpoint 2
 defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
 cumulativeDebt = 0
 externalPositionModules = setToken.getExternalPositionModules(component)
@@ -573,7 +575,7 @@ require(newBalance >= s * defaultPositionUnit + r *  cumulativeDebt.mul(-1).toUi
 * Check:
 
 ```javascript
-// pseudocode
+// Non-optimized pseudocode
 defaultPositionUnit = setToken.getDefaultPositionRealUnit(component)
 newBalance = component.balanceOf(setToken)
 require(newBalance >= (s-r) * defaultPositionUnit)
