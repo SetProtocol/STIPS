@@ -720,7 +720,7 @@ function validateCollateralizationPostTransferOut(
    
 * If we write a new *BasicIssuanceModule* contract, then this function can be used to validate collateralization after each component is transfer out in the *redeem()* function.
 
-#### DebtIssuanceModuleV2
+### DebtIssuanceModuleV2
 * Extends the existing DebtIssuanceModule contract.
 * Overrides the `_resolveEquityPositions` and `_resolveDebtPositions` internal functions and includes the new checks in place of old stricter checks.
 
