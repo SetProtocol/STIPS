@@ -649,12 +649,11 @@ A library contract containing a collection of utility functions to help during i
 
 #### Methods
 
-* The methods are categorized into validate collateralization after components are transferred
-   * IN to the SetToken during issuance/redemption
-   * OUT of the SetToken during issuance/redemption
-
-* On transfer IN, we ensure collateralization by making sure the new component balance is greater than the sum of the `required` existing balance and component quantity transferred in.
-* On transfer OUT, we ensure collateralization by making sure the new component balance is greater than the `required` balance considering the new SetToken supply.
+- The methods are categorized into validate collateralization after components are transferred
+   - IN to the SetToken during issuance/redemption
+   - OUT of the SetToken during issuance/redemption
+- On transfer IN, we ensure collateralization by making sure the new component balance is greater than the sum of the `required` existing balance and component quantity transferred in.
+- On transfer OUT, we ensure collateralization by making sure the new component balance is greater than the `required` balance considering the new SetToken supply.
 
 
 1. **validateCollateralizationPostTransferInPreHook**
@@ -679,6 +678,18 @@ function validateCollateralizationPostTransferInPreHook(
 ) 
    internal view
 ```
+
+* Called in *DebtIssuanceModuleV2#_resolveEquityPositions* during issuance after each equity is transferred in but before external component hooks are called.
+   * Check we devised above: _require(newBalance >= s * defaultPositionUnit + i * cumulativeEquity)_
+   * _i * cumulativeEquity_ has been pre-calculated in _DebtIssuanceModule#_calculateRequiredComponentIssuanceUnits* and is stored in *_componentQuantity* variable, and thus can be reused here.
+   * Hence, the proposed check reduces to *require(newBalance >= s * defaultPositionUnit + _componentQuantity)* which is equivalent to the check performed by the function.
+   
+* Called in *DebtIssuanceModuleV2#_resolveDebtPositions* during issuance after each debt component is transferred in but before external component hooks are called.
+   * Check we devised above: _require(newBalance >= s * defaultPositionUnit + r *  cumulativeDebt.mul(-1).toUint256())_
+   * _r * cumulativeDebt.mul(-1).toUint256()_ has been pre-calculated in *DebtIssuanceModule#_calculateRequiredComponentIssuanceUnits* and is stored in *_componentQuantity* variable, and thus can be reused here.
+   * Hence, the proposed check reduces to *require(newBalance >= s * defaultPositionUnit + _componentQuantity)* which is equivalent to the check performed by the function.
+
+* If we write a new *BasicIssuanceModule* contract, then this function can be used to validate collateralization after component transfer in the *issue()* function.
 
 2. **validateCollateralizationPostTransferOut**
 * Checks for *newBalance >= newTotalSupply * defaultPositionUnit*.
