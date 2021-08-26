@@ -665,17 +665,14 @@ A library contract containing a collection of utility functions to help during i
  *
  * @param _setToken             Instance of the SetToken being issued/redeemed
  * @param _component            Address of component being transferred in/out
+ * @param _initialSetSupply     Initial set token supply before issuance/redemption
  * @param _componentQuantity    Amount of component transferred into SetToken
- * @param _isIssue              True if issuing SetToken, false if redeeming
- * @param _setQuantity          Amount of SetToken burnt in this transaction, i.e. redeem amount without considering fees. If being issued, pass 0.
- *                              This value is used to calculate the current SetToken supply.
  */
 function validateCollateralizationPostTransferInPreHook(
    ISetToken _setToken, 
    address _component, 
-   uint256 _componentQuantity, 
-   bool _isIssue, 
-   uint256 _setQuantity
+   uint256 _initialSetSupply
+   uint256 _componentQuantity,
 ) 
    internal view
 ```
@@ -692,14 +689,6 @@ function validateCollateralizationPostTransferInPreHook(
 
 * If we write a new *BasicIssuanceModule* contract, then this function can be used to validate collateralization after component transfer in the *issue()* function.
 
-* Calculating `s` (initial set supply):
-   * During `issuance`
-      * Since mint happens after validation.
-      * _s = setToken.totalSupply()_;
-   * During `redemption`
-      * Burn happens at the very beginning of the DebtIssuanceModule#redeem() function.
-      * _setToken.totalSupply()_ is `s - r'`, where `r'` is the redeem quantity **without** fees.
-      * Therefore, _s = setToken.totalSupply() + r'_
 
 >  **validateCollateralizationPostTransferOut**
 * Checks for *newBalance >= newTotalSupply * defaultPositionUnit*.
@@ -709,15 +698,12 @@ function validateCollateralizationPostTransferInPreHook(
  *
  * @param _setToken         Instance of the SetToken being issued/redeemed
  * @param _component        Address of component being transferred in/out
- * @param _isIssue          True if issuing SetToken, false if redeeming
- * @param _setQuantity      Amount of SetToken being issued with fees. If being redeemed, pass 0.
- *                          This value is used to calculate the new SetToken total supply.
+ * @param _finalSetSupply   Final set supply after issuance/redemption
  */
 function validateCollateralizationPostTransferOut(
    ISetToken _setToken, 
    address _component, 
-   bool _isIssue, 
-   uint256 _setQuantity
+   uint256 _finalSetSupply
 ) 
    internal 
    view 
@@ -728,14 +714,6 @@ function validateCollateralizationPostTransferOut(
    
 * Called in *DebtIssuanceModuleV2#_resolveDebtPositions* during issuance after each debt component is transferred out to the redeemer.
    * Check we devised above: _require(newBalance >= (s-r) * defaultPositionUnit)_ which is equivalent to the check performed by the function.
-
-* Calculating _newTotalSupply_:
-   * During `issuance`
-      * Since mint happens after validation.
-      * *newTotalSupply = setToken.totalSupply()_ + setQuantity*;
-   * During `redemption`
-      * Burn happens at the very beginning of the DebtIssuanceModule#redeem() function.
-      * Therefore, _newTotalSupply = setToken.totalSupply()_
 
 * If we write a new *BasicIssuanceModule* contract, then this function can be used to validate collateralization after each component is transfer out in the *redeem()* function.
 
