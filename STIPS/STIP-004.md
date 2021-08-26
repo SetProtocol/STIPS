@@ -644,7 +644,7 @@ require(newBalance >= (s-r) * defaultPositionUnit)
 **Reviewer**:
 
 ## Proposed Architecture Changes
-### IssuanceUtils 
+### IssuanceValidationUtils 
 A library contract containing a collection of utility functions to help during issuance/redemption of SetToken. This contract would contain the proposed collateralization checks and would be called from issuance modules.
 
 #### Methods
@@ -667,7 +667,7 @@ A library contract containing a collection of utility functions to help during i
  * @param _component            Address of component being transferred in/out
  * @param _componentQuantity    Amount of component transferred into SetToken
  * @param _isIssue              True if issuing SetToken, false if redeeming
- * @param _setQuantity          Amount of SetToken burnt in this transaction. If being issued, pass 0.
+ * @param _setQuantity          Amount of SetToken burnt in this transaction, i.e. redeem amount without considering fees. If being issued, pass 0.
  *                              This value is used to calculate the current SetToken supply.
  */
 function validateCollateralizationPostTransferInPreHook(
@@ -691,6 +691,15 @@ function validateCollateralizationPostTransferInPreHook(
    * Hence, the proposed check reduces to *require(newBalance >= s * defaultPositionUnit + _componentQuantity)* which is equivalent to the check performed by the function.
 
 * If we write a new *BasicIssuanceModule* contract, then this function can be used to validate collateralization after component transfer in the *issue()* function.
+
+* Calculating `s` (initial set supply):
+   * During `issuance`
+      * Since mint happens after validation.
+      * _s = setToken.totalSupply()_;
+   * During `redemption`
+      * Burn happens at the very beginning of the DebtIssuanceModule#redeem() function.
+      * _setToken.totalSupply()_ is `s - r'`, where `r'` is the redeem quantity **without** fees.
+      * Therefore, _s = setToken.totalSupply() + r'_
 
 >  **validateCollateralizationPostTransferOut**
 * Checks for *newBalance >= newTotalSupply * defaultPositionUnit*.
@@ -719,7 +728,15 @@ function validateCollateralizationPostTransferOut(
    
 * Called in *DebtIssuanceModuleV2#_resolveDebtPositions* during issuance after each debt component is transferred out to the redeemer.
    * Check we devised above: _require(newBalance >= (s-r) * defaultPositionUnit)_ which is equivalent to the check performed by the function.
-   
+
+* Calculating _newTotalSupply_:
+   * During `issuance`
+      * Since mint happens after validation.
+      * *newTotalSupply = setToken.totalSupply()_ + setQuantity*;
+   * During `redemption`
+      * Burn happens at the very beginning of the DebtIssuanceModule#redeem() function.
+      * Therefore, _newTotalSupply = setToken.totalSupply()_
+
 * If we write a new *BasicIssuanceModule* contract, then this function can be used to validate collateralization after each component is transfer out in the *redeem()* function.
 
 ### DebtIssuanceModuleV2
