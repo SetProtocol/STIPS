@@ -397,7 +397,7 @@ Sync, issuance and redemption are fundamentally different and more complex.
    <td>
      <p> First determine the additional amount of virtual assets we need exposure to: </p>
      <p> &nbsp;&nbsp;<em> newVAssetUnit = mintQuantity * vSetToken.getDefaultPositionRealUnit(vAsset) </em> </p>
-     <p> Calculate the amount of USDC required to buy newVAssetUnit by simulating a trade on Perp’s vAMM </p>
+     <p> Calculate the amount of USDC required to buy newVAssetUnit by simulating a trade on Perp’s vAMM. The delta quote returned by the simulation will include realized funding payments and fees. These will be distributed across the real SetToken's external USDC position. </p>
      <p> &nbsp;&nbsp;<em> deltaQuote = getQuoteForVAsset(vAsset, newVAssetUnit, direction=long | short)</em> </p>
      <p> Update the real SetToken’s external position for USDC as below. (For a SetToken with multiple positions in multiple virtual assets we would have to sum up all delta) </p>
      <p> &nbsp;&nbsp;<em> newTotalSupply = realSetToken.totalSupply + mintQuantity </em> </p>
@@ -485,9 +485,9 @@ Then, iterate on default positions of virtual SetToken, opening positions
 (Update external USDC position on the real SetToken)
    </td>
    <td>
-     <p>First determine the additional amount of virtual assets we need to reduce exposure to:</p>
+     <p>First determine the amount of virtual assets we need to reduce exposure to:</p>
      <p><em>&nbsp;&nbsp;newVAssetUnit = redeemQuantity * vSetToken.getDefaultPositionRealUnit(vAsset)</em></p>
-     <p>Calculate the amount of USDC required to buy newVAssetUnit by simulating a trade on Perp’s vAMM (or fetching a quote from them)</p>
+     <p>Calculate the amount of USDC we would receive by simulating closing a position on the external protocol. The delta quote returned by the simulation will include realized funding payments and fees. These will be distributed across the real SetToken's external USDC position. </p>
   <p>&nbsp;&nbsp;<em>deltaQuote = getQuoteForVAsset(vAsset, newVAssetUnit, direction=long | short)</em></p>
   <p> Update the real SetToken’s external position for USDC as below. (For a SetToken with multiple positions in multiple virtual assets we would have to sum up all delta)<p>
   <p> &nbsp;&nbsp;<em>newTotalSupply = realSetToken.totalSupply - redeemQuantity</em> </p>
