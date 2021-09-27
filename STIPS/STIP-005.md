@@ -74,14 +74,6 @@ Oracles (for spot prices) are used to:
 * calculate funding payments
 * value account positions for the purposes of margin calculations.
 
-Funding payments between makers and takers are based on the difference between the AMM price and the oracle price and accrue over time following the formula below.
-
-```
-positionSize * (AMM market price - Oracle price) *  ( seconds since open / 86,400)
-```
-
-If a taker opens a long position and the oracle price is below AMM market, they pay funding fees. If the oracle price is above AMM market price, they receive them. Funding payments are settled when the trader closes a position, realizing their PNL. They are calculated using the  AMM price and the 15 min TWAP oracle price read during settlement.
-
 #### Trading
 
 Traders interact with the protocol through the [ClearingHouse][1] contract which provides an API to open and close positions. The interface follows the Uniswap pattern for swaps and _openPosition_ can be configured to
@@ -138,6 +130,8 @@ A simplified formula for how these payments are calculated is:
    time = seconds since position opened / 86400
    pendingFundingPayment = _positionSize * (AMM market price - Oracle price) *  time
 ```
+
+If a taker opens a long position and the oracle price is below AMM market, they pay funding fees. If the oracle price is above AMM market price, they receive them. Funding payments are settled when the trader closes a position, realizing their PNL. They are calculated using the  AMM price and the 15 min TWAP oracle price read during settlement.
 
 Traders settle their pending funding payments whenever they open, modify or close a position. For the module's purposes this means funding is credited or debited during issuance, redemption, lever, and delever.
 
