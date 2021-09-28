@@ -524,16 +524,28 @@ Then, iterate on default positions of virtual SetToken, opening positions
         * Gas based throttling
         * ~~EOA only (not viable since contracts are the rebalancers)~~
         *
-* Why does free collateral decline as the Oracle price moves up, independent of any other change.
-* Total unrealized PNL seems highly decoupled from realizable values. To value our position at any moment, is synthesizing the owedRealizedPNL the right approach? (Asked in Telegram)
-* What is the best way to get a trade quote? (Asked in Telegram)
-* What is an[ “index price spread attack](https://github.com/perpetual-protocol/perp-lushan/blob/67d7550fd0fd9fc1ca277a356c53e04bc9ac1985/test/clearingHouse/ClearingHouse.openPosition.test.ts#L204)”  (Asked in Telegram)
+* Why does free collateral decline as the Oracle price moves up, independent of any other change?
+* Total unrealized PNL seems highly decoupled from realizable values. To value our position at any moment, is synthesizing the owedRealizedPNL the right approach / What is the best way to get a trade quote? (Asked in Telegram) 
+  + > (Shao Kang-Lee in Telegram): "since uniV3 can't calculate something like getAmountOut before, so we learn from their Periphery repo's - we can call our [Quoter.swap][300] to get the return amount, then calculate the pnl based on market price with slippage. However, we don't recommend to use it onchain because [it's very gas intensive]"
+* What is an[ “index price spread attack][301]”
+  + > (Shao Kang-Lee in Telegram) "..this is being solved": Perp team design discussion here: [index price spread attack][303].
+  + > Summary: this is a potential Perp Protocol vulnerability in which someone could open a long position with zero collateral 
+      under certain conditions. (Currently precluded by the "conservative" formula they use to calculate margin requirements) 
+* What is a “[bad debt attack][302]” ? 
+  + > (Shao Kang-Lee in Telegram) "..this is being solved": Perp team design discussion here: [bad debt attack][304]
+  + > Summary: The attacker takes a large short position, driving AMM prices lower such that underwater longs can be liquidated. 
+      Long positions are then closed by force, the market drops and the attacker closes their short position at a profit. 
 * What exposure to flash loans does the funding mechanism have?
     * Can check this by reading pendingFunding between fnCall’s that move the pool price….
-* What is a “[bad debt attack](https://github.com/perpetual-protocol/perp-lushan/blob/67d7550fd0fd9fc1ca277a356c53e04bc9ac1985/test/clearingHouse/ClearingHouse.partialClose.test.ts#L244-L252)” ? (Asked in Telegram)
 * What is the system’s behavior in a flash crash?
     * [2021/2/21 BTC Flash Crash](https://medium.com/perpetual-protocol/2021-2-21-btc-flash-crash-149eef35f7f8) (V1)
     * [2021/4/18 Flash Crash](https://perpetualprotocol.medium.com/2021-4-18-flash-crash-19d9a1a16047) (V1)
+
+[300]: https://github.com/perpetual-protocol/perp-lushan/blob/main/contracts/lens/Quoter.sol
+[301]: https://github.com/perpetual-protocol/perp-lushan/blob/67d7550fd0fd9fc1ca277a356c53e04bc9ac1985/test/clearingHouse/ClearingHouse.openPosition.test.ts#L204
+[302]: https://github.com/perpetual-protocol/perp-lushan/blob/67d7550fd0fd9fc1ca277a356c53e04bc9ac1985/test/clearingHouse/ClearingHouse.partialClose.test.ts#L244-L252
+[303]: https://perp.notion.site/Index-price-spread-attack-2f203d45b34f4cc3ab80ac835247030f
+[304]: https://perp.notion.site/Bad-Debt-Attack-5cd74c9cc0b845ffa3cf13012c7fdb8c
 
 ### Other Perpetual Protocols
 
