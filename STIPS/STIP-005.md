@@ -390,9 +390,9 @@ Sync, issuance and redemption are fundamentally different and more complex.
    </td>
    <td>
      <p> First determine the additional amount of virtual assets we need exposure to: </p>
-     <p> &nbsp;&nbsp;<em> newVAssetUnit = mintQuantity * vSetToken.getDefaultPositionRealUnit(vAsset) </em> </p>
-     <p> Calculate the amount of USDC required to buy newVAssetUnit by simulating a trade on Perp’s vAMM. The delta quote returned by the simulation will include realized funding payments and fees. These will be distributed across the real SetToken's external USDC position. </p>
-     <p> &nbsp;&nbsp;<em> deltaQuote = getQuoteForVAsset(vAsset, newVAssetUnit, direction=long | short)</em> </p>
+     <p> &nbsp;&nbsp;<em> vAssetAmount = mintQuantity * vSetToken.getDefaultPositionRealUnit(vAsset) </em> </p>
+     <p> Calculate the amount of USDC required to buy vAssetAmount by simulating a trade on Perp’s vAMM. The delta quote returned by the simulation will include realized funding payments and fees. These will be distributed across the real SetToken's external USDC position. </p>
+     <p> &nbsp;&nbsp;<em> deltaQuote = getQuoteForVAsset(vAsset, vAssetAmount, direction=long | short)</em> </p>
      <p> Update the real SetToken’s external position for USDC as below. (For a SetToken with multiple positions in multiple virtual assets we would have to sum up all delta) </p>
      <p> &nbsp;&nbsp;<em> newTotalSupply = realSetToken.totalSupply + mintQuantity </em> </p>
      <p> &nbsp;&nbsp;<em> newUSDCTotal = externalUSDCPositionUnit * realSetToken.totalSupply + deltaQuote </em> </p>
@@ -415,7 +415,7 @@ Sync, issuance and redemption are fundamentally different and more complex.
 Then, iterate on default positions of virtual SetToken, opening positions
    <p> &nbsp;&nbsp;<em>for asset[i], positionUnit[i] of virtual SetToken</em></p>
      <p> &nbsp;&nbsp;&nbsp;&nbsp;<em>  tradeAmount = positionUnit[i] * mintQuantity</em> </p>
-     <p> &nbsp;&nbsp;&nbsp;&nbsp;<em>  ClearingHouse.openPositon(asset[i], tradeAmount)</em> </p>
+     <p> &nbsp;&nbsp;&nbsp;&nbsp;<em>  ClearingHouse.openPosition(asset[i], tradeAmount)</em> </p>
    </td>
   </tr>
 </table>
@@ -437,7 +437,7 @@ Then, iterate on default positions of virtual SetToken, opening positions
    <td>
 <ul>
 
-<li>User calls r<em>edeem(redeemQuantity)</em> on DIM
+<li>User calls <em>redeem(redeemQuantity)</em> on DIM
 
 <li>DIM calls PerpV2Module redeem hook
 
@@ -480,9 +480,9 @@ Then, iterate on default positions of virtual SetToken, opening positions
    </td>
    <td>
      <p>First determine the amount of virtual assets we need to reduce exposure to:</p>
-     <p><em>&nbsp;&nbsp;newVAssetUnit = redeemQuantity * vSetToken.getDefaultPositionRealUnit(vAsset)</em></p>
+     <p><em>&nbsp;&nbsp;vAssetAmount = redeemQuantity * vSetToken.getDefaultPositionRealUnit(vAsset)</em></p>
      <p>Calculate the amount of USDC we would receive by simulating closing a position on the external protocol. The delta quote returned by the simulation will include realized funding payments and fees. These will be distributed across the real SetToken's external USDC position. </p>
-  <p>&nbsp;&nbsp;<em>deltaQuote = getQuoteForVAsset(vAsset, newVAssetUnit, direction=long | short)</em></p>
+  <p>&nbsp;&nbsp;<em>deltaQuote = getQuoteForVAsset(vAsset, vAssetAmount, direction=long | short)</em></p>
   <p> Update the real SetToken’s external position for USDC as below. (For a SetToken with multiple positions in multiple virtual assets we would have to sum up all delta)<p>
   <p> &nbsp;&nbsp;<em>newTotalSupply = realSetToken.totalSupply - redeemQuantity</em> </p>
   <p> &nbsp;&nbsp;<em>newUSDCTotal = externalUSDCPositionUnit * realSetToken.totalSupply - deltaQuote</em></p>
