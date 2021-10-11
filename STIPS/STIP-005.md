@@ -14,6 +14,7 @@ We have previously implemented the TradeModule and GeneralIndexModule. This will
 ## Open Questions
 - [ ] Should we ensure that manager must have capital in the Set to charge volume fees?
     - No, we can encourage in the UI instead for retail managers. This would also break for cases where the manager is a smart contract
+- [ ] Should we name this TradeModuleV2 or TradeModuleWithRebates?
 
 ## Feasibility Analysis
 
