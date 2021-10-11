@@ -58,11 +58,13 @@ managerFee = totalFee.sub(protocolFee);
 Option 1 will require the least code changes while giving us the ability to emulate fee rebates. The maxManagerFee can be enforced either on initialization (still susceptible to manager rugging by removing and reinitializing) or stored on the Controller by governance
 
 ## Timeline
-1 day spec
-2 day implementation
-1 day review
-1 day deploy script
-1 day testing
+- Spec + review: 2 days
+- Implementation: 2 days
+- Internal review: 1 days
+- Deployment scripts: 1 day
+- Deploy to testnet: 1 day
+- Testing: 1 day
+- Write docs: 1 day
 
 ## Checkpoint 1
 Before more in depth design of the contract flows lets make sure that all the work done to this point has been exhaustive. It should be clear what we're doing, why, and for who. All necessary information on external protocols should be gathered and potential solutions considered. At this point we should be in alignment with product on the non-technical requirements for this feature. It is up to the reviewer to determine whether we move onto the next step.
