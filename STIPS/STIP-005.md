@@ -4,30 +4,27 @@
 The current TradeModule and GeneralIndexModule do not support volume based fees or rebates for the manager. This is in contrast to the issuance module. There is demand for additional fee types that managers can charge, specifically to be on par with exchanges where there are rebate / volume fee discounts.
 
 ## Motivation
-This feature is a new version of a TradeModule (and GeneralIndexModule) that allows the manager to charge a volume fee from their followers. This will be denominated in the output token similar to the protocol fee assessed.
+This feature is a new version of a TradeModule (and GeneralIndexModule) that allows the manager to charge a volume fee from their followers. This will be denominated in the output token similar to the protocol fee assessed. In contrast to centralized exchanges, the fee rebates will be automatic per trade.
 
 TradeModuleV2 will be used in upcoming TokenSets deployments on other chains, and can replace the existing on Polygon and Mainnet. GeneralIndexModuleV2 can be used by index coop products to generate additional revenue
 
 ## Background Information
-We have previously implemented the TradeModule and GeneralIndexModule. This will be a few lines code change to allow manager volume fees charged on the output token
+We have previously implemented the TradeModule and GeneralIndexModule. This will be an update to allow manager trade rebates charged on the output token. We have previously implemented modules for both manager and protocol fees (NAVIssuanceModule, DebtIssuanceModule) with differing mechanisms
 
 ## Open Questions
 - [ ] Should we ensure that manager must have capital in the Set to charge volume fees?
     - No, we can encourage in the UI instead for retail managers. This would also break for cases where the manager is a smart contract
-- [ ] Should we name this TradeModuleV2 or TradeModuleWithRebates?
+- [ ] Should we name this TradeModuleV2 or TradeModuleWithRebates (GeneralIndexModuleV2 or GeneralIndexModuleWithRebates)?
+- [ ] How do we prevent managers charging an 100% fee and rugging the Set on a trade?
 
 ## Feasibility Analysis
 
 #### Option 1
 Adding a managerFee % which is assessed on top of the protocol fee %. This will be least code changes to the TradeModule and General Index Module. To avoid rugging, there will be a maxManagerFee enforced.
 ```
-function _accrueProtocolFee(TradeInfo memory _tradeInfo, uint256 _exchangedQuantity) internal returns (uint256) {
-    uint256 protocolFeeTotal = getModuleFee(TRADE_MODULE_PROTOCOL_FEE_INDEX, _exchangedQuantity);
-    
-    payProtocolFeeFromSetToken(_tradeInfo.setToken, _tradeInfo.receiveToken, protocolFeeTotal);
-    
-    return protocolFeeTotal;
-}
+uint256 protocolFeeTotal = getModuleFee(TRADE_MODULE_PROTOCOL_FEE_INDEX, _exchangedQuantity);
+
+// Get manager fee here
 ```
 
 #### Option 2
@@ -46,12 +43,7 @@ managerFee = totalFee.sub(protocolFee);
 Manager charges a managerFee that is split with the protocol based on a feeSplit % determined by governance. Additionally, the protocol can charge a direct fee % (similar to NAVIssuanceModule). This will be a superset of TradeModule fees charged
 
 ```
-uint256 protocolFeeSplit = controller.getModuleFee(address(this), ISSUANCE_MODULE_PROTOCOL_FEE_SPLIT_INDEX);
-uint256 totalFeeRate = _isIssue ? setIssuanceSettings.managerIssueFee : setIssuanceSettings.managerRedeemFee;
-
-uint256 totalFee = totalFeeRate.preciseMul(_quantity);
-protocolFee = totalFee.preciseMul(protocolFeeSplit);
-managerFee = totalFee.sub(protocolFee);
+uint256 protocolDirectFeePercent = controller.getModuleFee(address(this), _protocolDirectFeeIndex);
 ```
 
 #### Recommendation
