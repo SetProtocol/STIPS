@@ -4,7 +4,7 @@
 The current TradeModule and GeneralIndexModule do not support volume based fees or rebates for the manager. This is in contrast to the issuance module. There is demand for additional fee types that managers can charge, specifically to be on par with exchanges where there are rebate / volume fee discounts.
 
 ## Motivation
-This feature is a new version of a TradeModule (and GeneralIndexModule) that allows the manager to charge a volume fee from their followers. This will be denominated in the output token similar to the protocol fee assessed. In contrast to centralized exchanges, the fee rebates will be automatic per trade.
+This feature is a new version of a TradeModule (and GeneralIndexModule) that allows governance to specify a protocol fee and rebate split percentage which is sent to the manager's address. This will be denominated in the output token similar to the protocol fee assessed. The fee rebates will be automatic per trade.
 
 TradeModuleV2 will be used in upcoming TokenSets deployments on other chains, and can replace the existing on Polygon and Mainnet. GeneralIndexModuleV2 can be used by index coop products to generate additional revenue
 
@@ -16,6 +16,7 @@ We have previously implemented the TradeModule and GeneralIndexModule. This will
     - No, we can encourage in the UI instead for retail managers. This would also break for cases where the manager is a smart contract
 - [ ] Should we name this TradeModuleV2 or TradeModuleWithRebates (GeneralIndexModuleV2 or GeneralIndexModuleWithRebates)?
 - [ ] How do we prevent managers charging an 100% fee and rugging the Set on a trade?
+    - We will only allow governance to change rebate %s
 
 ## Feasibility Analysis
 
@@ -81,17 +82,18 @@ Before more in depth design of the contract flows lets make sure that all the wo
 - Override `trade`
 - Add `virtual` to TradeModule V1
 - Add `_accrueManagerFee`
-- Override constructor to add `maxManagerRebateFee`, `managerRebateFee` and `feeRecipient`
+- Override constructor to add `managerFeeRecipient`
 
 ### GeneralIndexModuleV2
 - Inherit GeneralIndexModule
 - Override `trade` and `tradeRemainingWETH`
 - Add `virtual` to GeneralIndexModule trade functions
 - Add `_accrueManagerFee`
-- Override constructor to add `maxManagerRebateFee`, `managerRebateFee` and `feeRecipient`
+- Override constructor to add `managerFeeRecipient`
 
 ## Requirements
 - GeneralIndexModule requires no changes to the IC extension contracts except a redeployment
+
 
 ## User Flows
 - Highlight *each* external flow enabled by this feature. It's helpful to use diagrams (add them to the `assets` folder). Examples can be very helpful, make sure to highlight *who* is initiating this flow, *when* and *why*. A reviewer should be able to pick out what requirements are being covered by this flow.
