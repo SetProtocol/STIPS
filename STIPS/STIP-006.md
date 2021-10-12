@@ -1,4 +1,4 @@
-# STIP-005
+# STIP-006
 *Using template v0.1*
 ## Abstract
 The current TradeModule and GeneralIndexModule do not support volume based fees or rebates for the manager. This is in contrast to the issuance module. There is demand for additional fee types that managers can charge, specifically to be on par with exchanges where there are rebate / volume fee discounts.
@@ -46,8 +46,19 @@ Manager charges a managerFee that is split with the protocol based on a feeSplit
 uint256 protocolDirectFeePercent = controller.getModuleFee(address(this), _protocolDirectFeeIndex);
 ```
 
+#### Option 4
+Governance specifies a protocol fee % and a rebate split %. The split gives the manager a rebate on a percentage of protocol fees. Manager has no say and cannot rug.
+
+```
+uint256 protocolFeeSplit = controller.getModuleFee(address(this), PROTOCOL_FEE_SPLIT_INDEX);
+
+uint256 protocolDirectFee = controller.getModuleFee(address(this), PROTOCOL_DIRECT_FEE_SPLIT_INDEX);
+protocolFee = protocolDirectFee.preciseMul(protocolFeeSplit);
+rebateFee = protocolDirectFee.sub(protocolFee);
+```
+
 #### Recommendation
-Option 1 will require the least code changes while giving us the ability to emulate fee rebates. The maxManagerFee can be enforced either on initialization (still susceptible to manager rugging by removing and reinitializing) or stored on the Controller by governance
+Option 4 gives us the most protection against rugging while functioning as a rebate mechanism. This means we will charge a protocol fee to start in order to activate rebates. E.g. start with a 10 bps protocol fee and 5 bps rebate
 
 ## Timeline
 - Spec + review: 2 days
@@ -64,9 +75,24 @@ Before more in depth design of the contract flows lets make sure that all the wo
 **Reviewer**:
 
 ## Proposed Architecture Changes
-A diagram would be helpful here to see where new feature slot into the system. Additionally a brief description of any new contracts is helpful.
+
+### TradeModuleV2
+- Inherit TradeModule
+- Override `trade`
+- Add `virtual` to TradeModule V1
+- Add `_accrueManagerFee`
+- Override constructor to add `maxManagerRebateFee`, `managerRebateFee` and `feeRecipient`
+
+### GeneralIndexModuleV2
+- Inherit GeneralIndexModule
+- Override `trade` and `tradeRemainingWETH`
+- Add `virtual` to GeneralIndexModule trade functions
+- Add `_accrueManagerFee`
+- Override constructor to add `maxManagerRebateFee`, `managerRebateFee` and `feeRecipient`
+
 ## Requirements
-These should be a distillation of the previous two sections taking into account the decided upon high-level implementation. Each flow should have high level requirements taking into account the needs of participants in the flow (users, managers, market makers, app devs, etc) 
+- GeneralIndexModule requires no changes to the IC extension contracts except a redeployment
+
 ## User Flows
 - Highlight *each* external flow enabled by this feature. It's helpful to use diagrams (add them to the `assets` folder). Examples can be very helpful, make sure to highlight *who* is initiating this flow, *when* and *why*. A reviewer should be able to pick out what requirements are being covered by this flow.
 ## Checkpoint 2
