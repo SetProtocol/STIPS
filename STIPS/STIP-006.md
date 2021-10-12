@@ -29,25 +29,6 @@ uint256 protocolFeeTotal = getModuleFee(TRADE_MODULE_PROTOCOL_FEE_INDEX, _exchan
 ```
 
 #### Option 2
-Adding a managerFee and a protocol feeSplit % (similar to DebtIssuanceModule). This will make TradeModule and GeneralIndexModule fees variable in the protocol (if a manager charges 0 fees here, then protocol will always make 0) which is a departure from TradeModule V1
-
-```
-uint256 protocolFeeSplit = controller.getModuleFee(address(this), ISSUANCE_MODULE_PROTOCOL_FEE_SPLIT_INDEX);
-uint256 totalFeeRate = _isIssue ? setIssuanceSettings.managerIssueFee : setIssuanceSettings.managerRedeemFee;
-
-uint256 totalFee = totalFeeRate.preciseMul(_quantity);
-protocolFee = totalFee.preciseMul(protocolFeeSplit);
-managerFee = totalFee.sub(protocolFee);
-```
-
-#### Option 3
-Manager charges a managerFee that is split with the protocol based on a feeSplit % determined by governance. Additionally, the protocol can charge a direct fee % (similar to NAVIssuanceModule). This will be a superset of TradeModule fees charged
-
-```
-uint256 protocolDirectFeePercent = controller.getModuleFee(address(this), _protocolDirectFeeIndex);
-```
-
-#### Option 4
 Governance specifies a protocol fee % and a rebate split %. The split gives the manager a rebate on a percentage of protocol fees. Manager has no say and cannot rug.
 
 ```
@@ -59,7 +40,12 @@ rebateFee = protocolDirectFee.sub(protocolFee);
 ```
 
 #### Recommendation
-Option 4 gives us the most protection against rugging while functioning as a rebate mechanism. This means we will charge a protocol fee to start in order to activate rebates. E.g. start with a 10 bps protocol fee and 5 bps rebate
+Option 4 gives us protection against rugging while providing us a base rebate mechanism. This means we will charge a protocol fee to start in order to activate rebates. E.g. start with a 10 bps protocol fee and 5 bps rebate. 
+
+Because the rebate % is fixed by governance across all Sets, the only variable is AUM of the Set. The more user AUM vs manager AUM the more rebates managers receive (which eventually will become negative).
+
+#### Future work
+Tiered rebates: With this base rebate mechanism, manager contracts can be built on top in the future. Individual managers will always have the ability to specify a fee recipient address as their own, but manager contracts for a specific product (e.g. social trading) can abstract away the fee recipient to a shared peripheral contract. This central trading contract tracks cumulative volume done through trading all the Sets that are linked, and perform calculations that split the rebates collected. This way, at the base module level, rebates are flat across Sets but at the manager contract level, rebates can be tiered
 
 ## Timeline
 - Spec + review: 2 days
@@ -71,7 +57,6 @@ Option 4 gives us the most protection against rugging while functioning as a reb
 - Write docs: 1 day
 
 ## Checkpoint 1
-Before more in depth design of the contract flows lets make sure that all the work done to this point has been exhaustive. It should be clear what we're doing, why, and for who. All necessary information on external protocols should be gathered and potential solutions considered. At this point we should be in alignment with product on the non-technical requirements for this feature. It is up to the reviewer to determine whether we move onto the next step.
 
 **Reviewer**:
 
@@ -82,21 +67,30 @@ Before more in depth design of the contract flows lets make sure that all the wo
 - Override `trade`
 - Add `virtual` to TradeModule V1
 - Add `_accrueManagerFee`
-- Override constructor to add `managerFeeRecipient`
+- Override constructor to add `managerRebateRecipient`
 
 ### GeneralIndexModuleV2
 - Inherit GeneralIndexModule
 - Override `trade` and `tradeRemainingWETH`
 - Add `virtual` to GeneralIndexModule trade functions
 - Add `_accrueManagerFee`
-- Override constructor to add `managerFeeRecipient`
+- Override constructor to add `managerRebateRecipient`
 
 ## Requirements
 - GeneralIndexModule requires no changes to the IC extension contracts except a redeployment
-
+- External trading interfaces stay exactly the same
+- Manager fee recipient automatically receives the rebate in their wallet
 
 ## User Flows
-- Highlight *each* external flow enabled by this feature. It's helpful to use diagrams (add them to the `assets` folder). Examples can be very helpful, make sure to highlight *who* is initiating this flow, *when* and *why*. A reviewer should be able to pick out what requirements are being covered by this flow.
+![flow diagram](../assets/tradeModuleRebates.png)  
+### A manager is looking to trade 10 ETH to USDC.
+1. Manager calls trade() on `TradeModule` passing in the input tokens, output tokens, path, slippage tolerance, and `SushiswapExchangeAdapter` as the exchange
+2. `TradeModule` gets approval and trade calldata via `SushiswapExchangeAdapter`
+3. `TradeModule` calls invoke on the SetToken, with the calldata to execute an approval and trade transaction.
+4. The trade is executed on Sushiswap and USDC is returned to the SetToken and validated
+5. The `TradeModuleV2` calculates the protocol fee % and sends the protocol's share to the Controller fee recipient
+6. The `TradeModuleV2` calculates the rebate fee % and sends the manager's share to the manager fee recipient
+
 ## Checkpoint 2
 Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
 
