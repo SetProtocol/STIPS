@@ -106,7 +106,7 @@ Reviewer: []
 | Type  | Name  | Description   | Value     |
 |------ |------ |-------------  |-------    |
 |uint256|TRADE_MODULE_PROTOCOL_FEE_INDEX    | Id of protocol fee % assigned to this module in the Controller | 0         |
-|uint256|TRADE_MODULE_MANAGER_REBATE_SPLIT_INDEX    | Id of manager rebate % assigned to this module in the Controller | 0         |
+|uint256|TRADE_MODULE_MANAGER_REBATE_SPLIT_INDEX    | Id of manager rebate % assigned to this module in the Controller | 1         |
 #### Public Variables
 | Type  | Name  | Description   |
 |------ |------ |-------------  |
@@ -198,7 +198,7 @@ function _accrueProtocolFee(TradeInfo memory _tradeInfo, uint256 _exchangedQuant
 | Type  | Name  | Description   | Value     |
 |------ |------ |-------------  |-------    |
 |uint256|GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX    | Id of protocol fee % assigned to this module in the Controller | 0         |
-|uint256|GENERAL_INDEX_MODULE_MANAGER_REBATE_SPLIT_INDEX    | Id of manager rebate % assigned to this module in the Controller | 0         |
+|uint256|GENERAL_INDEX_MODULE_MANAGER_REBATE_SPLIT_INDEX    | Id of manager rebate % assigned to this module in the Controller | 1         |
 #### Public Variables
 | Type  | Name  | Description   |
 |------ |------ |-------------  |
