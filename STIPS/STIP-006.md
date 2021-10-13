@@ -47,6 +47,8 @@ Because the rebate % is fixed by governance across all Sets, the only variable i
 #### Future work
 Tiered rebates: With this base rebate mechanism, manager contracts can be built on top in the future. Individual managers will always have the ability to specify a fee recipient address as their own, but manager contracts for a specific product (e.g. social trading) can abstract away the fee recipient to a shared peripheral contract. This central trading contract tracks cumulative volume done through trading all the Sets that are linked, and perform calculations that split the rebates collected. This way, at the base module level, rebates are flat across Sets but at the manager contract level, rebates can be tiered
 
+Negotiated rebates: Updating the TradeModule to a V3 to allow each Set to have its own rebate percentage (instead of a global one for now). This could be negotiated with large managers/applications that use the protocol.
+
 ## Timeline
 - Spec + review: 2 days
 - Implementation: 2 days
@@ -64,17 +66,15 @@ Tiered rebates: With this base rebate mechanism, manager contracts can be built 
 
 ### TradeModuleV2
 - Inherit TradeModule
-- Override `trade`
-- Add `virtual` to TradeModule V1
-- Add `_accrueManagerFee`
-- Override constructor to add `managerRebateRecipient`
+- Override `trade` to update ComponentExchanged event
+- Override `_accrueProtocolFee`
+- Override initialize to add `managerRebateRecipient`
 
 ### GeneralIndexModuleV2
 - Inherit GeneralIndexModule
-- Override `trade` and `tradeRemainingWETH`
-- Add `virtual` to GeneralIndexModule trade functions
-- Add `_accrueManagerFee`
-- Override constructor to add `managerRebateRecipient`
+- Override `trade` and `tradeRemainingWETH` 
+- Override `_accrueProtocolFee`
+- Override initialize to add `managerRebateRecipient`
 
 ## Requirements
 - GeneralIndexModule requires no changes to the IC extension contracts except a redeployment
@@ -98,33 +98,190 @@ Before we spec out the contract(s) in depth we want to make sure that we are ali
 
 Reviewer: []
 ## Specification
-### [Contract Name]
+### TradeModuleV2
+- Only changelog
 #### Inheritance
-- List inherited contracts
-#### Structs
-| Type  | Name  | Description   |
-|------ |------ |-------------  |
-|address|manager|Address of the manager|
-|uint256|iterations|Number of times manager has called contract|  
+- TradeModule
 #### Constants
 | Type  | Name  | Description   | Value     |
 |------ |------ |-------------  |-------    |
-|uint256|ONE    | The number one| 1         |
+|uint256|TRADE_MODULE_PROTOCOL_FEE_INDEX    | Id of protocol fee % assigned to this module in the Controller | 0         |
+|uint256|TRADE_MODULE_MANAGER_REBATE_SPLIT_INDEX    | Id of manager rebate % assigned to this module in the Controller | 0         |
 #### Public Variables
 | Type  | Name  | Description   |
 |------ |------ |-------------  |
-|uint256|hodlers|Number of holders of this token|
+|mapping(ISetToken => address);|managerRebateRecipient|Mapping of SetToken to address of rebate recipient|
 #### Functions
 | Name  | Caller  | Description     |
 |------ |------ |-------------  |
-|startRebalance|Manager|Set rebalance parameters|
-|rebalance|Trader|Rebalance SetToken|
-|ripcord|EOA|Recenter leverage ratio|
-#### Modifiers
-> onlyManager(SetToken _setToken)
+|initialize|Manager|Set manager rebate recipient address|
 #### Functions
-> issue(SetToken _setToken, uint256 quantity) external
-- Pseudo code
+> initialize(SetToken _setToken, address _managerRebateRecipient) external
+- managerRebateRecipient: manager rebate recipient address
+```solidity
+function initialize(
+    ISetToken _setToken,
+    address _managerRebateRecipient
+)
+    external
+    onlyValidAndPendingSet(_setToken)
+    onlySetManager(_setToken, msg.sender)
+{
+    managerRebateRecipient = _managerRebateRecipient;
+
+    _setToken.initializeModule();
+}
+```
+
+> function trade(ISetToken _setToken, string memory _exchangeName, address _sendToken, uint256 _sendQuantity, address _receiveToken, uint256 _minReceiveQuantity, bytes memory _data)
+- No changes to interface
+```solidity
+function trade(
+    ISetToken _setToken,
+    string memory _exchangeName,
+    address _sendToken,
+    uint256 _sendQuantity,
+    address _receiveToken,
+    uint256 _minReceiveQuantity,
+    bytes memory _data
+)
+    external
+    nonReentrant
+    onlyManagerAndValidSet(_setToken)
+{
+    ...
+
+    (uint256 protocolFeeShare, managerRebateShare) = _accrueProtocolFee(tradeInfo, exchangedQuantity);
+
+    ...
+
+    emit ComponentExchanged(
+        _setToken,
+        _sendToken,
+        _receiveToken,
+        tradeInfo.exchangeAdapter,
+        netSendAmount,
+        netReceiveAmount,
+        protocolFeeShare,
+        managerRebateShare
+    );
+}
+```
+
+> function _accrueProtocolFee(TradeInfo memory _tradeInfo, uint256 _exchangedQuantity) internal returns (uint256, uint256)
+- No changes to interface
+```solidity
+function _accrueProtocolFee(TradeInfo memory _tradeInfo, uint256 _exchangedQuantity) internal returns (uint256 protocolFeeTotal, uint256 managerRebateTotal) {
+    
+    uint256 protocolTradingFeePercentage = controller.getModuleFee(address(this), TRADE_MODULE_PROTOCOL_FEE_INDEX);
+    uint256 managerRebateSplitPercentage = controller.getModuleFee(address(this), TRADE_MODULE_MANAGER_REBATE_SPLIT_INDEX);
+
+    uint256 managerRebateTotal = protocolTradingFeePercentage.preciseMul(managerRebateSplit).preciseMul(_exchangedQuantity);
+    uint256 protocolFeeTotal = protocolTradingFeePercentage.preciseMul(_exchangedQuantity).sub(managerRebateTotal);
+    payProtocolFeeFromSetToken(_tradeInfo.setToken, _tradeInfo.receiveToken, protocolFeeTotal);
+
+    if (managerRebateShare > 0) {
+        _setToken.strictInvokeTransfer(
+            _tradeInfo.receiveToken,
+            managerRebateRecipient,
+            managerRebateTotal
+        );
+    }
+}
+```
+
+### GeneralIndexModuleV2
+- Only changelog
+#### Inheritance
+- GeneralIndexModule
+#### Constants
+| Type  | Name  | Description   | Value     |
+|------ |------ |-------------  |-------    |
+|uint256|GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX    | Id of protocol fee % assigned to this module in the Controller | 0         |
+|uint256|GENERAL_INDEX_MODULE_MANAGER_REBATE_SPLIT_INDEX    | Id of manager rebate % assigned to this module in the Controller | 0         |
+#### Public Variables
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|mapping(ISetToken => address);|managerRebateRecipient|Mapping of SetToken to address of rebate recipient|
+#### Functions
+| Name  | Caller  | Description     |
+|------ |------ |-------------  |
+|initialize|Manager|Set manager rebate recipient address|
+#### Functions
+> initialize(SetToken _setToken, address _managerRebateRecipient) external
+- managerRebateRecipient: manager rebate recipient address
+```solidity
+function initialize(
+    ISetToken _setToken,
+    address _managerRebateRecipient
+)
+    external
+    onlyValidAndPendingSet(_setToken)
+    onlySetManager(_setToken, msg.sender)
+{
+    managerRebateRecipient = _managerRebateRecipient;
+
+    ...
+}
+```
+
+> function trade(ISetToken _setToken, IERC20 _component, uint256 _ethQuantityLimit)
+- No changes to interface
+```solidity
+function trade(
+    ISetToken _setToken,
+    IERC20 _component,
+    uint256 _ethQuantityLimit
+)
+    external
+    nonReentrant
+    onlyAllowedTrader(_setToken)
+    onlyEOAIfUnrestricted(_setToken)
+    virtual
+{
+    ...
+
+    (uint256 protocolFeeShare, managerRebateShare) = _accrueProtocolFee(tradeInfo, exchangedQuantity);
+
+    ...
+
+    emit TradeExecuted(
+        tradeInfo.setToken,
+        tradeInfo.sendToken,
+        tradeInfo.receiveToken,
+        tradeInfo.exchangeAdapter,
+        msg.sender,
+        netSendAmount,
+        netReceiveAmount,
+        protocolFeeShare,
+        managerRebateShare
+    );
+}
+```
+
+> function _accrueProtocolFee(TradeInfo memory _tradeInfo) internal returns (uint256, uint256)
+- No changes to interface
+```solidity
+function _accrueProtocolFee(TradeInfo memory _tradeInfo) internal returns (uint256 protocolFeeTotal, uint256 managerRebateTotal) {
+    ...
+
+    uint256 protocolTradingFeePercentage = controller.getModuleFee(address(this), TRADE_MODULE_PROTOCOL_FEE_INDEX);
+    uint256 managerRebateSplitPercentage = controller.getModuleFee(address(this), TRADE_MODULE_MANAGER_REBATE_SPLIT_INDEX);
+
+    uint256 managerRebateTotal = protocolTradingFeePercentage.preciseMul(managerRebateSplit).preciseMul(_exchangedQuantity);
+    uint256 protocolFeeTotal = protocolTradingFeePercentage.preciseMul(_exchangedQuantity).sub(managerRebateTotal);
+    payProtocolFeeFromSetToken(_tradeInfo.setToken, _tradeInfo.receiveToken, protocolFeeTotal);
+
+    if (managerRebateShare > 0) {
+        _setToken.strictInvokeTransfer(
+            _tradeInfo.receiveToken,
+            managerRebateRecipient,
+            managerRebateTotal
+        );
+    }
+}
+```
+
 ## Checkpoint 3
 Before we move onto the implementation phase we want to make sure that we are aligned on the spec. All contracts should be specced out, their state and external function signatures should be defined. For more complex contracts, internal function definition is preferred in order to align on proper abstractions. Reviewer should take care to make sure that all stake holders (product, app engineering) have their needs met in this stage.
 
