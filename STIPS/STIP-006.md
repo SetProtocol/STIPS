@@ -65,19 +65,21 @@ Negotiated rebates: Updating the TradeModule to a V3 to allow each Set to have i
 ## Proposed Architecture Changes
 
 ### TradeModuleV2
-- Inherit TradeModule
-- Override `trade` to update ComponentExchanged event
-- Override `_accrueProtocolFee`
-- Override initialize to add `managerRebateRecipient`
+- Copy TradeModule into new file
+- Update ComponentExchanged event
+- Update `_accrueProtocolFee` to include rebate logic
+- Add `managerRebateRecipient` on initialize
 
 ### GeneralIndexModuleV2
 - Inherit GeneralIndexModule
 - Override `trade` and `tradeRemainingWETH` 
-- Override `_accrueProtocolFee`
-- Override initialize to add `managerRebateRecipient`
+- Update `_accrueProtocolFee` to include rebate logic
+- Add `managerRebateRecipient` on initialize
+- Change GIM extension interface
 
 ## Requirements
-- GeneralIndexModule requires no changes to the IC extension contracts except a redeployment
+- Update GIMExtension interface in IC repo
+- UI and backend must update to initialize flow with manager address
 - External trading interfaces stay exactly the same
 - Manager fee recipient automatically receives the rebate in their wallet
 
@@ -133,6 +135,32 @@ function initialize(
 }
 ```
 
+> updateManagerRebateRecipient(SetToken _setToken, address _newFeeRecipient) external
+- setToken: Address of SetToken
+- newFeeRecipient: manager rebate recipient address
+```solidity
+/**
+ * MANAGER ONLY: Updates address receiving issue/redeem fees for a given SetToken.
+ *
+ * @param _setToken             Instance of the SetToken to update fee recipient
+ * @param _newFeeRecipient      New fee recipient address
+ */
+function updateFeeRecipient(
+    ISetToken _setToken,
+    address _newFeeRecipient
+)
+    external
+    onlyManagerAndValidSet(_setToken)
+{
+    require(_newFeeRecipient != address(0), "Fee Recipient must be non-zero address.");
+    require(_newFeeRecipient != managerRebateRecipient[_setToken], "Same fee recipient passed");
+
+    managerRebateRecipient[_setToken].feeRecipient = _newFeeRecipient;
+
+    emit FeeRecipientUpdated(_setToken, _newFeeRecipient);
+}
+```
+
 > function trade(ISetToken _setToken, string memory _exchangeName, address _sendToken, uint256 _sendQuantity, address _receiveToken, uint256 _minReceiveQuantity, bytes memory _data)
 - No changes to interface
 ```solidity
@@ -151,7 +179,7 @@ function trade(
 {
     ...
 
-    (uint256 protocolFeeShare, managerRebateShare) = _accrueProtocolFee(tradeInfo, exchangedQuantity);
+    (uint256 protocolFeeShare, managerRebateShare) = _accrueRebateAndProtocolFees(tradeInfo, exchangedQuantity);
 
     ...
 
@@ -168,10 +196,10 @@ function trade(
 }
 ```
 
-> function _accrueProtocolFee(TradeInfo memory _tradeInfo, uint256 _exchangedQuantity) internal returns (uint256, uint256)
+> function _accrueRebateAndProtocolFees(TradeInfo memory _tradeInfo, uint256 _exchangedQuantity) internal returns (uint256, uint256)
 - No changes to interface
 ```solidity
-function _accrueProtocolFee(TradeInfo memory _tradeInfo, uint256 _exchangedQuantity) internal returns (uint256 protocolFeeTotal, uint256 managerRebateTotal) {
+function _accrueRebateAndProtocolFees(TradeInfo memory _tradeInfo, uint256 _exchangedQuantity) internal returns (uint256 protocolFeeTotal, uint256 managerRebateTotal) {
     
     uint256 protocolTradingFeePercentage = controller.getModuleFee(address(this), TRADE_MODULE_PROTOCOL_FEE_INDEX);
     uint256 managerRebateSplitPercentage = controller.getModuleFee(address(this), TRADE_MODULE_MANAGER_REBATE_SPLIT_INDEX);
@@ -241,7 +269,7 @@ function trade(
 {
     ...
 
-    (uint256 protocolFeeShare, managerRebateShare) = _accrueProtocolFee(tradeInfo, exchangedQuantity);
+    (uint256 protocolFeeShare, managerRebateShare) = _accrueRebateAndProtocolFees(tradeInfo, exchangedQuantity);
 
     ...
 
@@ -259,10 +287,10 @@ function trade(
 }
 ```
 
-> function _accrueProtocolFee(TradeInfo memory _tradeInfo) internal returns (uint256, uint256)
+> function _accrueRebateAndProtocolFees(TradeInfo memory _tradeInfo) internal returns (uint256, uint256)
 - No changes to interface
 ```solidity
-function _accrueProtocolFee(TradeInfo memory _tradeInfo) internal returns (uint256 protocolFeeTotal, uint256 managerRebateTotal) {
+function _accrueRebateAndProtocolFees(TradeInfo memory _tradeInfo) internal returns (uint256 protocolFeeTotal, uint256 managerRebateTotal) {
     ...
 
     uint256 protocolTradingFeePercentage = controller.getModuleFee(address(this), TRADE_MODULE_PROTOCOL_FEE_INDEX);
