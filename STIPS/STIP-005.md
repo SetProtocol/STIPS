@@ -469,8 +469,8 @@ Then, iterate on default positions of virtual SetToken, opening positions
       
       redeemQuantity = number of tokens to redeem
       vBasePositionSize = PerpAccountBalance.getPositionSize(vBaseToken)
-      vBasePositionUnit =  basePositionSize * total supply						
-      vBaseToSell = redeemQuantity * vAsset position unit 
+      vBasePositionUnit =  basePositionSize / setToken.totalSupply						
+      vBaseToSell = redeemQuantity * vBasePositionUnit 
       pendingFunding = PerpExchange.getPendingFunding(vBase) 
 
       // We may have accrued PnL from non-issuance/redemption sources (ex: levering, liquidation) 
