@@ -156,8 +156,6 @@ This is currently WIP with no unit tests in the perp-lushan repository, as of co
 
 We think PERP accounts should be modeled on the SetToken as an external USDC position and that PERP account virtual positions should be modeled as default positions on a virtual SetToken. This virtual SetToken is intended solely as a data structure which tracks position quantities within the PERP system. Using it lets us manage PERP accounts as a conventional SetToken component while preserving the ability to map PERP virtual positions onto SetProtocol’s existing logic for operations like replication and rebalancing.
 
-For the purposes of issuance and redemption the size of a PERP external position is the realizable value of all of the account’s virtual positions and funding dividends, i.e the theoretical amount that can be withdrawn from the Perp system when an account’s positions are closed and settled in current PERP markets (excluding slippage). This value is synthesized from quotes for virtual assets from the AMM and Perp's internal pending fees accounting.
-
 One drawback of this design is that we will need to  provide a new API for viewing PERP position details since current APIs for the SetToken would only register these as single aggregate USDC value.
 
 **Required Contracts**
