@@ -424,81 +424,72 @@ Then, iterate on default positions of virtual SetToken, opening positions
 
 #### Redemption
 
-<table>
+<table> 
   <tr>
-   <td width="20%"><strong>Redemption Step</strong>
-   </td>
-   <td><strong>Action</strong>
+   <td width="20%"><strong>Redemption Step</strong></td>
+   <td><strong>Action</strong></td>
+  </tr>
+  <tr> <td>Initial call flow</td>
+   <td> 
+      <ul>
+      <li> User calls <em>redeem(redeemQuantity)</em> on DIM </li>
+      <li> DIM calls PerpV2Module redeem hook </li>
+      <li> PerpV2Module calls <em>sync</em> inside the component redeem hook </li>
+      </ul>
    </td>
   </tr>
-  <tr>
-   <td>Initial call flow
-   </td>
-   <td>
-<ul>
-
-<li>User calls <em>redeem(redeemQuantity)</em> on DIM
-
-<li>DIM calls PerpV2Module redeem hook
-
-<li>PerpV2Module calls <em>sync</em> inside the component redeem hook
-</li>
-</ul>
-   </td>
-  </tr>
-  <tr>
-   <td><em>sync() </em>
-<p>
-(flow summary)
-   </td>
-   <td>
-<ul>
-  <li>Reads the virtual token balances of the virtual SetToken from <em>PerpV2Module</em> </li>
-  <li>Updates the default position units  on the virtual SetToken </li>
-    <ul>
-      <li>Only done if the new unit calculation does not equal existing unit </li>
-      <li>Only necessary here if a liquidation has occurred. </li>
-      <li>Interest accrual is not an issue here</li>
-    </ul>
-  </li>
-  <li>Updates external USDC position on the real SetToken </li>
-</ul>
-   </td>
-  </tr>
-  <tr>
-   <td>sync()
-<p>
-(updating virtual default positions if necessary)
-   </td>
-   <td><em>newUnitForVirtualAsset = vSetToken.balanceOf(vAsset) / realSetToken.totalSupply()</em>
-   </td>
-  </tr>
-  <tr>
-   <td>sync()
-<p>
-(Update external USDC position on the real SetToken)
-   </td>
-   <td>
-     <p>First determine the amount of virtual assets we need to reduce exposure to:</p>
-     <p><em>&nbsp;&nbsp;vAssetAmount = redeemQuantity * vSetToken.getDefaultPositionRealUnit(vAsset)</em></p>
-     <p>Calculate the amount of USDC we would receive by simulating closing a position on the external protocol. The delta quote returned by the simulation will include realized funding payments and fees. These will be distributed across the real SetToken's external USDC position. </p>
-  <p>&nbsp;&nbsp;<em>deltaQuote = getQuoteForVAsset(vAsset, vAssetAmount, direction=long | short)</em></p>
-  <p> Update the real SetToken’s external position for USDC as below. (For a SetToken with multiple positions in multiple virtual assets we would have to sum up all delta)<p>
-  <p> &nbsp;&nbsp;<em>newTotalSupply = realSetToken.totalSupply - redeemQuantity</em> </p>
-  <p> &nbsp;&nbsp;<em>newUSDCTotal = externalUSDCPositionUnit * realSetToken.totalSupply - deltaQuote</em></p>
-  <p> &nbsp;&nbsp;<em>newExternalPositionUnit = newUSDCTotal / newTotalSupply</em></p>
-   </td>
+   <tr> <td><em>sync() </em> </td>
+   <td>  
+        Unused. The Set's externalPositionUnit is set as the RedeemHook exits because we don’t know <br/>
+        it’s value until trading is complete due to slippage. All necessary data to calculate the redemption <br/>
+        values can be read on the fly in the redemption hook. <br/>
+   </td> 
   </tr>
   <tr>
    <td>Component RedeemHook flow
    </td>
    <td>
-     <p>First, iterate on default positions of virtual SetToken</p>
-     <p>&nbsp;&nbsp;<em>for asset[i], positionUnit[i] of virtual SetToken</em> </p>
-     <p><em> &nbsp;&nbsp;&nbsp;&nbsp;tradeAmount = positionUnit[i] * redeemQuantity</em></p>
-     <p><em> &nbsp;&nbsp;&nbsp;&nbsp;ClearingHouse.openPositon(asset[i], tradeAmount)</em></p>
-     <p></p>
-     <p>Then, invoke <em>PerpVault.withdraw(deltaQuote)</em> to withdraw USDC from vault and deposit in the SetToken </p>
+      Calculate the new external position unit and reduce Perp positions as below. <br/>
+      For simplicity's sake, a single position is used as an example. This formula <br/>
+      can be extended to iterate across multiple positions without issue:  <br/>
+      
+      redeemQuantity = number of tokens to redeem			
+      vBasePositionUnit =  basePositionSize * total supply						
+      vBaseToSell = redeemQuantity * vAsset position unit 
+      pendingFunding = PerpExchange.getPendingFunding(vBase) 
+
+      // We may have accrued PnL from non-issuance/redemption sources (ex: levering, liquidation) 
+      // This method returns realized and unrealized as separate values 
+      carriedOwedRealizedPnL = PerpAccountBalance.getOwedAndUnrealizedPnl() 
+
+      closeRatio = vBaseToSell / vBasePositionSize 
+      reducedOpenNotional = vQuoteOpenNotional * close ratio 
+      openNotionalFraction = (vQuoteOpenNotional  * -1 ) + reducedOpenNotional 
+
+      // Slippage, funding and fees are credited to owedRealizedPnL	    
+      deltaAvailableQuote = CH.openPosition({ 
+        isBaseToQuote: true, 
+        isExactInput: true, 
+        amount: vBaseToSell
+      })
+
+      realizedPnL = reducedOpenNotional + deltaAvailableQuote							
+      totalFundingAndCarriedPnL = pendingFunding + carriedOwedRealizedPnL		
+      fundingPositionUnit = totalFundingAndCarriedPnL / setToken.totalSupply	
+      collateralPositionUnit =  PerpVault.balanceOf(setToken) / setToken.totalSupply
+      realizedPnLPositionUnit = realizedPnL / setToken.totalSupply 
+			
+      usdcToWithdraw = (collateralPositionUnit * redeemQuantity) + 
+                       (fundingPositionUnit * redeemQuantity) + 
+                       realizedPnL 
+
+      // Set the external position unit for DIM 
+      redemptionRatio = redeemQuantity / setToken.totalSupply 
+      valueOfSet = (usdcToWithdraw / redemptionRatio) / setToken.totalSupply 
+      setToken.externalPositionUnit = valueOfSet     
+   
+      // Then, invoke PerpVault.withdraw(deltaQuote) to withdraw USDC from vault 
+      // and deposit in the SetToken 
    </td>
   </tr>
   <tr>
