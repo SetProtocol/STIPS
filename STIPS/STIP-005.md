@@ -469,7 +469,7 @@ Then, iterate on default positions of virtual SetToken, opening positions
       
       redeemQuantity = number of tokens to redeem
       vBasePositionSize = PerpAccountBalance.getPositionSize(vBaseToken)
-      vBasePositionUnit =  basePositionSize / setToken.totalSupply						
+      vBasePositionUnit =  vBasePositionSize / setToken.totalSupply						
       vBaseToSell = redeemQuantity * vBasePositionUnit 
       pendingFunding = PerpExchange.getPendingFunding(vBase) 
 
@@ -502,8 +502,8 @@ Then, iterate on default positions of virtual SetToken, opening positions
       valueOfSet = (usdcToWithdraw / redemptionRatio) / setToken.totalSupply 
       setToken.externalPositionUnit = valueOfSet     
    
-      // Then, invoke PerpVault.withdraw(deltaQuote) to withdraw USDC from vault 
-      // and deposit in the SetToken 
+      // Then, withdraw USDC from vault and deposit in the SetToken 
+      PerpVault.withdraw(usdcToWithdraw)	   
    </td>
   </tr>
   <tr>
