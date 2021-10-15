@@ -347,7 +347,7 @@ Sync, issuance and redemption are fundamentally different and more complex.
   </tr>
 </table>
 
-### PerpV2 issuance and redemption flow analysis
+### PerpV2 Issuance, Redemption and Lever/Delever flow analysis
 
 #### Issuance
 
@@ -465,9 +465,10 @@ Then, iterate on default positions of virtual SetToken, opening positions
    <td>
       Calculate the new external position unit and reduce Perp positions as below. <br/>
       For simplicity's sake, a single position is used as an example. This formula <br/>
-      can be extended to iterate across multiple positions without issue:  <br/>
+      can be extended to iterate across multiple positions.  <br/>
       
-      redeemQuantity = number of tokens to redeem			
+      redeemQuantity = number of tokens to redeem
+      vBasePositionSize = PerpAccountBalance.getPositionSize(vBaseToken)
       vBasePositionUnit =  basePositionSize * total supply						
       vBaseToSell = redeemQuantity * vAsset position unit 
       pendingFunding = PerpExchange.getPendingFunding(vBase) 
@@ -514,6 +515,73 @@ Then, iterate on default positions of virtual SetToken, opening positions
      <p>&nbsp;&nbsp;<em>quantity = redeemQuantity * external position unit on real SetToken</em>
    </td>
   </tr>
+</table>
+
+#### Levering and Delevering
+
+<table>
+  <tr>
+   <td width="20%"><strong>Step</strong></td>
+   <td><strong>Action</strong></td>
+  </tr>
+  <tr>
+   <td width="20%" vAlign="top"><strong>Setup</strong></td>
+   <td> This step is common to both lever and delever actions. It assembles all the values necessary to buy or sell 
+	the base asset (ex: vETH) and rebalance positions towards the target leverage ratio
+	
+	// getPrice() is a Solidity helper method to fetch AMM index price
+	vBase AMM index price (vBAIP) = getPrice(vBaseToken) 
+
+	targetLeverageRatio = ideal leverage (ex: 2.0)
+	vBasePositionSize = PerpAccountBalance.getPositionSize(vBaseToken)	
+	vQuoteOpenNotional = PerpExchange.getOpenNotional(vBaseToken)
+	collateralBalance = PerpVault.balanceOf(setToken)	
+
+	// This method returns realized and unrealized PnL as separate values
+	owedRealizedPnL = PerpAccountBalance.getOwedAndUnrealizedPnl() 
+	pendingFunding = PerpExchange.getPendingFundingPayments() 	
+
+	vBasePositionValue = vBasePositionSize * vBAIP 
+
+	currentLeverageRatio = 
+	    vBasePositionValue / (vBasePositionValue + vQuoteOpenNotional + collateralBalance)
+
+	scaledSetValue = (targetLeverageRatio - currentLeverageRatio) * 
+			   vBasePositionValue +
+			   vQuoteOpenNotional +
+			   collateralBalance +
+			   owedRealizedPnL +
+			   pendingFunding
+
+   </td>
+  </tr>
+  <tr>
+   <td width="20%" vAlign="top"><strong>Lever</strong></td>
+   <td> To lever up, we buy vBase, increasing our vQuote balance. Slippage is reflected in the new vETH
+	balance and funding accrues to owedRealizedPnL
+	
+	quoteAmount = scaledSetValue
+
+	CH.openPosition({
+	   isBaseToQuote: false,
+	   isExactInput: true,
+	   amount: quoteAmount
+	})
+   </td>
+  </tr> 
+  <tr>
+   <td width="20%" vAlign="top"><strong>Delever</strong></td>
+   <td> To delever, we sell vBase, paying down our vQuote balance. Slippage, fees, and funding accrue to owedRealizedPnL
+	
+	vBaseToSell = scaledSetValue / vBAIP
+
+	CH.openPosition({
+	   isBaseToQuote: true,
+	   isExactInput: true,
+	   amount: vBaseToSell
+	})
+   </td>
+  </tr>  
 </table>
 
 ## Open Questions
