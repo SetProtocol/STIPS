@@ -266,11 +266,9 @@ In general, Perp simplifies the lever and delver flows. Most of the actions requ
     <p> Reduce a position using <em>CH.openPosition()</em>by inverting the value for <em>isBaseToQuote</em> used when increasing the position. </p>
           <p> Under the hood the perp V2 system does something similar to what our existing leverage modules do
           <ul>
-      <li>Clearing house swaps vETH for vUSDC </li>
-      <li>PnL is calculated, <em>PnL = vUSDC received from AMM - cost basis - owedRealizedPnL</em> </li>
-      <li>Vault returns collateral + PnL </li>
+      <li>Clearing house sells vETH and reduces the vUSDC notional open position, paying down debt </li>
+      <li>Slippage, fees and funding accrue to owedRealizedPnL. These get socialized among all set holders during issuance and redemption
     </ul>
-          <p> (Cost basis = amount of SetTokens minted during lever) </p>
     </td>
   </tr>
 </table>
