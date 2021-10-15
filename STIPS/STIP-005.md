@@ -206,6 +206,24 @@ One drawback of this design is that we will need to  provide a new API for viewi
    <td> (External) Exposes Perp’s trading API
    </td>
   </tr>
+  <tr>
+   <td> PerpV2.AccountBalance
+   </td>
+   <td> (External) Exposes account and position balance info
+   </td>
+  </tr>
+  <tr>
+   <td> PerpV2.Quoter
+   </td>
+   <td> (External) Provides a way to get trade quotes from the Perp AMM by simulating swaps. 
+   </td>
+  </tr>
+  <tr>
+   <td> PerpV2.Exchange
+   </td>
+   <td> (External) Exposes a method to get pending funding payments 
+   </td>
+  </tr>
 </table>
 
 ### Similarities between the ALM/CLM flow and Perp flow
