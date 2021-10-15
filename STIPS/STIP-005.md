@@ -492,7 +492,6 @@ Then, iterate on default positions of virtual SetToken, opening positions
       totalFundingAndCarriedPnL = pendingFunding + carriedOwedRealizedPnL		
       fundingPositionUnit = totalFundingAndCarriedPnL / setToken.totalSupply	
       collateralPositionUnit =  PerpVault.balanceOf(setToken) / setToken.totalSupply
-      realizedPnLPositionUnit = realizedPnL / setToken.totalSupply 
 			
       usdcToWithdraw = (collateralPositionUnit * redeemQuantity) + 
                        (fundingPositionUnit * redeemQuantity) + 
