@@ -439,81 +439,94 @@ Then, iterate on default positions of virtual SetToken, opening positions
 #### Redemption
 
 <table> 
-  <tr>
-   <td width="20%"><strong>Redemption Step</strong></td>
-   <td><strong>Action</strong></td>
-  </tr>
-  <tr> <td>Initial call flow</td>
-   <td> 
-      <ul>
-      <li> User calls <em>redeem(redeemQuantity)</em> on DIM </li>
-      <li> DIM calls PerpV2Module redeem hook </li>
-      <li> PerpV2Module calls <em>sync</em> inside the component redeem hook </li>
-      </ul>
-   </td>
-  </tr>
-   <tr> <td><em>sync() </em> </td>
-   <td>  
-        Unused. The Set's externalPositionUnit is set as the RedeemHook exits because we don’t know <br/>
-        it’s value until trading is complete due to slippage. All necessary data to calculate the redemption <br/>
-        values can be read on the fly in the redemption hook. <br/>
-   </td> 
-  </tr>
-  <tr>
-   <td>Component RedeemHook flow
-   </td>
-   <td>
-      Calculate the new external position unit and reduce Perp positions as below. <br/>
-      For simplicity's sake, a single position is used as an example. This formula <br/>
-      can be extended to iterate across multiple positions.  <br/>
-      
-      redeemQuantity = number of tokens to redeem
-      vBasePositionSize = PerpAccountBalance.getPositionSize(vBaseToken)
-      vBasePositionUnit =  vBasePositionSize / setToken.totalSupply						
-      vBaseToSell = redeemQuantity * vBasePositionUnit 
-      pendingFunding = PerpExchange.getPendingFunding(vBase) 
+<tr><td width="20%"><strong>Redemption Step</strong></td><td><strong>Action</strong></td></tr>
+<tr> 
+<td>Flow summary</td>
+<td> 
 
-      // We may have accrued PnL from non-issuance/redemption sources (ex: levering, liquidation) 
-      // This method returns realized and unrealized as separate values 
-      carriedOwedRealizedPnL = PerpAccountBalance.getOwedAndUnrealizedPnl() 
-
-      closeRatio = vBaseToSell / vBasePositionSize 
-      reducedOpenNotional = vQuoteOpenNotional * close ratio 
-      openNotionalFraction = (vQuoteOpenNotional  * -1 ) + reducedOpenNotional 
-
-      // Slippage, funding and fees are credited to owedRealizedPnL	    
-      deltaAvailableQuote = CH.openPosition({ 
-        isBaseToQuote: true, 
-        isExactInput: true, 
-        amount: vBaseToSell
-      })
-
-      realizedPnL = reducedOpenNotional + deltaAvailableQuote							
-      totalFundingAndCarriedPnL = pendingFunding + carriedOwedRealizedPnL		
-      fundingPositionUnit = totalFundingAndCarriedPnL / setToken.totalSupply	
-      collateralPositionUnit =  PerpVault.balanceOf(setToken) / setToken.totalSupply
-			
-      usdcToWithdraw = (collateralPositionUnit * redeemQuantity) + 
-                       (fundingPositionUnit * redeemQuantity) + 
-                       realizedPnL 
-
-      // Set the external position unit for DIM 
-      redemptionRatio = redeemQuantity / setToken.totalSupply 
-      valueOfSet = (usdcToWithdraw / redemptionRatio) / setToken.totalSupply 
-      setToken.externalPositionUnit = valueOfSet     
++ User calls *redeem(redeemQuantity)* on DIM 
++ DIM calls PerpV2Module moduleRedeemHook which trades and sets an updated the USDC externalPositionUnit
++ DIM calls PerpModule.componentRedeemHook during *resolveEquityPositions* which withdraws USDC amount calculated from externalPositionUnit from PerpV2 and updates virtual position units for back-end purposes. 
    
-      // Then, withdraw USDC from vault and deposit in the SetToken 
-      PerpVault.withdraw(usdcToWithdraw)	   
-   </td>
-  </tr>
-  <tr>
-   <td>DIM: transfer USDC
-   </td>
-   <td>
-     <p>DIM reads external usdc position from real SetToken and transfers <em>quantity</em> amount of USDC to redeemer</p>
-     <p>&nbsp;&nbsp;<em>quantity = redeemQuantity * external position unit on real SetToken</em>
-   </td>
-  </tr>
+</td></tr>
+   
+<tr> <td valign="top"> DIM.modulePreRedeemHook() </td>
+<td>
+
+**PerpModule.moduleRedeemHook(setToken, redeemQuantity)**
+
+Called by after managers preRedeemHook and before burn() in DIM. Sells vBase and updates the external USDC position (a positive equity position) on the SetToken:
+
+Read required data from Perp protocol
+	
++ vBasePositionSize = PerpAccountBalance.getPositionSize(vBaseToken, setToken)
++ vBasePositionUnit =  vBasePositionSize / setToken.totalSupply
++ vQuoteOpenNotional = PerpExchange.getOpenNotional(vBaseToken, setToken)
++ pendingFunding = PerpExchange.getPendingFunding(vBase, setToken) 
+
+Calculate how much to sell and our expected PnL
+	
++ vBaseToSell = redeemQuantity * vBasePositionUnit 
++ closeRatio = vBaseToSell / vBasePositionSize 
++ reducedOpenNotional = vQuoteOpenNotional * close ratio 
++ openNotionalFraction = (vQuoteOpenNotional  * -1 ) + reducedOpenNotional 
+
+We may have already accrued PnL from non-issuance/redemption sources (ex: levering, liquidation) 
+
++ carriedOwedRealizedPnL = PerpAccountBalance.getOwedAndUnrealizedPnl(setToken) 
++ totalFundingAndCarriedPnL = pendingFunding + carriedOwedRealizedPnL		
++ fundingPositionUnit = totalFundingAndCarriedPnL / setToken.totalSupply	
+	
+Execute sell trade 
+```solidity	
+deltaAvailableQuote = CH.openPosition({ 
+  isBaseToQuote: true, 
+  isExactInput: true, 
+  amount: vBaseToSell
+  ...
+}) 
+```
+
+Calculate amount of USDC to withdraw	
++ realizedPnL = reducedOpenNotional + deltaAvailableQuote					
++ collateralPositionUnit =  PerpVault.balanceOf(setToken) / setToken.totalSupply
++ usdcToWithdraw = 
+  + (collateralPositionUnit * redeemQuantity) + 
+  + (fundingPositionUnit * redeemQuantity) + 
+  + realizedPnL 
+
+
+Set the external position unit for DIM 
++ setToken.externalPositionUnit = usdcToWithdraw / redeemQuantity  
+
+
+</td></tr>
+<tr>
+<td vAlign="top">DIM.externalPositionHook()</td>
+<td>
+	
+**PerpModule.componentRedeemHook**
+
+Called during *DIM.resolveEquityPositions* via *DIM.externalPositionHook*. Withdraws USDC amount calculated from external position unit and updates virtual position units for back-end purposes.
+
+Withdraw USDC to SetToken from PerpV2 vault	
++ PerpVault.withdraw(setToken, usdcToWithdraw)
+	
+Read updated Perp account balances from Perp protocol
+
++ vBasePositionSize = PerpAccountBalance.getPositionSize(vBaseToken, setToken)
++ vQuoteOpenNotional = PerpExchange.getOpenNotional(vBaseToken, setToken)
++ collateral = PerpVault.balanceOf(setToken)
+
+Update virtual position units. RealizedPnL is zeroed out by PerpV2 on withdrawal
+	
++ vBasePositionUnit =  vBasePositionSize / setToken.totalSupply
++ vQuotePositionUnit = vQuoteOpenNotional / setToken.totalSupply
++ collateralPositionUnit = collateral / setToken.totalSupply
++ owedRealizedPnLPositionUnit = 0  
+
+  
+</td></tr>
 </table>
 
 #### Levering and Delevering
