@@ -652,6 +652,31 @@ Per the [Pricing Strategy](https://docs.mcdex.io/amm-design#features-of-the-pric
 
 Traders open and reduce positions using a [Trade API](https://github.com/mcdexio/mai-protocol-v3/blob/03d70a5b3801949ffcb7df82e57fd35c07ec91c7/contracts/Perpetual.sol#L146-L203). Each trade realizes funding payments and calculates the current margin available before executing.
 
+Mai's interfaces for trade, deposit and withdrawal are:
+
+```solidity
+
+ // Trades and returns the updated position amount of the trader 
+ function trade(
+     uint256 perpetualIndex,   // The index of the perpetual in the liquidity pool
+     address trader,           // The address of trader
+     int256 amount,            // The position amount of the trade
+     int256 limitPrice,        // The worst price the trader accepts 
+     uint256 deadline,         // The deadline of the trade
+     address referrer,         // The referrer's address of the trade
+     uint32 flags              // The flags of the trade
+ ) external returns (int256);
+```
+
+Deposit and withdraw have the same signature
+```solidity
+function deposit(
+   uint256 perpetualIndex, // The index of the perpetual in the liquidity pool
+   address trader,         // The address of the trader
+   int256 amount           // The amount of collateral to deposit
+);
+```
+
 **Summary**
 
 Mai’s documentation is thin and difficult to draw conclusions from. However, on the surface it seems like it would be possible to build adapters to map its trading inputs and outputs to an interface which PERP could share.
