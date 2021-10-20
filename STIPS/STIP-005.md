@@ -277,73 +277,106 @@ Under the hood the PerpV2 system does something similar to what our existing lev
 
 Sync, issuance and redemption are fundamentally different and more complex.
 
-<table>
-  <tr>
-     <td>Property</td>
-     <td>ALM/CLM</td>
-     <td>PerpV2</td>
-  </tr>
-  <tr>
-      <td valign="top"><strong>Pricing Engine</strong></td>
-      <td valign="top">
-          <p>Open AMM </p>
-          <p> Price always remained very close to oracle price. </p>
-      </td>
-      <td valign="top">
-          <p>Closed AMM</p>
-          <p> Since the pool is a futures market, indirectly anchored to the spot price by a funding mechanism, its quotes can deviate a lot from the asset prices we want to track. </p>
-          <p> This  forces us to calculate our realizable value during syncing by using prices from the AMM and not just our Chainlink oracle. </p>
-      </td>
-  </tr>
-  <tr>
-      <td valign="top"> Sync </td>
-      <td valign="top">
-          <ul>
-              <li> Fetch data from external protocol </li>
-              <li> Update position units on SetToken based on fetched data </li>
-          </ul>
-      </td>
-      <td valign="top">
-        <ul>
-            <li>Fetch data from external protocol</li>
-            <li>Update position units on virtual SetToken based on fetched data if necessary</li>
-            <li>Update external USDC position unit on real SetToken based on simulation of Perp account's realizable value </li>
-        </ul>
-      </td>
-  </tr>
-  <tr>
-      <td valign="top">Issuance</td>
-      <td valign="top">
-        <p> The issuer acquires the asset to which he wants leveraged exposure and deposits that in our system. The amount of asset deposited is equal to the amount of exposure the issuer needs. </p>
-        <p> After deposit, we return the issuer the minted SetToken along with a different asset (USDC) with returned amount = (deposited amount)/(leverage ratio). </p>
-        </p> There is no AMM involved in this process. (Although it might have been used to acquire the initial asset) </p>
-      </td>
-      <td valign="top">
-        <p> The issuer deposits only the collateral asset (USDC) to our system and gets exposure to any asset that is supported by the external protocol. </p>
-        <p> There is an AMM involved in this process. Albeit a closed and lagging one. </p>
-      </td>
-  </tr>
-  <tr>
-    <td valign="top">Redemption</td>
-    <td valign="top">
-        <p> The redeemer sends the debt asset and SetToken to be redeemed. We burn the SetToken and unwind the leverage position. We return to the redeemer the amount of the leveraged asset that he had exposure to. </p>
-        <p> There is no AMM involved in this process. (Although it might have been used to acquire the initial asset)
-   </td>
-   <td valign="top">
-     <p> The redeemer brings only the SetToken. While we only return to the redeemer the USDC value of the amount of asset that he had exposure to. </p>
-     <p> There is an AMM involved in this process. </p>
-   </td>
-  </tr>
-  <tr>
-    <td valign="top">Frequency of rebalances</td>
-    <td valign="top">
-        <p> In CLM/ALM, since our position was a CDP, we had to actively manage our leverage ratios, keep track of them and call lever/delever every 24 hours. </p>
-   </td>
-   <td valign="top">
-    <p> Leveraged Perp positions are subject to funding flows which may move the Set substantially off its leverage target (negatively or positively). They're also exposed to liquidation risks when account values drop below minimum requirements. </p>
-    <p> The module will need to support active maintenance of the leverage target although it's not immediately clear what the rebalance cadence might be since this depends on actual market behavior. </p>
-   </td>
-  </tr>
+<table><tr><td>Property</td><td width="40%">ALM/CLM</td><td>PerpV2</td></tr>
+<tr>
+<td valign="top">Pricing Engine</td>
+<td valign="top">
+
+Open AMM 
+
+Price always remained very close to oracle price. 
+
+</td>
+<td valign="top">
+
+Closed AMM
+
+Since the pool is a futures market, indirectly anchored to the spot price by a funding mechanism, its quotes can deviate a 
+lot from the asset prices we want to track. 
+
+This  forces us to calculate our realizable value during syncing by using prices from the AMM and not just our Chainlink 
+oracle. 
+
+</td>
+</tr>
+<tr>
+<td valign="top"> Sync </td>
+<td valign="top">
+
++ Fetch data from external protocol </li>
++ Update position units on SetToken based on fetched data </li>
+
+</td>
+<td valign="top">
+
++ Fetch data from external protocol</li>
++ Update position units on virtual SetToken based on fetched data if necessary
++ Update external USDC position unit on real SetToken based on simulation of Perp account's realizable value 
+
+</td>
+</tr>
+<tr>
+<td valign="top">Issuance</td>
+<td valign="top">
+
+The issuer acquires the asset to which he wants leveraged exposure and deposits that in our system. The amount of asset 
+deposited is equal to the amount of exposure the issuer needs. 
+
+After deposit, we return the issuer the minted SetToken along with a different asset (USDC) with: 
++ *returned amount = (deposited amount)/(leverage ratio)*
+
+There is no AMM involved in this process. (Although it might have been used to acquire the initial asset) 
+
+</td>
+<td valign="top">
+
+The issuer deposits only the collateral asset (USDC) to our system and gets exposure to any asset that is supported by the 
+external protocol. 
+
+There is an AMM involved in this process. Albeit a closed and lagging one. 
+
+</td>
+</tr>
+<tr>
+<td valign="top">Redemption</td>
+<td valign="top">
+
+The redeemer sends the debt asset and SetToken to be redeemed. We burn the SetToken and unwind the leverage position. 
+We return to the redeemer the amount of the leveraged asset that he had exposure to. 
+
+There is no AMM involved in this process. (Although it might have been used to acquire the initial asset)
+
+</td>
+<td valign="top">
+
+The redeemer brings only the SetToken. While we only return to the redeemer the USDC value of the amount of asset that he 
+had exposure to. 
+
+There is an AMM involved in this process. 
+
+</td>
+</tr>
+<tr>
+<td valign="top">Frequency of rebalances</td>
+<td valign="top">
+
+In CLM/ALM, since our position was a CDP, we had to actively manage our leverage ratios, keep track of them and call 
+lever/delever every 24 hours. 
+
+</td>
+<td valign="top">
+
+Leverage ratios be pushed off the target by:
++ price movement of underlying assets
++ funding flows  
+  
+Like CDPs Perp positions are exposed to liquidation risks when account values drop below minimum margin requirements. 
+
+The module will need to support active maintenance of the leverage target although it's unclear what the rebalance cadence 
+might need to be. 
+
+</td>
+</tr>
 </table>
 
 ### PerpV2 Issuance, Redemption and Lever/Delever flow analysis
