@@ -383,87 +383,76 @@ might need to be.
 
 #### Issuance
 
-<table>
-  <tr>
-   <td width="20%"><strong>Issuance Step</strong>
-   </td>
-   <td><strong>Action</strong>
-   </td>
-  </tr>
-  <tr>
-   <td>Initial call flow
-   </td>
-   <td>
-<ul>
+<table><tr><td width="15%">PerpV2 Method</td><td>Action</td></tr>
+<tr><td valign="top">moduleIssuanceHook</td>
+<td>
 
-<li>User calls <strong><em>issue(minQuantity) </em></strong>on DIM
+Called as a modulePreIssueHook in DIM.issue(mintQuantity), before DIM calculates the issuance units.
 
-<li><em>DIM</em> calls <em>PerpV2Module</em> issuance hook
+Read all required state from PerpV2 protocol contracts
++ *vBasePositionSize = PerpAccountBalance.getPositionSize(vBase, setToken)*
++ *vQuoteOpenNotional = PerpV2Exchange.getOpenNotional(vBase, setToken)*
++ *collateralBalance = PerpV2Vault.balanceOf(setToken)*
++ *pendingFunding = PerpExchange.getPendingFunding(vBase, setToken)*
++ *carriedOwedRealizedPnL = PerpAccountBalance.getOwedAndUnrealizedPnl(setToken)*
 
-<li><em>PerpV2Module</em> calls <strong><em>sync()</em></strong> inside the module issuance hook
-</li>
-</ul>
-   </td>
-  </tr>
-  <tr>
-   <td><em>sync() </em>
-<p>
-(flow summary)
-   </td>
-   <td>
-  <ul>
-  <li>Reads the virtual token balances of the virtual SetToken from PerpV2Module</li>
-  <li>Updates the default position units  on the virtual SetToken </li>
-    <ul>
-      <li>Only done if the new unit calculation does not equal existing unit </li>
-      <li>Only necessary if a liquidation has occurred. </li>
-      <li>Interest accrual is not an issue here </li>
-    </ul>
-  <li>Updates external USDC position on the real SetToken </li>
-  </ul>
-   </td>
-  </tr>
-<tr>
-   <td>sync()
-  <p>(updating virtual default positions if necessary)
-   </td>
-   <td><em>newUnitForVirtualAsset = vSetToken.balanceOf(vAsset) / realSetToken.totalSupply()</em>
-   </td>
-  </tr>
-  <tr>
-   <td>sync()
-  <p>(Update external USDC position on the real SetToken)
-   </td>
-   <td>
-     <p> First determine the additional amount of virtual assets we need exposure to: </p>
-     <p> &nbsp;&nbsp;<em> vAssetAmount = mintQuantity * vSetToken.getDefaultPositionRealUnit(vAsset) </em> </p>
-     <p> Calculate the amount of USDC required to buy vAssetAmount by simulating a trade on Perp’s vAMM. The delta quote returned by the simulation will include realized funding payments and fees. These will be distributed across the real SetToken's external USDC position. </p>
-     <p> &nbsp;&nbsp;<em> deltaQuote = getQuoteForVAsset(vAsset, vAssetAmount, direction=long | short)</em> </p>
-     <p> Update the real SetToken’s external position for USDC as below. (For a SetToken with multiple positions in multiple virtual assets we would have to sum up all delta) </p>
-     <p> &nbsp;&nbsp;<em> newTotalSupply = realSetToken.totalSupply + mintQuantity </em> </p>
-     <p> &nbsp;&nbsp;<em> newUSDCTotal = externalUSDCPositionUnit * realSetToken.totalSupply + deltaQuote </em> </p>
-           <p> &nbsp;&nbsp;<em> newExternalPositionUnit = newUSDCTotal / newTotalSupply </em> </p>
-   </td>
-  </tr>
-  <tr>
-   <td>DIM: transfer USDC
-   </td>
-   <td>
-    <p>DIM reads external USDC position updated during <em>sync()</em>  from real setToken and transfers in USDC amount </p>
-    <p> <em> &nbsp;&nbsp; usdcAmount = mintQuantity * external position on real SetToken</em> </p>
-   </td>
-  </tr>
-  <tr>
-   <td>Component IssuanceHook flow
-   </td>
-   <td>First, Invoke SetToken to deposit the received USDC from issuer to PERP vault
-<p>
-Then, iterate on default positions of virtual SetToken, opening positions
-   <p> &nbsp;&nbsp;<em>for asset[i], positionUnit[i] of virtual SetToken</em></p>
-     <p> &nbsp;&nbsp;&nbsp;&nbsp;<em>  tradeAmount = positionUnit[i] * mintQuantity</em> </p>
-     <p> &nbsp;&nbsp;&nbsp;&nbsp;<em>  ClearingHouse.openPosition(asset[i], tradeAmount)</em> </p>
-   </td>
-  </tr>
+Calculate ideal cost of trade
++ *vBasePositionUnit = vBasePositionSize / setToken.totalSupply*
++ *vBaseTradeSize = vBasePositionUnit * mintQuantity*
++ *spotPrice = getAMMPrice(vBaseToken)* 	
++ *vBaseCostIdeal = vBaseTradeSize * spotPrice // without slippage or fees*
+
+Simulate trade to get its real cost and discover the slippage & fees amount issuer will bear
+```solidity
+swapParams = {
+  baseToken: vBaseToken 
+  isBaseToQuote: false		// long
+  isExactInput: false		// need exact output amount of base token
+  amount: vBaseTradeSize
+  sqrtPriceLimitX96: 0		// slippage protection
+}
+  
+```
++ *vBaseCostReal = Quoter.swap(swapParams)* // Includes slippage and protocol fees
++ *slippageCost = vBaseCostReal - vBaseCostIdeal*
+
+Calculate current leverage using AMM spot price
++ *vBasePositionValue = vBasePositionSize * spotPrice*
++ *currentLeverage = vBasePositionValue / (vBasePositionValue + vQuoteBalance + collateralBalance)*
+
+Calculate usdcAmountIn and set USDC externalPositionUnit such that DIM can use it for transfer calculation.
+The Perp account is a positive equity position
++ *owedRealizedPnLPositionUnit = (carriedOwedRealizedPnL + pendingFunding) / setToken.totalSupply*
++ *owedRealizedPnLDiscount = owedRealizedPnLPositionUnit * mintQuantity*
++ *usdcAmountIn = (vBaseCostReal / current leverage) + slippageCost + owedRealizedPnLDiscount*
++ *setToken.externalPositionUnit = usdcAmountIn / mintQuantity*
+
+</td></tr>
+<tr><td valign="top">componentIssuanceHook</td>
+<td>  
+
+Invoked as an externalPositionHook duuring DIM.resolveEquityPositions. Happens after DIM has read external USDC position (set during moduleIssuanceHook) and transferred in:
++ *usdcAmount = mintQuantity * setToken.externalPositionUnit*
+
+Deposit USDC from SetToken into PerpV2
++ *SetToken.invokeApprove(USDC, PerpV2Vault, usdcAmount)*  
++ *SetToken.invokeDeposit(PerpV2Vault, USDC, usdcAmount)*
+
+Open position  
+```solidity
+swapParams = {
+  baseToken: vBaseToken 
+  isBaseToQuote: false		// long
+  isExactInput: true		
+  amount: usdcAmount
+  sqrtPriceLimitX96: 0		// slippage protection
+}
+```
+  
++ *PerpV2ClearingHouse.openPosition(swapParams)*
+  
+</td>
+</tr>
 </table>
 
 
