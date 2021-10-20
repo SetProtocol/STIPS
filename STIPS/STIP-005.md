@@ -468,7 +468,7 @@ Then, iterate on default positions of virtual SetToken, opening positions
 
 
 
-#### Redemption
+## Redemption
 
 This section includes:
 + A flow chart and user story for generalized PerpModule with protocol specific logic delegated to a PerpAdapter
@@ -476,7 +476,7 @@ This section includes:
 
 ![](../assets/stip-005/perp_userflow_redeem.png "")
 
-**User Story: Redeeming 10 Sets** 
+### User Story: Redeeming 10 Sets 
 
 UserA owns 10 SetTokens which represent a leveraged Perp position in ETH and wants to redeem them for the Perp’s collateral token, USDC.  
 
@@ -511,7 +511,7 @@ UserA owns 10 SetTokens which represent a leveraged Perp position in ETH and wan
 
 
 
-#### PerpV2 Module Implementation Example
+### PerpV2 Module Implementation Example
 
 <table> 
 <tr><td width="20%"><strong>Redemption Step</strong></td><td><strong>Action</strong></td></tr>   
@@ -584,71 +584,114 @@ Withdraw USDC to SetToken from PerpV2 vault
 </td></tr>
 </table>
 
-#### Levering and Delevering
+## Levering and Delevering
+
+This section includes:
++ A flow chart and user stories for generalized PerpModule with protocol specific logic delegated to a PerpAdapter
++ A walkthrough of redemption logic that would be implemented for the PerpV2 protocol
+
+![](../assets/stip-005/perp_userflow_lever.png "")
+
+### User story: Levering
+
+A manager has a leveraged ETH SetToken whose target leverage ratio is 2.0 but whose effective leverage ratio has fallen to 1.8 as the price of ETH rises. They want to rebalance it to the target ratio. 
+
+To lever up, we buy vETH, increasing our debt balance. Slippage is reflected in the new vETH balance and specific protocol implementations may realize funding as PnL
+
+1. Manager calls *PerpModule.getPositionInfo(setToken)* which:
+    + Fetches a spot price for vETH from the PerpProtocol via a PerpProtocolAdapter contract
+    + Calculates the value of the set from its current position units for vETH, collateral and debt, the latest spot price, and the SetToken’s total supply.
+    + Calculates the set’s current leverage ratio as: *vETHPositionValue / setValue*
+    + Returns virtual position info, set value and current leverage ratio.
+
+2. Manager
+    + Calculates *openPositionAmount* as *(target - current leverage ratios) * setValue* 
+    + Calls *PerpModule.lever(setToken, openPositionAmount, minPositionReceived)*
+
+3. PerpModule calls PerpProtocolAdapter configured with:
+    ```
+    baseAsset = vETH
+    isBaseToQuote = false  // e.g buy vETH with USDC 
+    isExactAmount = true
+    amount = openPositionAmount 
+    minReceived = ….
+    ```
+
+4. PerpProtocolAdapter formats and validates trade params and executes trade on PerpProtocol exchange to increase vETH position 
+
+5. PerpModule calls PerpProtocolAdapter to read updated position info from the PerpProtocol and calculate new Set value
+
+6. PerpModule updates SetToken *externalPositionUnit* to new Set value.
+
+
+### User story: Delevering
+
+A manager has  a leveraged ETH SetToken whose target leverage ratio is 2.0 but whose effective leverage ratio has risen to 2.2 as the price of ETH falls. They want to rebalance it to the target ratio.
+
+To delever, we sell vETH, paying off our debt balance. Depending on the implementation of the protocol, slippage, fees, and funding will be realized as PnL
+
+1. Manager calls *PerpModule.getPositionInfo(setToken)* which returns virtual position info, set value and current leverage ratio as described in the lever user flow.
+
+2. Manager
+    + Calculates *closePositionNotional* as *(current - target leverage ratios) * setValue* 
+    + Calculates *closePositionAmount* as *closePositionNotional / spot price*
+    + Calls *PerpModule.delever(setToken, closePositionAmount, minDeltaQuote)*
+
+3. PerpModule calls PerpProtocolAdapter.trade configured with
+    ```
+    baseAsset = vETH
+    isBaseToQuote = true  // e.g sell vETH to realize USDC 
+    isExactAmount = true
+    amount = closePositionAmount
+    minReceived = ….
+    ```
+
+4. PerpProtocolAdapter formats and validates trade params and executes trade on PerpProtocol exchange to reduce vETH position 
+
+5. PerpModule calls PerpProtocolAdapter to read updated position info from the PerpProtocol and calculate new Set value
+
+6. PerpModule updates SetToken externalPositionUnit to new Set value
+
+
+### PerpV2 Module Implementation Example
 
 <table>
-  <tr>
-   <td width="20%"><strong>Step</strong></td>
-   <td><strong>Action</strong></td>
-  </tr>
-  <tr>
-   <td width="20%" vAlign="top"><strong>Setup</strong></td>
-   <td> This step is common to both lever and delever actions. It assembles all the values necessary to buy or sell 
-	the base asset (ex: vETH) and rebalance positions towards the target leverage ratio
+<tr>
+<td width="20%"><strong>Module Method</strong></td>
+<td><strong>Action</strong></td>
+<tr>
+<td width="20%" vAlign="top"><strong>Lever</strong></td>
+<td> 
+
+To lever up, we buy vBase, increasing our vQuote balance. Slippage is reflected in the new vETH
+balance and funding accrues to owedRealizedPnL
+
+quoteAmount = scaledSetValue
+
+CH.openPosition({
+   isBaseToQuote: false,
+   isExactInput: true,
+   amount: quoteAmount
+})
 	
-	// getPrice() is a Solidity helper method to fetch AMM index price
-	vBase AMM index price (vBAIP) = getPrice(vBaseToken) 
+</td>
+</tr> 
+<tr>
+<td width="20%" vAlign="top"><strong>Delever</strong></td>
+<td> 
 
-	targetLeverageRatio = ideal leverage (ex: 2.0)
-	vBasePositionSize = PerpAccountBalance.getPositionSize(vBaseToken)	
-	vQuoteOpenNotional = PerpExchange.getOpenNotional(vBaseToken)
-	collateralBalance = PerpVault.balanceOf(setToken)	
+To delever, we sell vBase, paying down our vQuote balance. Slippage, fees, and funding accrue to owedRealizedPnL
 
-	// This method returns realized and unrealized PnL as separate values
-	owedRealizedPnL = PerpAccountBalance.getOwedAndUnrealizedPnl() 
-	pendingFunding = PerpExchange.getPendingFundingPayments() 	
+vBaseToSell = scaledSetValue / vBAIP
 
-	vBasePositionValue = vBasePositionSize * vBAIP 
+CH.openPosition({
+   isBaseToQuote: true,
+   isExactInput: true,
+   amount: vBaseToSell
+})
 
-	currentLeverageRatio = 
-	    vBasePositionValue / (vBasePositionValue + vQuoteOpenNotional + collateralBalance)
-
-	scaledSetValue = (targetLeverageRatio - currentLeverageRatio) * 
-			   vBasePositionValue +
-			   vQuoteOpenNotional +
-			   collateralBalance +
-			   owedRealizedPnL +
-			   pendingFunding
-
-   </td>
-  </tr>
-  <tr>
-   <td width="20%" vAlign="top"><strong>Lever</strong></td>
-   <td> To lever up, we buy vBase, increasing our vQuote balance. Slippage is reflected in the new vETH
-	balance and funding accrues to owedRealizedPnL
-	
-	quoteAmount = scaledSetValue
-
-	CH.openPosition({
-	   isBaseToQuote: false,
-	   isExactInput: true,
-	   amount: quoteAmount
-	})
-   </td>
-  </tr> 
-  <tr>
-   <td width="20%" vAlign="top"><strong>Delever</strong></td>
-   <td> To delever, we sell vBase, paying down our vQuote balance. Slippage, fees, and funding accrue to owedRealizedPnL
-	
-	vBaseToSell = scaledSetValue / vBAIP
-
-	CH.openPosition({
-	   isBaseToQuote: true,
-	   isExactInput: true,
-	   amount: vBaseToSell
-	})
-   </td>
-  </tr>  
+</td>
+</tr>  
 </table>
 
 ## Open Questions
