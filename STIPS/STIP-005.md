@@ -228,49 +228,48 @@ One drawback of this design is that we will need to  provide a new API for viewi
 
 ### Similarities between the ALM/CLM flow and Perp flow
 
-In general, Perp simplifies the lever and delver flows. Most of the actions required to  get into a leveraged position in ALM and CLM  are accomplished by opening positions on margin in the external protocol (e.g via _CH.openPosition_ in case of perp v2).
+In general, Perp simplifies the lever and delver flows. Most of the actions required to  get into a leveraged position in ALM and CLM  are accomplished by opening positions on margin in the external protocol (e.g via _CH.openPosition_ in case of PerpV2).
 
 <table>
-  <tr>
-  <td><strong>Step</strong></td>
-    <td><strong>ALM/CLM flow</strong></td>
-    <td><strong>Perp flow</strong></td>
-  </tr>
-  <tr>
-    <td valign="top"> <strong>Lever</strong></td>
-          <td valign="top">
-      <p>
-    Use existing collateral to Borrow debt asset, trade it for collateral asset and deposit that back
-          </p>
-        </td>
-      <td>
-    <p>Open a position using <em>ClearingHouse.openPosition()</em></p>
-        <p>
-          Under the hood the perp V2 system does something similar to what our existing leverage modules do:
-    <ul>
-          <li>Use vault’s USDC as collateral to mint vUSDC </li>
-          <li>Swap vUSDC for vETH </li>
-          <li>Clearing house receives vETH and manages it on SetToken’s behalf </li>
-    </ul>
-        </p>
-  <p> Amount of vUSDC minted depends on our leverage ratio. </p>
-      <p> We can specify the exact amount of vUSDC we wish to send or the amount of vETH we wish to receive in the CH.openPosition() function. It is similar to how we do it in UniswapV2. </p>
-   </td>
-  </tr>
-  <tr>
-  <td valign="top"><strong>Delever</strong></td>
-  <td valign="top">
-    <p> Trade collateral asset for borrow asset and repay borrow asset </p>
-    </td>
-    <td>
-    <p> Reduce a position using <em>CH.openPosition()</em>by inverting the value for <em>isBaseToQuote</em> used when increasing the position. </p>
-          <p> Under the hood the perp V2 system does something similar to what our existing leverage modules do
-          <ul>
-      <li>Clearing house sells vETH and reduces the vUSDC notional open position, paying down debt </li>
-      <li>Slippage, fees and funding accrue to owedRealizedPnL. These get socialized among all set holders during issuance and redemption
-    </ul>
-    </td>
-  </tr>
+<tr><td><strong>Step</strong></td> <td><strong>ALM/CLM flow</strong></td> <td><strong>Perp flow</strong></td>
+</tr>
+<td valign="top"><strong>Lever</strong></td>
+<td valign="top">
+
+Use existing collateral to Borrow debt asset, trade it for collateral asset and deposit that back</p>
+
+</td>
+
+<td><div>
+      
+Open a position using *ClearingHouse.openPosition()* 
+
+Under the hood the PerpV2 system does something similar to what our existing leverage modules do:
+  + Use vault’s USDC as collateral to mint vUSDC 
+  + Swap vUSDC for vETH 
+  + Clearing house receives vETH and manages it on SetToken’s behalf 
+
+Amount of vUSDC minted depends on our leverage ratio. 
+We can specify the exact amount of vUSDC we wish to send or the amount of vETH we wish to receive in 
+the CH.openPosition() function. It is similar to how we do it in UniswapV2. 
+      
+</div></td></tr>
+
+<tr> 
+<td valign="top"><strong>Delever</strong></td>
+<td valign="top"> <p> Trade collateral asset for borrow asset and repay borrow asset </p></td>
+<td>
+
+Reduce a position using *CH.openPosition()* by inverting the value for *isBaseToQuote* used when 
+increasing the position. 
+
+Under the hood the PerpV2 system does something similar to what our existing leverage modules do
++ Clearing house sells vETH and reduces the vUSDC notional open position, paying down debt 
++ Slippage, fees and funding accrue to owedRealizedPnL. These get socialized among all set holders during 
+  issuance and redemption 
+
+</td>
+</tr>
 </table>
 
 
