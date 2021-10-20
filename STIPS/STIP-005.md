@@ -696,6 +696,82 @@ CH.openPosition({
 
 ## Trade, Deposit, Withdraw
 
+The PerpModule should expose a basic trade API which lets users manage positions for arbitrary strategies.
+
+#### Requirements:
+
+We need to be able to:
++ convert a default USDC position into a Perp protocol collateral deposit
++ convert deposited collateral back into a default USDC position
++ increase and reduce virtual token positions, 
++ trade on margin, e.g. specify a quote amount which is higher than the deposit amount
++ take long and short positions
++ encode a variety configuration options available in different protocols
+
+We can use PerpV2's *OpenPositionParams* as a model for how Perp trades might be expressed. It supportsfollowing parameters:
+```solidity
+struct OpenPositionParams {
+   address baseToken;
+   bool isBaseToQuote; // false when buying (long), true when selling (short)
+   bool isExactInput;
+   uint256 amount;     // vQuote when long, vBase when selling or shorting
+   uint256 oppositeAmountBound; // Slippage protection. (Default: 0, no bound)
+   uint256 deadline;
+   uint160 sqrtPriceLimitX96;   // Post swap price validation  (Default: 0, no limit)
+   bytes32 referralCode;
+}
+```
+
+Perp Module API:
+
+<table><tr><td>Method</td><td>Description</td></tr>
+<tr>
+<td>trade</td> 
+<td>
+
+Executes trade in PerpV2 protocol per parameters and config
+
+```solidity
+function trade(
+   ISetToken _setToken,
+   address _baseToken,     
+   bool _isBaseToQuote,    
+   bool _isExactAmount,     
+   uint256 _amount,
+
+   // ABI encode additional configuration for trade
+   // Dedicated module adapters can decode this as required
+   bytes memory _data        
+)
+```
+
+</td>
+<tr>
+<td>deposit</td>
+<td>
+
+Converts *amount* of default USDC position into an external PerpV2 position
+
+```solidity
+deposit(ISetToken _setToken, uint256 _amount)
+````
+	
+</td>
+</tr>
+<tr>
+<td>withdraw</td> 
+<td>
+
+Converts *amount* of external perp account collateral position into a default USDC position  
+
+```solidity
+withdraw(ISetToken _setToken, uint256 _amount)
+```
+
+</td></tr></table>
+
+### Generalized User Flows
+
 ![](../assets/stip-005/perp_userflow_trade_buy.png "")
 
 ### User story: Deposit and open long levered position
