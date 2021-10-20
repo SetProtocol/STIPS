@@ -694,6 +694,39 @@ CH.openPosition({
 </tr>  
 </table>
 
+## Trade, Deposit, Withdraw
+
+![](../assets/stip-005/perp_userflow_trade_buy.png "")
+
+### User story: Deposit and open long levered position
+
+User wants to convert 100 units of a default USDC position into 2X long vETH Perp position
+
+1. User calls *PerpModule.deposit(setToken, 100)*
+2. PerpModule calls PerpProtocolAdapter to get address to approve deposit for 
+3. PerpModule calls *SetToken.invokeApprove(USDC, PerpProtocol, 100)*
+4. PerpModule calls *PerpProtocolAdapter.deposit(setToken, 100)*
+5. PerpProtocolAdapter calls PerpProtocol deposit method
+6. PerpProtocol transfers 100 USDC from SetToken to PerpProtocol as collateral
+7. User calls PerpModule trade configured with:
+      ```
+      baseAsset = vETH
+      isBaseToQuote = false  // e.g buy vETH with USDC 
+      isExactAmount = true
+      amount = 200  (e.g 100 collateral + 100 margin) 
+      minReceived = ….
+      ```
+
+8. PerpModule passes trade call through to *PerpProtocolAdapter.trade()*
+
+9. PerpProtocolAdapter: 
+    + formats trade parameters as necessary for the target protocol
+    + validates trade parameters 
+    + calls PerpProtocol to execute trade and validates outcome
+
+10. PerpModule calls *PerpProtocolAdapter.getPositionInfo* to get data from PerpProtocol and calculates new Set price from PerpProtocol’s spot price and vETH, collateral, debt positions
+11. PerpModule updates the SetToken’s *externalPositionUnit* for USDC as new Set price
+
 ## Open Questions
 
 * Sachin: how is owedRealizedPNL used in the protocol?
