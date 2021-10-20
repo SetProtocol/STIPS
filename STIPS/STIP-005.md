@@ -727,6 +727,44 @@ User wants to convert 100 units of a default USDC position into 2X long vETH Per
 10. PerpModule calls *PerpProtocolAdapter.getPositionInfo* to get data from PerpProtocol and calculates new Set price from PerpProtocol’s spot price and vETH, collateral, debt positions
 11. PerpModule updates the SetToken’s *externalPositionUnit* for USDC as new Set price
 
+
+![](../assets/stip-005/perp_userflow_trade_sell.png "")
+
+### User story: Close Perp position and withdraw USDC to SetToken
+
+User wants to convert a long ETH Perp external position (which uses USDC as collateral) into a default USDC position. 
+
+1. User calls *PerpModule.getPositionInfo(setToken)* to get *vETHPositionSize*
+2. PerpModule calls *PerpProtocolAdapter.getPositionInfo(setToken)* to get data from PerpProtocol and returns *vETHPositionSize* to User
+3. User calls *PerpModule.trade* configured with
+      ```
+      baseAsset = vETH
+      isBaseToQuote = true  // e.g sell vETH to realize USDC 
+      isExactAmount = true
+      amount = 200  (e.g 100 collateral + 100 margin) 
+      minReceived = ….
+      ```
+
+4. PerpModule passes trade call through to *PerpProtocolAdapter.trade()*
+5. PerpProtocolAdapter 
+      + formats trade parameters as necessary for the target protocol
+      + validates trade parameters 
+      + calls PerpProtocol to execute trade and validates outcome
+
+5. PerpModule calls *PerpProtocolAdapter.getPositionInfo* to get data from PerpProtocol and calculates new Set price from PerpProtocol’s spot price and vETH, collateral, debt positions
+
+6. PerpModule updates the SetToken’s *externalPositionUnit* for USDC as new Set price
+
+7. User calls *PerpModule.getPositionInfo(setToken)* to get *collateralPositionSize* (USDC)
+8. PerpModule calls *PerpProtocolAdapter.getPositionInfo(setToken)*  to get data from PerpProtocol and returns collateralPositionSize to user
+9. User call *PerpModule.withdraw(setToken, usdcPositionSize)*
+10. PerpModule calls *PerpProtocolAdapter.withdraw(setToken, collateralPositionSize)*
+11. PerpProtocolAdapter calls PerpProtocol withdraw 
+12. PerpProtocol calls *USDC.transfer(setToken, collateralPositionSize)* to transfer USDC to SetToken
+13. PerpModule updates SetToken’s position units:
+      + *USDC externalPositionUnit = 0* 
+      + *USDC defaultPositionUnit = collateralPositionSize / setToken.totalSupply*
+
 ## Open Questions
 
 * Sachin: how is owedRealizedPNL used in the protocol?
