@@ -1077,6 +1077,13 @@ totalUnrealizedPNL
   </tr>
 </table>
 
+### Models and Simulations
++ [Spreadsheet models for issuance, redemption, lever, delever][500]
++ [PerpV2 outputs for trading and funding scenarios][501]
+
+[500]: https://docs.google.com/spreadsheets/d/1UjxIs6hw1bFJalxwmHnONfX40K-hPhOm6oqyXnC6qsg/edit#gid=1384891502
+[501]: https://gist.github.com/cgewecke/d9216d5e41a10bb7a0455ac352b1e4dc
+
 ### PERP Resources:
 
 * [V2 Docs (WIP)](https://perp.notion.site/perp/Curie-Docs-for-Partners-a2c316abfc1549c7b4d6e310d7a3987d#f6bcb1fadfd04a43a374ff5356bb0058)
@@ -1094,161 +1101,6 @@ totalUnrealizedPNL
     * [2021/2/21 BTC Flash Crash](https://medium.com/perpetual-protocol/2021-2-21-btc-flash-crash-149eef35f7f8) (V1)
     * [2021/4/18 Flash Crash](https://perpetualprotocol.medium.com/2021-4-18-flash-crash-19d9a1a16047) (V1)
 
-
-### **<span style="text-decoration:underline;">Simple PERP Simulations</span>**
-
-[Code for Leverage / Oracle Scenarios ](https://gist.github.com/cgewecke/5be20b94f9166109b0aee72c5308831d)
-
-**<span style="text-decoration:underline;">Chainlink Price Oracle Impact</span>**
-
-**Scenario: Chainlink oracle price effects in isolation**
-
-* Taker deposits 1 USD into protocol
-* Initial BaseToken Chainlink Price = 10 USD / 1 BaseToken
-* Final BaseToken Chainlink Price = 20USD / 1 BaseToken
-
-![chainlink impact](https://user-images.githubusercontent.com/7332026/134934291-f7c0ea79-f41e-4ab7-b914-93935bfc0e97.png)
-
-**<span style="text-decoration:underline;">Levering Up</span>**
-
-**Scenario: 9X leverage from 1 USD**
-
-This case represents opening a position for 9 USDC worth of BaseToken with a vault deposit of 1 USDC. (9X seems to be an upper bound, wasn’t able to open for 9.1) ** **
-
-![lever 9x](https://user-images.githubusercontent.com/7332026/134934301-8dcccf4e-f8a9-4264-812c-a21172f0b4d3.png)
-
-**Scenario: Adding to positions with leverage**
-
-This case represents opening a series of 1 USDC positions given an initial 1 USDC vault deposit. It highlights the way the 1% fee is applied to account values as positions are opened.
-
-![add position lev](https://user-images.githubusercontent.com/7332026/134934308-641d48bb-2d21-4c37-8e96-bd36700183c2.png)
-
-**Scenario: Closing position at a profit with 2X leverage**
-
-* **Deposit: 1 USDC**
-* **Open position for 2 USDC**
-* **vAMM Price moves up ~20% (10 -> 12.08)**
-
-Nets a 36.7% gain using 2X leverage on a 20.07% increase in the vAMM market price. ** **
-
-![close profix 2X](https://user-images.githubusercontent.com/7332026/134934319-4dfc8288-9371-4f12-9c4f-b6dab8da52a8.png)
-
-**<span style="text-decoration:underline;">AMM Virtual Markets and Settlement</span>**
-
-**Scenario 1: Taker long 100 USDC, AMM market price rises 10%, taker closes position**
-
-This case shows how positions exit net of fees, as well as the way in which many account values remain static even as other traders open positions that move the AMM price.
-
-![taker long](https://user-images.githubusercontent.com/7332026/134937767-20debf91-bd46-44b8-9a63-2749833084bb.png)
-
-**Scenario 2: Taker long 100 USDC, Oracle price rises 100%, AMM market price rises 10%**
-
-This case highlights the way in which many account values are tied to oracle price but the realizable value of a position depends on the AMM market price. The outcome here despite a large spot price increase is the same as in the above where spot price is static.
-
-**Note**: this example excludes funding flows which capture the difference between AMM and Oracle prices over time.
-
-![oracle 100](https://user-images.githubusercontent.com/7332026/134937777-295f5a5e-46e2-4cc7-a8c7-dc539e5a9317.png)
-
-**Scenario 3: Taker short 10 BaseToken (100 USDC), AMM price drops 13%**
-
-This case highlights the way in which short positions in the money are behaviorally symmetric to longs.
-
-![amm drop 13](https://user-images.githubusercontent.com/7332026/134937794-136fa6fe-96cf-4a25-b5ca-b2d071a452fb.png)
-
-**Scenario 4: Reducing positions**
-* **Taker long 100 USDC**
-* **AMM market price rises 10%**
-* **Taker reduces position by half**
-
-This scenario is the same as scenario 1 but models account state after a partial reduction of a long position.
-
-![amm up 10](https://user-images.githubusercontent.com/7332026/134937806-f4df9eb1-76e7-44fe-8f87-ac6035024d67.png)
-
-**<span style="text-decoration:underline;">Liquidations / Closing levered positions</span>**
-
-**Scenario 1: Taker long 3 USDC, leveraged 3X, Oracle price drops from $10 to $7.15**
-
-In this case, AMM and Oracle prices have dislocated. Position is above the liquidation threshold if oracle price is $7.20. Moving the AMM market to similarly low price levels *does not* expose account to liquidation.
-
-![liquid 1](https://user-images.githubusercontent.com/7332026/134937817-eca5254e-5ece-416b-9671-97f6dd11ee99.png)
-
-**Scenario 2: Close leveraged position at loss. Long 3 USDC, (3X),  AMM price to $7.12.**
-
-In this case, Oracle and AMM market prices are dislocated, AMM price is below the liquidation threshold but can’t be closed by 3rd party. Outcome is interesting to compare with liquidation (above) since exiting position at these price levels incurs substantially greater loss.
-
-![liquid 2](https://user-images.githubusercontent.com/7332026/134937869-9a9222d1-cd28-43ba-944f-dadcee04e9ae.png)
-
-**<span style="text-decoration:underline;">Funding</span>**
-
-[Gist of scenario case code](https://gist.github.com/cgewecke/24d60f628bebe9c998dffc62763030fc)
-
-Funding payments between makers and takers are based on the difference between the AMM market price and the oracle price and accrue over time following the formula below.
-
-```
-positionSize * (AMM market price - Oracle price) *  ( time since position opened / day )
-```
-
-When taker opens a long position and the oracle price is below AMM market, taker pays funding fees. When oracle price is above AMM market price, taker receives funding fees.
-
-**Scenario 0: Baseline: Taker opens long 100 USD for .648 Base and immediately closes.**
-
-This case provides a comparison basis for how funding fees net out in the subsequent scenarios.
-
-![funding 0](https://user-images.githubusercontent.com/7332026/134937889-1f332759-61ae-4026-b2b8-ef0f2c8902cc.png)
-
-**Scenario 1: Paying funding fees as a taker**
-* **long 100 USD**
-* **AMM price $3 > Oracle price for 1 day**
-* **Close position at a loss with funding debited**
-* **No other traders (only liquidity providers)**
-
-![funding 1](https://user-images.githubusercontent.com/7332026/134937894-92b12f9d-d8db-4d65-bf0a-ac115ea9fa29.png)
-
-**Scenario 2: Collecting funding fees as a taker**
-* **long 100 USD**
-* **Oracle price $3 > AMM price for 1 day**
-* **close position with funding credited**
-
-![funding 2](https://user-images.githubusercontent.com/7332026/134937911-2770ee77-b21f-465d-9bb5-e162c1c73081.png)
-
-**Scenario 3: Collecting funding fees as a leveraged taker**
-* **long 200 USD (2X)**
-* **Oracle price moves above AMM price for 1 day**
-* **close position with funding credited**
-
-Baseline value after closing this position (without funding) is 96020049
-
-![funding 3](https://user-images.githubusercontent.com/7332026/134937920-b94af2c9-b468-4c3e-8ed2-71199d802018.png)
-
-**Scenario 4: Collecting funding fees as a taker when AMM prices drops below Oracle**
-
-* **long 100 USD**
-* **other participant short positions move AMM price $3 &lt; Oracle price for 1 day**
-* **close position at a loss with funding credited**
-
-The baseline outcome for closing this position at a loss without funding payments is 94544705
-
-![funding 4](https://user-images.githubusercontent.com/7332026/134937930-dcc3e90e-b9a5-4e11-b5e1-96432810a7e2.png)
-
-**Scenario 5: Effect of time on funding settlement**
-* **long 100 USD**
-* **Oracle price moves above AMM price for 1 day**
-* **Oracle price moves back in line with AMM**
-* **close position**
-
-In slack, Brian noted that funding settlement for accounts only occurs when positions are opened / closed.
-
-“...so could be in your favor for the whole time then flips for one day, you exit, and you end up paying”
-
-(This is accurate, compare with Funding scenario #2)
-
-![funding 5](https://user-images.githubusercontent.com/7332026/134937954-d8d9458c-2e71-4788-a5eb-eb658fa8d00f.png)
-
-**Scenario 6: Funding payments when position is reduced (rather than closed).**
-
-The complete amount of pending payments is settled to _owedRealizedPNL_ when any increase or reduction in the position occurs.
-
-![funding 6](https://user-images.githubusercontent.com/7332026/134937969-6eb7661d-fc5b-4984-8800-1407a1561c12.png)
 
 **Reviewer**:
 
