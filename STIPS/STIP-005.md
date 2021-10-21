@@ -152,11 +152,9 @@ This is currently WIP with no unit tests in the perp-lushan repository, as of co
 * Works well with rest of the SetProtocol architecture and processes for managing Sets
 * Encapsulates all PerpV2 interactions in a dedicated module
 
-**Summary**
+**Set System Compatibility Issues**
 
-We think PERP accounts should be modeled on the SetToken as an external USDC position and that PERP account virtual positions should be modeled as default positions on a virtual SetToken. This virtual SetToken is intended solely as a data structure which tracks position quantities within the PERP system. Using it lets us manage PERP accounts as a conventional SetToken component while preserving the ability to map PERP virtual positions onto SetProtocol’s existing logic for operations like replication and rebalancing.
-
-One drawback of this design is that we will need to  provide a new API for viewing PERP position details since current APIs for the SetToken would only register these as single aggregate USDC value.
++ We plan to track the components that make up Perp position as addresses (of virtualAssets or pools) and read quantities from the external protocols on the fly using protocol specific viewer methods. For back-end purposes we will need to provide an API for viewing Perp position details and assigning a value to the Set. 
 
 **Required Contracts**
 
