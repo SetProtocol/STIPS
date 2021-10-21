@@ -516,12 +516,12 @@ UserA owns 10 SetTokens which represent a leveraged Perp position in ETH and wan
 6. After burning 10 SetTokens, DIM reads SetToken’s *externalPositionUnit* and calculates the usdc *componentQuantity* to 
    return to user
 
-7. DIM resolves the equity position by calling PerpModule’s *externalPositionHook* which calls the PerpAdapter’s redeem hook 
+7. DIM resolves the equity position by calling PerpModule’s *componentRedeemHook* which calls the PerpAdapter’s redeemHook 
    implementation  
 
 8. PerpAdapter calls *PerpProtocol.withdraw(setToken, componentQuantity)*
 
-9. PerpProtocol calls *USDC.transfer(setToken, componentQuantity)* converting correct amount of  SetToken’s USDC external position into a USDC default position. 
+9. PerpProtocol calls *USDC.transfer(setToken, componentQuantity)* to transfer USDC from Protocol back to SetToken. 
 
 10. DIM calls SetToken to transfer *componentQuantity* amount of USDC from SetToken to User 
 
@@ -590,7 +590,7 @@ Set the external position unit for DIM
 	
 **PerpModule.componentRedeemHook**
 
-Called during *DIM.resolveEquityPositions* via *DIM.externalPositionHook*. Withdraws USDC amount calculated from external position unit and updates virtual position units for back-end purposes.
+Called during *DIM.resolveEquityPositions* via *DIM.externalPositionHook*. Withdraws USDC amount calculated from external position unit.
 
 **Steps:**
 	
