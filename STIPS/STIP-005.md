@@ -558,7 +558,7 @@ We may have already accrued PnL from non-issuance/redemption sources (ex: leveri
 
 + carriedOwedRealizedPnL = PerpAccountBalance.getOwedAndUnrealizedPnl(setToken) 
 + totalFundingAndCarriedPnL = pendingFunding + carriedOwedRealizedPnL		
-+ fundingPositionUnit = totalFundingAndCarriedPnL / setToken.totalSupply	
++ owedRealizedPnLPositionUnit = totalFundingAndCarriedPnL / setToken.totalSupply	
 	
 Execute sell trade 
 ```solidity	
@@ -575,7 +575,7 @@ Calculate amount of USDC to withdraw
 + collateralPositionUnit =  PerpVault.balanceOf(setToken) / setToken.totalSupply
 + usdcToWithdraw = 
   + (collateralPositionUnit * redeemQuantity) + 
-  + (fundingPositionUnit * redeemQuantity) + 
+  + (owedRealizedPnLPositionUnit * redeemQuantity) + 
   + realizedPnL 
 
 
