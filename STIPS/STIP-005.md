@@ -156,72 +156,107 @@ This is currently WIP with no unit tests in the perp-lushan repository, as of co
 
 + We plan to track the components that make up Perp position as addresses (of virtualAssets or pools) and read quantities from the external protocols on the fly using protocol specific viewer methods. For back-end purposes we will need to provide an API for viewing Perp position details and assigning a value to the Set. 
 
-**Required Contracts**
+### Required Set Contracts
 
 <table>
-  <tr>
-   <td><strong>Contract</strong>
-   </td>
-   <td><strong>Notes</strong>
-   </td>
-  </tr>
-  <tr>
-   <td>SetToken
-   </td>
-   <td>Has an external USDC position managed by PerpV2 protocol.
-   </td>
-  </tr>
-  <tr>
-   <td>DebtIssuanceModule
-   </td>
-   <td>
-   </td>
-  </tr>
-  <tr>
-   <td valign="top">PerpV2LeverageModule
-   </td>
-   <td>
-       <p>Exposes a standard leverage module API </p>
-        <ul>
-            <li>lever </li>
-            <li>delever </li>
-            <li>sync</li>
-            <li>hooks </li>
-       </ul>
-       <p> <strong>New</strong> </p>
-       <p> For each Set Token it implements a virtual SetToken that tracks the virtual asset positions of a PerpV2 account. This token allows us to use all our existing infrastructure and strategies for handling positions within Perps closed system. Virtual assets are added as default positions on the virtual SetToken. </p>
-   </td>
-  </tr>
-  <tr>
-   <td> Perp.Vault
-   </td>
-   <td> (External) Entry point to the Perp system, exposes deposit and withdraw methods
-   </td>
-  </tr>
-  <tr>
-   <td> PerpV2.ClearingHouse
-   </td>
-   <td> (External) Exposes Perp’s trading API
-   </td>
-  </tr>
-  <tr>
-   <td> PerpV2.AccountBalance
-   </td>
-   <td> (External) Exposes account and position balance info
-   </td>
-  </tr>
-  <tr>
-   <td> PerpV2.Quoter
-   </td>
-   <td> (External) Provides a way to get trade quotes from the Perp AMM by simulating swaps. 
-   </td>
-  </tr>
-  <tr>
-   <td> PerpV2.Exchange
-   </td>
-   <td> (External) Exposes a method to get pending funding payments 
-   </td>
-  </tr>
+<tr><td><strong>Contract</strong></td><td><strong>Notes</strong></td></tr>
+<tr><td>SetToken</td>
+<td>
+
+Has an external USDC position managed by PerpV2 protocol.
+
+</td>
+</tr>
+<tr><td>DebtIssuanceModule</td><td></td>
+</tr>
+<tr><td valign="top">
+
+PerpModule
+
+PerpV2Adapter
+
+</td>
+<td>
+
+Exposes a standard leverage module API 
+      
++ lever 
++ delever 
++ moduleIssuanceHook
++ moduleRedeemHook
++ componentIssuanceHook
++ componentRedeemHook
+
+**New: Trading API**
+
++ *deposit*: transfers assets from SetToken to Perp protocol
++ *withdraw*: transfers assets from Perp protocol to SetToken
++ *trade*: manage long/short positions on margin
+
+**New: Viewer API**
+
++ *getPositionInfo*: gets position, debt, collateral, funding and PnL balances
++ getPriceBasedInfo: gets AMM spot price, set value, and current leverage ratio
+  
+</td></tr></table>
+
+### Required PerpV2 Contracts
+
+<table><tr><td valign="top"> Vault </td>
+<td> 
+
+Entry point into the protocol. Where funds are deposited/withdrawn and collateral is stored.  
+
+```solidity
+deposit(address token, uint256 amount)
+withdraw(address token, uint256 amountX10_D
+balanceOf(address trader)
+```
+
+</td></tr>
+<tr><td valign="top"> ClearingHouse</td>
+
+<td> 
+
+Exposes Perp’s trading API
+
+```solidity
+openPosition(OpenPositionParams memory params)
+```  
+
+</td></tr>
+<tr><td valign="top"> AccountBalance</td>
+<td> 
+
+Exposes "credit side" balances: position and PnL info
+
+```solidity
+getPositionSize(address trader, address baseToken)
+getOwedAndUnrealizedPnl(address trader)
+```
+
+</td></tr>
+<tr><td valign="top"> Exchange</td>
+<td> 
+
+Exposes "debit side" balances: openNotional and pending funding payments 
+
+```solidity
+getOpenNotional(address trader, address baseToken)
+getPendingFundingPayment(address trader, address baseToken)  
+```
+
+</td></tr>
+<tr><td valign="top"> Quoter</td>
+<td> 
+
+Provides a way to get trade quotes from the Perp AMM by simulating swaps. Quotes include protocol fees.
+
+```solidity
+swap(SwapParams memory params)
+```
+  
+</td></tr>
 </table>
 
 ### Similarities between the ALM/CLM flow and Perp flow
