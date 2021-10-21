@@ -381,12 +381,37 @@ might need to be.
 
 ### PerpV2 Issuance, Redemption and Lever/Delever flow analysis
 
-#### Issuance
+## Issuance
 
-<table><tr><td width="15%">PerpV2 Method</td><td>Action</td></tr>
-<tr><td valign="top">moduleIssuanceHook</td>
+![](../assets/stip-005/perp_userflow_issue.png "")
+
+### User story: Issuing 1 set (with slippage)
+
+User wants to issue 1 unit of a SetToken representing a  2X leveraged Perp account which uses USDC as collateral. ETH costs $10 and each Set is worth $10. The execution cost of replicating the position in the PerpProtocol is $.02 ( slippage and fees).
+ 
+1. User calls *DIM.issue(1)*
+2. DIM calls *PerpProtocolAdapter.moduleIssuanceHook(setToken, 1)* via PerpModule  
+3. PerpProtocolAdapter:
+  	+ Reads account balances from PerpProtocol
+  	+ Calculates USDC mint cost by simulating the trade on PerpProtocol, returning a slippage-adjusted, funding-discounted value of 10.02 to PerpModule.
+
+4. PerpModule sets *SetToken.externalPositionUnit* to 10.02
+5. DIM reads *SetToken.externalPositionUnit*
+6. DIM calls USDC to transfer 10.02 USDC from User to SetToken
+7. DIM calls *PerpModuleAdapter.componentIssuanceHook* via PerpModule
+8. PerpModuleAdapter calls SetToken to approve transfer of USDC from SetToken to PerpProtocol
+9. PerpModuleAdapter encodes call to *PerpProtocol.deposit(setToken, 10.02)* and sends via SetToken 
+10. PerpProtocol calls USDC to transfer 10.02 from SetToken to PerpProtocol 
+11. PerpModuleAdapter encodes call to PerpProtocol to open a 2 ETH position for 20.02 vUSDC debt and sends via SetToken
+
+### PerpV2 Module Implementation Example
+
+<table><tr><td width="15%">Step</td><td>Action</td></tr>
+<tr><td valign="top">DIM.modulePreIssueHook</td>
 <td>
 
+**PerpModule.moduleIssuanceHook**	
+	
 Called as a modulePreIssueHook in DIM.issue(mintQuantity), before DIM calculates the issuance units.
 
 Read all required state from PerpV2 protocol contracts
@@ -428,9 +453,11 @@ The Perp account is a positive equity position
 + *setToken.externalPositionUnit = usdcAmountIn / mintQuantity*
 
 </td></tr>
-<tr><td valign="top">componentIssuanceHook</td>
+<tr><td valign="top">DIM.externalPositionHook</td>
 <td>  
 
+**PerpModule.componentIssuanceHook**
+	
 Invoked as an externalPositionHook duuring DIM.resolveEquityPositions. Happens after DIM has read external USDC position (set during moduleIssuanceHook) and transferred in:
 + *usdcAmount = mintQuantity * setToken.externalPositionUnit*
 
