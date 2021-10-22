@@ -65,7 +65,11 @@ PerpV2 uses UniswapV3 as its pricing engine, minting virtual tokens to pools in 
 
 There is no secondary market for PERP’s virtual asset tokens; they are wholly controlled by the protocol and used for internal accounting to help with price binding.
 
-The realizable value of a position is the sum of what it can be swapped for on the AMM and whatever funding flows (positive or negative) it accrues at the time of settlement.
+The realizable value of a long position is the sum of:
++ the vAsset swap value on the AMM (positive)
++ debt (the USDC paid to put on the poition) (negative)
++ vault collateral (USDC deposits) (positive) 
++ pending funding accrued at the time of settlement (positive or negative)
 
 #### Oracle Valuation Engine
 
