@@ -154,7 +154,7 @@ This is currently WIP with no unit tests in the perp-lushan repository, as of co
 
 **Set System Compatibility Issues**
 
-+ We plan to track the components that make up Perp position as addresses (of virtualAssets or pools) and read quantities from the external protocols on the fly using protocol specific viewer methods. For back-end purposes we will need to provide an API for viewing Perp position details and assigning a value to the Set. 
++ We plan to track the components that make up Perp position as addresses (of virtualAssets or pools) and read quantities from the external protocols on the fly using protocol specific viewer methods. For back-end purposes we will need to provide an API for viewing Perp position details and assigning a value to the Perp account. 
 
 ### Required Set Contracts
 
@@ -196,7 +196,7 @@ Exposes a standard leverage module API
 **New: Viewer API**
 
 + *getPositionInfo*: gets position, debt, collateral, funding and PnL balances
-+ getPriceBasedInfo: gets AMM spot price, set value, and current leverage ratio
++ getPriceBasedInfo: gets AMM spot price and current leverage ratio
   
 </td></tr></table>
 
@@ -627,8 +627,8 @@ Called during *DIM.resolveEquityPositions* via *DIM.externalPositionHook*. Withd
 
 **Steps:**
 	
-Withdraw USDC to SetToken from PerpV2 vault	
-+ PerpVault.withdraw(setToken, usdcToWithdraw)
+Call PerpV2.Vault via SetToken to withdraw USDC to SetToken	
++ setToken.invokeWithdraw(usdcToWithdraw)
 	  
 </td></tr>
 </table>
@@ -681,7 +681,7 @@ A manager has  a leveraged ETH SetToken whose target leverage ratio is 2.0 but w
 
 To delever, we sell vETH, paying off our debt balance. Depending on the implementation of the protocol, slippage, fees, and funding will be realized as PnL
 
-1. Manager calls PerpModule to fetch data from PerpProtocol via PerpProtocolAdapter contract and calculates a *quoteUnits* amount to sell for their rebalance (as in the user flow)
+1. Manager calls PerpModule to fetch data from PerpProtocol via PerpProtocolAdapter contract and calculates a *quoteUnits* amount to sell for their rebalance (as in the lever user flow)
 
 2. Manager calls *PerpModule.delever(setToken, quoteUnits, quoteMinReceiveUnits)*
 
