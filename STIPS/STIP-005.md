@@ -160,6 +160,31 @@ This is currently WIP with no unit tests in the perp-lushan repository, as of co
 
 + We plan to track the components that make up Perp position as addresses (of virtualAssets or pools) and read quantities from the external protocols on the fly using protocol specific viewer methods. For back-end purposes we will need to provide an API for viewing Perp position details and assigning a value to the Perp account. 
 
+**Design Challenges**
+
++ **vAsset Pricing**: For most operations, we'll need to get a spot price for virtual assets from UniswapV3. 
+
+ 	One approach is to use Perp’s Quoter API to get a quote for `1.0101 USDC` worth of vBase (e.g amountOut per vUSDC net of Perp protocol fees). This would look like:
+
+	```solidity
+	vBaseAmountOut  = Quoter.swap({
+  		isBaseToQuote: false,
+  		isExactInput: true,
+  		amount: toPreciseUnit(1.0101),
+		...
+	});
+ 
+	spotPrice = 1 / vBaseAmountOut
+	```
+
+	*Quoter.swap* simulates a trade on the AMM and is very gas intensive.   
+	
+	A safe math Solidity algorithm to derive the price from the Uniswap price square root would be more gas efficient but requires additional research. (We wrote a convenience Solidity method to do this for our scenario tests ([see here][720]) but it reverts with multiplication overflow for prices as low as $20.  Maybe there’s another technique.) 
+
+[720]: https://github.com/SetProtocol/perp-lushan-copy/blob/c03072188a58e71fe9a405c77b2a0c3be7ada795/contracts/ClearingHouse.sol#L907-L909
+
++ **AMM Market Manipulation (via flash loan)**: TODO (attack description) 
+
 ### Required Set Contracts
 
 <table>
