@@ -965,18 +965,102 @@ User wants to convert a long ETH Perp external position (which uses USDC as coll
 [303]: https://perp.notion.site/Index-price-spread-attack-2f203d45b34f4cc3ab80ac835247030f
 [304]: https://perp.notion.site/Bad-Debt-Attack-5cd74c9cc0b845ffa3cf13012c7fdb8c
 
-### Other Perpetual Protocols
+## Other Perpetual Protocols
 
 As part of the research for this STIP, we looked at 3 other perpetual futures protocols to evaluate the feasibility of building a generalizable module for this asset class. Only one of these was a fully decentralized on-chain system with open sourced code (MCDEX’s [mai-protocol-v3](https://github.com/mcdexio/mai-protocol-v3))
 
 * [dydx](https://docs.dydx.exchange/#perpetual-contracts): This protocol’s order book is centralized on AWS servers.
-* [futureswap](https://docs.futureswap.com/): This project’s code [is not open sourced](https://github.com/futureswap/Protocol) at the moment. We may be able to get access through their team. (Punia has contacts with them).
 
-**[Mai-protocol-v3](https://docs.mcdex.io/)**
+### Futureswap
+
+### Resources
++ [FutureSwap docs][400]
++ This project’s code [is not open sourced](https://github.com/futureswap/Protocol) at the moment. (We've approached them about getting access.)
+
+### Pricing Engine 
+
+Futureswap trades the futures contract's underlying assets directly on UniswapV3 out of reserves capitalized with trader collateral and staker liquidity. 
+
+Traders deposit collateral to manage a position in a specific asset/stable pair market. In principle ETH could be the "stable" side of the pair (enabling ETH collateralization) if the market is structured that way but typically "stable" is USDC-like and "asset" is a crypto volatile. 
+
+The realizable value of a Futureswap long position is the sum of:
+
++ the asset's swap value on UniswapV3 (positive)
++ debt (the stable amount borrowed to put on the poition) (negative)
++ pending funding accrued at the time of settlement (positive or negative)
+
+### Funding 
+
+Futureswap funding fees incentivize long and short positions to balance each other out. If there are more longs than shorts, longs pay asset to shorts and vice versa. This payment is modelled as happening continuously in each time interval and the funding rate is charged on every contract interaction, per the following formula:
+
+*fundingCharged = (long.asset + short.asset) * fundingRate * deltaTime*
+
+The rate at which an asset is transferred is proportional to the imbalance between longs and shorts.
+
+### Auto-deleveraging
+
+Futureswap doesn't have an insurance fund. Instead it uses an auto-deleveraging mechanism to balance its ledger when trades attempted on UniswapV3 fail due to liquidity shortages. ADL skips the Uniswap pool and executes orders by force-closing positions on the opposite side of the book, beginning with the most highly leveraged counterparties. 
+
+This means it's possible to be liquidated even when your position is in profit. ADL'd positions are closed at a small premium to market and low-leverage positions are at least risk of being unwound by force.  
+
+### Trade API
+
+**User flow**
+
+1. Read the address of Perp pair exchange (ex: ETH/USD) from a registry where ETH is "asset" and USDC is "stable"
+2. Approve exchange for amount to transfer on the stable token (ex: USDC.approve(...)). 
+3. Use ExchangeAddress.changePosition() to deposit, withdraw and trade 
+
+**Interface: changePosition()**
+```solidity
+ExchangeAddress.changePosition(
+  int256 deltaAsset,  // Buy amount in asset decimals, long = positive, short = negative
+  int256 deltaStable, // Stable to deposit (positive) or withdraw (negative) in stable decimals
+  int256 stableBound  // Max amount stable to pay for asset (net slippage and fees). Long = negative, Short = positive
+);
+
+Returns: 
+(
+  int256 startAsset   // Asset amount the position had before changePosition() was called  
+  int256 startStable  // Stable amount the position had before changePosition() was called   
+  int256 totalAsset   // Asset amount the position had after execution of changePosition()  
+  int256 totalStable  // Stable amount the position had after execution of changePosition()  
+  int256 traderPayout // Stable amount sent to the trader  
+)
+```
+
+**Example Usage: changePosition()**
+
+Where ETH = 10 USDC, slippage is 1%
+
+| Action | Call |
+| ---- | ---- |
+| Deposit 10 USDC | changePosition(0, +10_000_000, ...) |
+| Withdraw 10 USDC | changePosition(0, -10_000_000, ...) |
+| 2X Long ETH, incl. deposit | changePosition(2, +10_000_000, -20_200_000) |
+| Long 2 ETH, no deposit | changePosition(2, 0, -20_200_000) |
+| Short 2 ETH, no deposit | changePosition(-2, 0, 20_200_000) |
+
+**PerpV2 & Futureswap equivalents** (hypothetical)
+
+| PerpV2 | Futureswap |
+| ------ | ------ |
+| deltaBaseAvailable | totalAsset - startAsset |
+| deltaQuoteAvailable | totalStable - startStable |
+| getPositionSize() | (asset,...) = getPosition() |
+| getPendingFunding() | [recipe][401] |
+| vault.balanceOf() + getOpenNotional() | (,stable,...) = getPosition() |
+| realizedPnL | traderPayout (return param of *changePosition()*) | 
+| carriedOwedRealizedPnL | always settled to stable balance |
+
+[401]: https://docs.futureswap.com/protocol/developer/trade#get-funding-rate
+[400]: https://docs.futureswap.com/protocol/trading/trading-flow
+
+### [Mai-protocol-v3](https://docs.mcdex.io/)
 
 The Mai protocol shares many of the same properties as PERP but has a broader set of features for liquidity providers and manages leverage and funding differently.
 
-**AMM / Orderbook**
+### AMM / Orderbook
 
 Mai’s futures market is a custom AMM serviced by liquidity providers who receive funding payments. LPs can create their own perpetual markets using the price feed of arbitrary underlying assets and choose any ERC20 as collateral. They can also configure a perpetual market’s margin rate and certain risk parameters that help LPs manage market making operations.
 
@@ -994,7 +1078,7 @@ Per the [Pricing Strategy](https://docs.mcdex.io/amm-design#features-of-the-pric
 * The AMM price automatically follows the spot price
 * Liquidity tends to concentrate near the spot price, reducing slippage
 
-**Trading**
+### Trading
 
 Traders open and reduce positions using a [Trade API](https://github.com/mcdexio/mai-protocol-v3/blob/03d70a5b3801949ffcb7df82e57fd35c07ec91c7/contracts/Perpetual.sol#L146-L203). Each trade realizes funding payments and calculates the current margin available before executing.
 
@@ -1023,7 +1107,7 @@ function deposit(
 );
 ```
 
-**Summary**
+### Summary
 
 Mai’s documentation is thin and difficult to draw conclusions from. However, on the surface it seems like it would be possible to build adapters to map its trading inputs and outputs to an interface which PERP could share.
 
