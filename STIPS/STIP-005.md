@@ -989,7 +989,7 @@ delever(ISetToken setToken, uint256 quoteUnits, uint256 quoteMinReceiveUnits)
 ```solidity
 {
   _sendToken: vUSDCAddress , 
-  _sendQuantity: 100,
+  _sendQuantity: -100,
   _receiveToken: vETHAddress,
   _minReceiveQuantity: 9.9 
 }
