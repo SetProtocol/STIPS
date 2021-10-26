@@ -651,7 +651,7 @@ Read required data from Perp protocol
 
 Calculate how much to sell and our expected PnL
 	
-+ vBaseToSell = redeemQuantity * vBasePositionUnit 
++ vBaseToSell = abs(redeemQuantity * vBasePositionUnit) 
 + closeRatio = vBaseToSell / vBasePositionSize 
 + reducedOpenNotional = vQuoteOpenNotional * close ratio 
 + openNotionalFraction = (vQuoteOpenNotional  * -1 ) + reducedOpenNotional 
@@ -662,7 +662,8 @@ We may have already accrued PnL from non-issuance/redemption sources (ex: leveri
 + totalFundingAndCarriedPnL = pendingFunding + carriedOwedRealizedPnL		
 + owedRealizedPnLPositionUnit = totalFundingAndCarriedPnL / setToken.totalSupply	
 	
-Execute sell trade 
+*If long*: (when vBasePositionUnit is positive)
+	
 ```solidity	
 deltaAvailableQuote = CH.openPosition({ 
   isBaseToQuote: true, 
@@ -672,8 +673,26 @@ deltaAvailableQuote = CH.openPosition({
 }) 
 ```
 
-Calculate amount of USDC to withdraw	
-+ realizedPnL = reducedOpenNotional + deltaAvailableQuote					
+*If short*: ((when vBasePositionUnit is negative)
+
+```solidity	
+deltaAvailableQuote = CH.openPosition({ 
+  isBaseToQuote: false, 
+  isExactInput: false, 
+  amount: vBaseToSell
+  ...
+})
+```
+
+Calculate realized PnL
+
+*If long*
++ realizedPnL = reducedOpenNotional + deltaAvailableQuote
+
+*If short*
++ realizedPnL = reducedOpenNotional - deltaAvailableQuote
+
+Calculate amount of USDC to withdraw
 + collateralPositionUnit =  PerpVault.balanceOf(setToken) / setToken.totalSupply
 + usdcToWithdraw = 
   + (collateralPositionUnit * redeemQuantity) + 
