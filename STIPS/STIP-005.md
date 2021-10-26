@@ -880,13 +880,13 @@ We need to be able to:
 + take long and short positions
 + encode a variety configuration options available in different protocols
 
-We can use PerpV2's *OpenPositionParams* as a model for how Perp trades might be expressed. It supportsfollowing parameters:
+PerpV2's *OpenPositionParams* support the following parameters:
 ```solidity
 struct OpenPositionParams {
    address baseToken;
-   bool isBaseToQuote; // false when buying (long), true when selling (short)
+   bool isBaseToQuote; 		// false when buying (long), true when selling (short)
    bool isExactInput;
-   uint256 amount;     // vQuote when long, vBase when selling or shorting
+   uint256 amount;     		// vQuote when long, vBase when selling or shorting
    uint256 oppositeAmountBound; // Slippage protection. (Default: 0, no bound)
    uint256 deadline;
    uint160 sqrtPriceLimitX96;   // Post swap price validation  (Default: 0, no limit)
@@ -894,7 +894,7 @@ struct OpenPositionParams {
 }
 ```
 
-Perp Module API:
+**Perp Module Trade API**
 
 <table><tr><td>Method</td><td>Description</td></tr>
 <tr>
@@ -906,18 +906,17 @@ Executes trade in PerpV2 protocol per parameters and config
 ```solidity
 function trade(
    ISetToken _setToken,
-   address _baseToken,     
-   bool _isBaseToQuote,    
-   bool _isExactAmount,     
-   uint256 _amount,
+   address _sendToken,  
+   int256 _sendQuantity, 	// (10**18)
+   address _receiveToken,
+   int256 _minReceiveQuantity,  // (10**18)
 
    // ABI encode additional configuration for trade
-   // Dedicated module adapters can decode this as required
    bytes memory _data        
 )
 ```
 
-</td>
+</td></tr>
 <tr>
 <td>deposit</td>
 <td>
@@ -940,7 +939,94 @@ Converts *amount* of external perp account collateral position into a default US
 withdraw(ISetToken _setToken, uint256 _amount)
 ```
 
+</td></tr>
+<td>lever</td> 
+<td>
+
+Increases size of vAsset positions to rebalance towards a higher leverage ratio 
+	
+```solidity	
+lever(setToken, quoteUnits, quoteMinReceiveUnits)
+```
+
+</td></tr>
+<td>delever</td> 
+<td>
+	
+Decreases size of vAsset positions to rebalance towards a lower leverage ratio
+	
+```solidity
+delever(setToken, quoteUnits, quoteMinReceiveUnits)
+```
+	
 </td></tr></table>
+
+</table>
+
+**PerpV2 to Trade Parameter Mapping**
+
++ Assume ETH = 10 USDC
+
+<table><tr><td>Action</td><td>PerpV2 params</td><td>Trade API params</td></tr>
+<tr><td valign="top">Long 10ETH</td> 
+
+<td>
+
+```solidity
+{
+  baseToken: vETHAddress,
+  isBaseToQuote: false,			    
+  isExactInput: true,			      
+  amount: 100 (vUSDC),
+  
+  // lower bound of output base
+  oppositeAmountBound: 9.9 (vETH) 
+}
+```
+
+</td><td valign="top">
+
+```solidity
+{
+  _sendToken: vUSDCAddress , 
+  _sendQuantity: 100,
+  _receiveToken: vETHAddress,
+  _minReceiveQuantity: 9.9 
+}
+```
+
+</td></tr>
+
+
+<tr><td valign="top">Short 10 ETH</td>
+
+<td>
+
+```solidity
+{
+  baseToken: vETHAddress,
+  isBaseToQuote: true,			    
+  isExactInput: true,			      
+  amount: 10 (ETH)
+  
+  // lower bound of output quote
+  oppositeAmountBound: 101 USDC 
+}
+```
+
+</td><td valign="top">
+
+```solidity
+{
+  _sendToken: vETHAddress,  
+  _sendQuantity: -10,
+  _receiveToken: vUSDCAddress,
+  _minReceiveQuantity: 101
+}
+```
+
+</td></tr></table>
+
 
 ### Generalized User Flows
 
@@ -958,11 +1044,10 @@ User wants to convert 100 units of a default USDC position into 2X long vETH Per
 6. PerpProtocol transfers 100 USDC from SetToken to PerpProtocol as collateral
 7. User calls PerpModule trade configured with:
       ```
-      baseAsset = vETH
-      isBaseToQuote = false  // e.g buy vETH with USDC 
-      isExactAmount = true
-      amount = 200  (e.g 100 collateral + 100 margin) 
-      minReceived = ….
+      sendToken: vUSDCAddress
+      sendQuantity: toPreciseUnit(200) 
+      receiveToken: vETHAddress
+      minReceiveQuantity: ...
       ```
 
 8. PerpModule passes trade call through to *PerpProtocolAdapter.trade()*
@@ -987,11 +1072,10 @@ User wants to convert a long ETH Perp external position (which uses USDC as coll
 2. PerpModule calls *PerpProtocolAdapter.getPositionInfo(setToken)* to get data from PerpProtocol and returns *vETHPositionSize* to User
 3. User calls *PerpModule.trade* configured with
       ```
-      baseAsset = vETH
-      isBaseToQuote = true  // e.g sell vETH to realize USDC 
-      isExactAmount = true
-      amount = 200  (e.g 100 collateral + 100 margin) 
-      minReceived = ….
+      sendToken: vETHAddress
+      sendQuantity: -10  // e.g sell vETH to realize USDC 
+      receiveToken: vUSDCAddress 
+      minReceiveToken: ... 
       ```
 
 4. PerpModule passes trade call through to *PerpProtocolAdapter.trade()*
