@@ -801,9 +801,7 @@ To delever, we sell vETH, paying off our debt balance. Depending on the implemen
 <tr>
 <td width="20%" vAlign="top"><strong>Lever</strong></td>
 <td> 
-
-To lever up, we buy vBase, increasing our vQuote balance. 
-
+ 
 Parameters passed in:
 + setToken
 + quoteUnits
@@ -812,48 +810,82 @@ Parameters passed in:
 Convert quote units to trade amounts:
 + *quoteTradeSize = quoteUnits * setToken.totalSupply*
 + *quoteMinReceiveAmount = quoteMinReceiveUnits * setToken.totalSupply*
-+ *vBaseMinReceiveAmount = quoteMinReceiveAmount / vBase price*
++ *minReceiveAmount = quoteMinReceiveAmount / vBase price*
 
-Call *PerpV2.ClearingHouse.openPosition* via SetToken 
+Call *PerpV2.ClearingHouse.openPosition* via SetToken after calculating *minReceiveAmounts*
+	
+*If long*
 
 ```solidity
 params = OpenPositionParams({
   baseToken = collateralVAsset
-  isBaseToQuote = false			// long
-  isExactInput = true			// exact amount of vUSDC to be swapped
+  isBaseToQuote = false			 // Q2B: long
+  isExactInput = true			 // exact input
   amount = vQuoteTradeSize
-  oppositeAmountBound = vBaseMinReceiveAmount
-  deadline = block.timestamp + 900,	// 15 mins
-  sqrtPriceLimitX96 = 0			// slippage protection
+  oppositeAmountBound = minReceiveAmount // lower bound of output base
+  deadline = block.timestamp + 900,	 // 15 mins
+  sqrtPriceLimitX96 = 0			 // slippage protection
 })
 ```
 
+*If short*
+	
+```solidity
+params = OpenPositionParams({
+  baseToken = collateralVAsset
+  isBaseToQuote = true			 // B2Q: short
+  isExactInput = false			 // exact output
+  amount = vQuoteTradeSize
+  oppositeAmountBound = minReceiveAmount // upper bound of input base
+  deadline = block.timestamp + 900,	 // 15 mins
+  sqrtPriceLimitX96 = 0			 // slippage protection
+})
+```
+	
 + *setToken.invokeOpenPosition(params)*	
 	
 </td>
 </tr> 
 <tr>
 <td width="20%" vAlign="top"><strong>Delever</strong></td>
-<td> 
+<td>
 
 Parameters passed in:
 + setToken
 + quoteUnits
 + quoteMinRepayUnits
 
-Convert quote units to trade amounts:
+Calculate trade sizes and repay amounts
+
 + *quoteTradeSize = quoteUnits * setToken.totalSupply*
 + *vBaseTradeSize = quoteTradeSize / vBase price*
-+ *quoteMinRepayAmount = quoteMinRepayUnits * setToken.totalSupply*
++ *minRepayAmount = quoteMinRepayUnits * setToken.totalSupply*
 
 Call *PerpV2.ClearingHouse.openPosition* via SetToken 
+
+*If long*
+
 ```solidity
 params = OpenPositionParams({
   baseToken = collateralVAsset
-  isBaseToQuote = true			// short
-  isExactInput = true			// exact amount of vBase to be swapped
+  isBaseToQuote = true			// B2Q: short
+  isExactInput = true			// exact input
   amount = vBaseTradeSize
-  oppositeAmountBound = minVQuoteRepayAmount
+  oppositeAmountBound = minRepayAmount  // lower bound of output quote
+  deadline = block.timestamp + 900,	// 15 mins
+  sqrtPriceLimitX96 = 0			// slippage protection
+})
+```
+
+*If short*
+
+```solidity
+params = OpenPositionParams({
+  baseToken = collateralVAsset
+  isBaseToQuote = false			// Q2B: long
+  isExactInput = false			// exact output
+  amount = vBaseTradeSize
+  oppositeAmountBound = minRepayAmount  // upper bound of input quote
   deadline = block.timestamp + 900,	// 15 mins
   sqrtPriceLimitX96 = 0			// slippage protection
 })
