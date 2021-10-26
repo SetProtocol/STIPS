@@ -384,7 +384,7 @@ Entry point into the protocol. Where funds are deposited/withdrawn and collatera
 ```solidity
 deposit(address token, uint256 amount)
 withdraw(address token, uint256 amountX10_D
-balanceOf(address trader)
+balanceOf(address trader) returns (int256)
 ```
 
 </td></tr>
@@ -405,8 +405,8 @@ openPosition(OpenPositionParams memory params)
 Exposes "credit side" balances: position and PnL info
 
 ```solidity
-getPositionSize(address trader, address baseToken)
-getOwedAndUnrealizedPnl(address trader)
+getPositionSize(address trader, address baseToken) returns (int256)
+getOwedAndUnrealizedPnl(address trader) returns (int256)
 ```
 
 </td></tr>
@@ -416,8 +416,8 @@ getOwedAndUnrealizedPnl(address trader)
 Exposes "debit side" balances: openNotional and pending funding payments 
 
 ```solidity
-getOpenNotional(address trader, address baseToken)
-getPendingFundingPayment(address trader, address baseToken)  
+getOpenNotional(address trader, address baseToken) returns (int256)
+getPendingFundingPayment(address trader, address baseToken) returns (int256) 
 ```
 
 </td></tr>
