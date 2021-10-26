@@ -43,16 +43,11 @@ If the exchange's insurance fund is depleted, whether globally or for a particul
 [(Source: Perpetuals V2 (Curie) AMA)](https://medium.com/perpetual-protocol/perpetual-protocol-ama-the-curie-release-b8ecc0ad2fb4)
 
 
-### Detailed Case Study
+## Protocols 
 
-Belows we explore how the features above are implemented in Perpetual's V2 protocol, presenting
+### Perpetual Protocol V2
 
-* a high level description of their protocol
-* an overview of their trading API
-* an analysis of how positions in the protocol could be represented on the SetToken, integrated into issuance/redemption flows, and mapped onto the existing leverage module design to enable products like FLIs
-* a suite of simple scenario cases which shows the real behavior of the system (see appendix)
-
-**[Perpetual Protocol V2](https://github.com/perpetual-protocol)**
+#### Overview 
 
 Perpetual Protocol virtualizes assets on an AMM and allows users who have deposited USDC into the system to act as takers or makers for them.
 
@@ -143,7 +138,157 @@ Traders settle their pending funding payments whenever they open, modify or clos
 
 This is currently WIP with no unit tests in the perp-lushan repository, as of commit: 56ab296 (Sept 15)
 
-## Integration with Set Protocol / Feasibility Analysis
+#### Source Code
++ [Github](https://github.com/perpetual-protocol)
+
+
+### Futureswap
+
+#### Resources
++ [FutureSwap docs][400]
++ This project’s code [is not open sourced](https://github.com/futureswap/Protocol) at the moment. (We've approached them about getting access.)
+
+#### Pricing Engine 
+
+Futureswap trades the futures contract's underlying assets directly on UniswapV3 out of reserves capitalized with trader collateral and staker liquidity. 
+
+Traders deposit collateral to manage a position in a specific asset/stable pair market. In principle ETH could be the "stable" side of the pair (enabling ETH collateralization) if the market is structured that way but typically "stable" is USDC-like and "asset" is a crypto volatile. 
+
+The realizable value of a Futureswap long position is the sum of:
+
++ the asset's swap value on UniswapV3 (positive)
++ debt (the stable amount borrowed to put on the poition) (negative)
++ pending funding accrued at the time of settlement (positive or negative)
+
+#### Funding 
+
+Futureswap funding fees incentivize long and short positions to balance each other out. If there are more longs than shorts, longs pay asset to shorts and vice versa. This payment is modelled as happening continuously in each time interval and the funding rate is charged on every contract interaction, per the following formula:
+
+*fundingCharged = (long.asset + short.asset) * fundingRate * deltaTime*
+
+The rate at which an asset is transferred is proportional to the imbalance between longs and shorts.
+
+#### Auto-deleveraging
+
+Futureswap doesn't have an insurance fund. Instead it uses an auto-deleveraging mechanism to balance its ledger when trades attempted on UniswapV3 fail due to liquidity shortages. ADL skips the Uniswap pool and executes orders by force-closing positions on the opposite side of the book, beginning with the most highly leveraged counterparties. 
+
+This means it's possible to be liquidated even when your position is in profit. ADL'd positions are closed at a small premium to market and low-leverage positions are at least risk of being unwound by force.  
+
+#### Trade API
+
+**User flow**
+
+1. Read the address of Perp pair exchange (ex: ETH/USD) from a registry where ETH is "asset" and USDC is "stable"
+2. Approve exchange for amount to transfer on the stable token (ex: USDC.approve(...)). 
+3. Use ExchangeAddress.changePosition() to deposit, withdraw and trade 
+
+**Interface: changePosition()**
+```solidity
+ExchangeAddress.changePosition(
+  int256 deltaAsset,  // Buy amount in asset decimals, long = positive, short = negative
+  int256 deltaStable, // Stable to deposit (positive) or withdraw (negative) in stable decimals
+  int256 stableBound  // Max amount stable to pay for asset (net slippage and fees). Long = negative, Short = positive
+);
+
+Returns: 
+(
+  int256 startAsset   // Asset amount the position had before changePosition() was called  
+  int256 startStable  // Stable amount the position had before changePosition() was called   
+  int256 totalAsset   // Asset amount the position had after execution of changePosition()  
+  int256 totalStable  // Stable amount the position had after execution of changePosition()  
+  int256 traderPayout // Stable amount sent to the trader  
+)
+```
+
+**Example Usage: changePosition()**
+
+Where ETH = 10 USDC, slippage is 1%
+
+| Action | Call |
+| ---- | ---- |
+| Deposit 10 USDC | changePosition(0, +10_000_000, ...) |
+| Withdraw 10 USDC | changePosition(0, -10_000_000, ...) |
+| 2X Long ETH, incl. deposit | changePosition(2, +10_000_000, -20_200_000) |
+| Long 2 ETH, no deposit | changePosition(2, 0, -20_200_000) |
+| Short 2 ETH, no deposit | changePosition(-2, 0, 20_200_000) |
+
+**PerpV2 & Futureswap equivalents** (hypothetical)
+
+| PerpV2 | Futureswap |
+| ------ | ------ |
+| deltaBaseAvailable | totalAsset - startAsset |
+| deltaQuoteAvailable | totalStable - startStable |
+| getPositionSize() | (asset,...) = getPosition() |
+| getPendingFunding() | [recipe][401] |
+| vault.balanceOf() + getOpenNotional() | (,stable,...) = getPosition() |
+| realizedPnL | traderPayout (return param of *changePosition()*) | 
+| carriedOwedRealizedPnL | always settled to stable balance |
+
+[401]: https://docs.futureswap.com/protocol/developer/trade#get-funding-rate
+[400]: https://docs.futureswap.com/protocol/trading/trading-flow
+
+### Mai-protocol-v3
+
+The Mai protocol shares many of the same properties as PERP but has a broader set of features for liquidity providers and manages leverage and funding differently.
+
+#### AMM / Orderbook
+
+Mai’s futures market is a custom AMM serviced by liquidity providers who receive funding payments. LPs can create their own perpetual markets using the price feed of arbitrary underlying assets and choose any ERC20 as collateral. They can also configure a perpetual market’s margin rate and certain risk parameters that help LPs manage market making operations.
+
+It's worth noting that arbitrary market creation is regarded as a desireable feature and Mai seems to be only protocol offering this. A recent [Derbit market research paper][500] notes:
+
+> The key value of the AMM model is the ability to easily and permissionlessly create new markets. As of yet, none of the protocols are able to offer that. The first protocol to crack a sustainable model, where users are incentivised to create their own perpetual futures markets on anything with a price feed, is likely to see a significant moat.
+
+[500]: https://insights.deribit.com/market-research/the-quest-for-perp-amms/
+
+Another major difference between Mai and PERP is the way their pricing engine incorporates oracle prices alongside AMM liquidity conditions to anchor futures prices in the spot market.
+
+Per the [Pricing Strategy](https://docs.mcdex.io/amm-design#features-of-the-pricing-strategy) section of their docs:
+
+
+* The AMM price automatically follows the spot price
+* Liquidity tends to concentrate near the spot price, reducing slippage
+
+#### Trading
+
+Traders open and reduce positions using a [Trade API](https://github.com/mcdexio/mai-protocol-v3/blob/03d70a5b3801949ffcb7df82e57fd35c07ec91c7/contracts/Perpetual.sol#L146-L203). Each trade realizes funding payments and calculates the current margin available before executing.
+
+Mai's interfaces for trade, deposit and withdrawal are:
+
+```solidity
+
+ // Trades and returns the updated position amount of the trader 
+ function trade(
+     uint256 perpetualIndex,   // The index of the perpetual in the liquidity pool
+     address trader,           // The address of trader
+     int256 amount,            // The position amount of the trade
+     int256 limitPrice,        // The worst price the trader accepts 
+     uint256 deadline,         // The deadline of the trade
+     address referrer,         // The referrer's address of the trade
+     uint32 flags              // The flags of the trade
+ ) external returns (int256);
+```
+
+Deposit and withdraw have the same signature
+```solidity
+function deposit(
+   uint256 perpetualIndex, // The index of the perpetual in the liquidity pool
+   address trader,         // The address of the trader
+   int256 amount           // The amount of collateral to deposit
+);
+```
+
+#### Summary
+
+Mai’s documentation is thin and difficult to draw conclusions from. However, on the surface it seems like it would be possible to build adapters to map its trading inputs and outputs to an interface which PERP could share.
+
+Resources:
+
+* [Read API](https://github.com/mcdexio/mai-protocol-v3/blob/master/contracts/reader/Reader.sol): this returns data about account balances, liquidity pool state and a way to simulate outcome of a trade.
+* [Trade API](https://github.com/mcdexio/mai-protocol-v3/blob/03d70a5b3801949ffcb7df82e57fd35c07ec91c7/contracts/Perpetual.sol#L146-L203)
+
+
+## PerpV2 Feasibility Analysis
 
 **Fundamental Concepts**
 
@@ -1077,156 +1222,6 @@ params = OpenPositionParams({
 [303]: https://perp.notion.site/Index-price-spread-attack-2f203d45b34f4cc3ab80ac835247030f
 [304]: https://perp.notion.site/Bad-Debt-Attack-5cd74c9cc0b845ffa3cf13012c7fdb8c
 
-## Other Perpetual Protocols
-
-As part of the research for this STIP, we looked at 3 other perpetual futures protocols to evaluate the feasibility of building a generalizable module for this asset class. Only one of these was a fully decentralized on-chain system with open sourced code (MCDEX’s [mai-protocol-v3](https://github.com/mcdexio/mai-protocol-v3))
-
-* [dydx](https://docs.dydx.exchange/#perpetual-contracts): This protocol’s order book is centralized on AWS servers.
-
-### Futureswap
-
-### Resources
-+ [FutureSwap docs][400]
-+ This project’s code [is not open sourced](https://github.com/futureswap/Protocol) at the moment. (We've approached them about getting access.)
-
-### Pricing Engine 
-
-Futureswap trades the futures contract's underlying assets directly on UniswapV3 out of reserves capitalized with trader collateral and staker liquidity. 
-
-Traders deposit collateral to manage a position in a specific asset/stable pair market. In principle ETH could be the "stable" side of the pair (enabling ETH collateralization) if the market is structured that way but typically "stable" is USDC-like and "asset" is a crypto volatile. 
-
-The realizable value of a Futureswap long position is the sum of:
-
-+ the asset's swap value on UniswapV3 (positive)
-+ debt (the stable amount borrowed to put on the poition) (negative)
-+ pending funding accrued at the time of settlement (positive or negative)
-
-### Funding 
-
-Futureswap funding fees incentivize long and short positions to balance each other out. If there are more longs than shorts, longs pay asset to shorts and vice versa. This payment is modelled as happening continuously in each time interval and the funding rate is charged on every contract interaction, per the following formula:
-
-*fundingCharged = (long.asset + short.asset) * fundingRate * deltaTime*
-
-The rate at which an asset is transferred is proportional to the imbalance between longs and shorts.
-
-### Auto-deleveraging
-
-Futureswap doesn't have an insurance fund. Instead it uses an auto-deleveraging mechanism to balance its ledger when trades attempted on UniswapV3 fail due to liquidity shortages. ADL skips the Uniswap pool and executes orders by force-closing positions on the opposite side of the book, beginning with the most highly leveraged counterparties. 
-
-This means it's possible to be liquidated even when your position is in profit. ADL'd positions are closed at a small premium to market and low-leverage positions are at least risk of being unwound by force.  
-
-### Trade API
-
-**User flow**
-
-1. Read the address of Perp pair exchange (ex: ETH/USD) from a registry where ETH is "asset" and USDC is "stable"
-2. Approve exchange for amount to transfer on the stable token (ex: USDC.approve(...)). 
-3. Use ExchangeAddress.changePosition() to deposit, withdraw and trade 
-
-**Interface: changePosition()**
-```solidity
-ExchangeAddress.changePosition(
-  int256 deltaAsset,  // Buy amount in asset decimals, long = positive, short = negative
-  int256 deltaStable, // Stable to deposit (positive) or withdraw (negative) in stable decimals
-  int256 stableBound  // Max amount stable to pay for asset (net slippage and fees). Long = negative, Short = positive
-);
-
-Returns: 
-(
-  int256 startAsset   // Asset amount the position had before changePosition() was called  
-  int256 startStable  // Stable amount the position had before changePosition() was called   
-  int256 totalAsset   // Asset amount the position had after execution of changePosition()  
-  int256 totalStable  // Stable amount the position had after execution of changePosition()  
-  int256 traderPayout // Stable amount sent to the trader  
-)
-```
-
-**Example Usage: changePosition()**
-
-Where ETH = 10 USDC, slippage is 1%
-
-| Action | Call |
-| ---- | ---- |
-| Deposit 10 USDC | changePosition(0, +10_000_000, ...) |
-| Withdraw 10 USDC | changePosition(0, -10_000_000, ...) |
-| 2X Long ETH, incl. deposit | changePosition(2, +10_000_000, -20_200_000) |
-| Long 2 ETH, no deposit | changePosition(2, 0, -20_200_000) |
-| Short 2 ETH, no deposit | changePosition(-2, 0, 20_200_000) |
-
-**PerpV2 & Futureswap equivalents** (hypothetical)
-
-| PerpV2 | Futureswap |
-| ------ | ------ |
-| deltaBaseAvailable | totalAsset - startAsset |
-| deltaQuoteAvailable | totalStable - startStable |
-| getPositionSize() | (asset,...) = getPosition() |
-| getPendingFunding() | [recipe][401] |
-| vault.balanceOf() + getOpenNotional() | (,stable,...) = getPosition() |
-| realizedPnL | traderPayout (return param of *changePosition()*) | 
-| carriedOwedRealizedPnL | always settled to stable balance |
-
-[401]: https://docs.futureswap.com/protocol/developer/trade#get-funding-rate
-[400]: https://docs.futureswap.com/protocol/trading/trading-flow
-
-### [Mai-protocol-v3](https://docs.mcdex.io/)
-
-The Mai protocol shares many of the same properties as PERP but has a broader set of features for liquidity providers and manages leverage and funding differently.
-
-### AMM / Orderbook
-
-Mai’s futures market is a custom AMM serviced by liquidity providers who receive funding payments. LPs can create their own perpetual markets using the price feed of arbitrary underlying assets and choose any ERC20 as collateral. They can also configure a perpetual market’s margin rate and certain risk parameters that help LPs manage market making operations.
-
-It's worth noting that arbitrary market creation is regarded as a desireable feature and Mai seems to be only protocol offering this. A recent [Derbit market research paper][500] notes:
-
-> The key value of the AMM model is the ability to easily and permissionlessly create new markets. As of yet, none of the protocols are able to offer that. The first protocol to crack a sustainable model, where users are incentivised to create their own perpetual futures markets on anything with a price feed, is likely to see a significant moat.
-
-[500]: https://insights.deribit.com/market-research/the-quest-for-perp-amms/
-
-Another major difference between Mai and PERP is the way their pricing engine incorporates oracle prices alongside AMM liquidity conditions to anchor futures prices in the spot market.
-
-Per the [Pricing Strategy](https://docs.mcdex.io/amm-design#features-of-the-pricing-strategy) section of their docs:
-
-
-* The AMM price automatically follows the spot price
-* Liquidity tends to concentrate near the spot price, reducing slippage
-
-### Trading
-
-Traders open and reduce positions using a [Trade API](https://github.com/mcdexio/mai-protocol-v3/blob/03d70a5b3801949ffcb7df82e57fd35c07ec91c7/contracts/Perpetual.sol#L146-L203). Each trade realizes funding payments and calculates the current margin available before executing.
-
-Mai's interfaces for trade, deposit and withdrawal are:
-
-```solidity
-
- // Trades and returns the updated position amount of the trader 
- function trade(
-     uint256 perpetualIndex,   // The index of the perpetual in the liquidity pool
-     address trader,           // The address of trader
-     int256 amount,            // The position amount of the trade
-     int256 limitPrice,        // The worst price the trader accepts 
-     uint256 deadline,         // The deadline of the trade
-     address referrer,         // The referrer's address of the trade
-     uint32 flags              // The flags of the trade
- ) external returns (int256);
-```
-
-Deposit and withdraw have the same signature
-```solidity
-function deposit(
-   uint256 perpetualIndex, // The index of the perpetual in the liquidity pool
-   address trader,         // The address of the trader
-   int256 amount           // The amount of collateral to deposit
-);
-```
-
-### Summary
-
-Mai’s documentation is thin and difficult to draw conclusions from. However, on the surface it seems like it would be possible to build adapters to map its trading inputs and outputs to an interface which PERP could share.
-
-Resources:
-
-* [Read API](https://github.com/mcdexio/mai-protocol-v3/blob/master/contracts/reader/Reader.sol): this returns data about account balances, liquidity pool state and a way to simulate outcome of a trade.
-* [Trade API](https://github.com/mcdexio/mai-protocol-v3/blob/03d70a5b3801949ffcb7df82e57fd35c07ec91c7/contracts/Perpetual.sol#L146-L203)
 
 ## Appendix
 
