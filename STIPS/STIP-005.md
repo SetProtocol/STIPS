@@ -485,23 +485,45 @@ Read all required state from PerpV2 protocol contracts
 
 Calculate ideal cost of trade
 + *vBasePositionUnit = vBasePositionSize / setToken.totalSupply*
-+ *vBaseTradeSize = vBasePositionUnit * mintQuantity*
++ *vBaseTradeSize = abs(vBasePositionUnit * mintQuantity)*
 + *spotPrice = getAMMPrice(vBaseToken)* 	
 + *vBaseCostIdeal = vBaseTradeSize * spotPrice // without slippage or fees*
 
-Simulate trade to get its real cost and discover the slippage & fees amount issuer will bear
+Simulate trade to get its real cost as `deltaAvailableQuote` 
+  
+*If long:* (when vETHPositionUnit is positive)
+
 ```solidity
 swapParams = {
   baseToken: vBaseToken 
   isBaseToQuote: false		// long
-  isExactInput: false		// need exact output amount of base token
+  isExactInput: false		// need exact vQuote minted
   amount: vBaseTradeSize
   sqrtPriceLimitX96: 0		// slippage protection
 }
-  
 ```
-+ *vBaseCostReal = Quoter.swap(swapParams)* // Includes slippage and protocol fees
-+ *slippageCost = vBaseCostReal - vBaseCostIdeal*
+
+*If short:* (when vBasePositionUnit is negative)
+
+```solidity
+swapParams = {
+  baseToken: vBaseToken 
+  isBaseToQuote: true		// short
+  isExactInput: true		// need exact vQuote minted
+  amount: vBaseTradeSize
+  sqrtPriceLimitX96: 0		// slippage protection
+}
+```
+
++ *vBaseCostReal = Quoter.swap(swapParams)* // includes slippage and protocol fees
+
+Calculate the slippage & fees amount issuer will bear (as a positive value)
+
+*If Long*:
++ *slippageCost = vBaseCostReal - vBaseCostIdeal* 
+
+*If short*
++ *slippageCost = vBaseCostIdeal - vBaseCostReal*	
 
 Calculate current leverage using AMM spot price
 + *vBasePositionValue = vBasePositionSize * spotPrice*
@@ -527,7 +549,10 @@ Deposit USDC from SetToken into PerpV2
 + *SetToken.invokeApprove(USDC, PerpV2Vault, usdcAmount)*  
 + *SetToken.invokeDeposit(PerpV2Vault, USDC, usdcAmount)*
 
-Open position  
+Open position, calling PerpV2.ClearingHouse via SetToken.
+	
+**If Long:** (when vBasePositionSize is positive)
+	
 ```solidity
 swapParams = {
   baseToken: vBaseToken 
@@ -537,8 +562,23 @@ swapParams = {
   sqrtPriceLimitX96: 0		// slippage protection
 }
 ```
+
+**If Short:** (when vBasePositionSize is negative)
+
++ *vBasePositionUnit = vBasePositionSize / setToken.totalSupply*
++ *vBaseTradeSize = abs(vBasePositionUnit * mintQuantity)*
+	
+```solidity
+swapParams = {
+  baseToken: vBaseToken 
+  isBaseToQuote: true		// short
+  isExactInput: true		
+  amount: vBaseTradeSize
+  sqrtPriceLimitX96: 0		// slippage protection
+}
+```
   
-+ *PerpV2ClearingHouse.openPosition(swapParams)*
++ *setToken.invokeOpenPosition(swapParams)*
   
 </td>
 </tr>
