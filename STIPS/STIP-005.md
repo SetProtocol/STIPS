@@ -921,10 +921,10 @@ function trade(
 <td>deposit</td>
 <td>
 
-Converts *amount* of default USDC position into an external PerpV2 position
+Converts precise unit *quantity* of default USDC position into an external PerpV2 position
 
 ```solidity
-deposit(ISetToken _setToken, uint256 _amount)
+deposit(ISetToken _setToken, uint256 _quantity)
 ````
 	
 </td>
@@ -933,10 +933,10 @@ deposit(ISetToken _setToken, uint256 _amount)
 <td>withdraw</td> 
 <td>
 
-Converts *amount* of external perp account collateral position into a default USDC position  
+Converts precise unit *quantity* of external perp account collateral position into a default USDC position  
 
 ```solidity
-withdraw(ISetToken _setToken, uint256 _amount)
+withdraw(ISetToken _setToken, uint256 _quantity)
 ```
 
 </td></tr>
@@ -946,7 +946,7 @@ withdraw(ISetToken _setToken, uint256 _amount)
 Increases size of vAsset positions to rebalance towards a higher leverage ratio 
 	
 ```solidity	
-lever(setToken, quoteUnits, quoteMinReceiveUnits)
+lever(ISetToken setToken, uint256 quoteUnits, uint256 quoteMinReceiveUnits)
 ```
 
 </td></tr>
@@ -956,7 +956,7 @@ lever(setToken, quoteUnits, quoteMinReceiveUnits)
 Decreases size of vAsset positions to rebalance towards a lower leverage ratio
 	
 ```solidity
-delever(setToken, quoteUnits, quoteMinReceiveUnits)
+delever(ISetToken setToken, uint256 quoteUnits, uint256 quoteMinReceiveUnits)
 ```
 	
 </td></tr></table>
