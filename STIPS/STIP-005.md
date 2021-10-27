@@ -371,6 +371,20 @@ Exposes a standard leverage module API
 
 + *getPositionInfo*: gets position, debt, collateral, funding and PnL balances
 + getPriceBasedInfo: gets AMM spot price and current leverage ratio
+
+<tr><td valign="top">
+
+PerpV2Lib
+
+</td>
+<td>
+
+Encodes PerpV2 Protocol method calldata and invokes with SetToken
+
++ invokeDeposit
++ invokeWithdraw
++ invokeOpenPosition
++ invokeQuoterSwap
   
 </td></tr></table>
 
@@ -1342,7 +1356,195 @@ params = OpenPositionParams({
 
 **Reviewer**:
 
-## Checkpoint #2 Proposed Architecture
+## Checkpoint #2 Specification
+
+## Contract: PerpV2Lib
+
+| Function | Caller | Description |
+| ----- | ----- | ----- |
+| getDepositCallData | PerpModule | encodes PerpV2.Vault deposit method calldata |
+| getWithdrawCallData | PerpModule | encodes PerpV2.Vault withdraw method calldata | 
+| getOpenPositionCallData | PerpModule | encodes PerpV2.ClearingHouse method calldata |
+| getQuoterSwapCallData | PerpModule | encodes PerpV2.Quoter swap method data |
+| invokeOpenPosition | SetToken | calls PerpV2.Clearinghouse to execute a trade |
+| invokeDeposit | SetToken | calls PerpV2.Vault to deposit collateral |
+| invokeWithdraw | SetToken | calls PerpV2.Vault to withdraw collateral |
+| invokeSwap | SetToken | calls PerpV2.Quoter to simulate a trade |
+
+### Functions
+
+> getDepositCallData
+
++ [perp-lushan/Vault.sol](https://github.com/perpetual-protocol/perp-lushan/blob/ac833e3db36732d54725647bb9f643034fddc37c/contracts/Vault.sol#L95)
+
+```solidity
+getDepositCallData(IVault _vault, address _depositToken, uint256 _amount)
+  public 
+  pure
+  returns (
+    address _target, 
+    uint256 _value, 
+    bytes _data
+  )
+```
+
++ signature = *"deposit(address,uint256)"*
++ data = abi.encodeWithSignature(signature, _depositToken, _amount)
++ return (_vault, 0, data)
+-----
+
+> getWithdrawCallData
+
++ [perp-lushan/Vault.sol](https://github.com/perpetual-protocol/perp-lushan/blob/ac833e3db36732d54725647bb9f643034fddc37c/contracts/Vault.sol#L121)
+
+```solidity
+getWithdrawCallData(IVault _vault, address _withdrawToken, uint256 _amount)
+  public 
+  pure
+  returns (
+    address _target, 
+    uint256 _value, 
+    bytes _data
+  )
+```
+
++ signature = *"withdraw(address,uint256)"*
++ data = abi.encodeWithSignature(signature, _withdrawToken, _amount)
++ return (_vault, 0, data)
+-----
+
+> getOpenPositionCallData
+
++ [perp-lushan/ClearingHouse.sol](https://github.com/perpetual-protocol/perp-lushan/blob/ac833e3db36732d54725647bb9f643034fddc37c/contracts/ClearingHouse.sol#L256)
+
+```solidity
+getOpenPositionCallData(IClearingHouse _clearingHouse, PerpV2OpenPositionParams _params)
+  public 
+  pure
+  returns (
+    address _target, 
+    uint256 _value, 
+    bytes _data
+  )
+```
++ signature = *"openPosition([address,bool,bool,uint256,uint256,uint256,uint160,bytes32])"*
++ data = abi.encodeWithSignature(signature, [..._params])
++ return (_clearingHouse, 0, data) 
+-----
+
+> getQuoterSwapCallData
+
++ [perp-lushan/lens/Quoter.sol](https://github.com/perpetual-protocol/perp-lushan/blob/ac833e3db36732d54725647bb9f643034fddc37c/contracts/lens/Quoter.sol#L57)
+
+```solidity
+getQuoterSwapCallData(IQuoter _quoter, SwapParams _params)
+  public 
+  pure
+  returns (
+    address _target, 
+    uint256 _value, 
+    bytes _data
+  )
+```
+
++ signature = *"swap([address,bool,bool,uint256,uint160])"*
++ data = abi.encodeWithSignature(signature, [..._params])
++ return (_quoter, 0, data)
+-----
+
+> invokeOpenPosition
+
+```solidity
+struct OpenPositionParams {
+  address baseToken;
+  bool isBaseToQuote;
+  bool isExactInput;
+  uint256 amount;
+  uint256 oppositeAmountBound;
+  uint256 deadline;
+  uint160 sqrtPriceLimitX96;
+  bytes32 referralCode;
+}
+
+function invokeOpenPosition(
+  ISetToken _setToken, 
+  IClearingHouse _clearingHouse, 
+  OpenPositionParams _params       
+) 
+  external
+  returns (
+    uint256 deltaBase, 
+    uint256 deltaQuote
+  )
+```
+
++ (,,data) = getOpenPositionCalldata(_clearingHouse, _params)
++ (deltaBase, deltaQuote) = setToken.invoke(_clearingHouse, 0, data)
++ return (deltaBase, deltaQuote)
+-----
+
+> invokeDeposit
+
+```solidity
+function invokeDeposit(
+  ISetToken _setToken, 
+  IVault _vault, 
+  address _depositToken,
+  uint256 _amount
+) external
+```
+
++ (,,data) = getDepositCalldata(_vault, _depositToken, _amount)
++ setToken.invoke(_vault, 0, data)
+-----
+
+> invokeWithdraw
+
+```solidity
+function invokeWithdraw(
+  ISetToken _setToken, 
+  IVault _vault, 
+  address _withdrawToken,
+  uint256 _amount
+) external
+```
+
++ (,,data) = getWithdrawCalldata(_vault, _withdrawToken, _amount)
++ setToken.invoke(_vault, 0, data)
+-----
+
+> invokeQuoterSwap
+
+```solidity
+struct SwapParams {
+  address baseToken;
+  bool isBaseToQuote;
+  bool isExactInput;
+  uint256 amount;
+  uint160 sqrtPriceLimitX96; // price slippage protection
+}
+
+struct SwapResponse {
+  uint256 deltaAvailableBase;
+  uint256 deltaAvailableQuote;
+  int256 exchangedPositionSize;
+  int256 exchangedPositionNotional;
+  uint160 sqrtPriceX96;
+}
+
+function invokeQuoterSwap(
+  ISetToken _setToken, 
+  IQuoter _quoter, 
+  SwapParams _params,
+) 
+  external
+  returns (SwapResponse _response)
+```
+
++ (,,data) = getQuoterSwapCalldata(_quoter, _params)
++ response = setToken.invoke(_quoter, 0, data)
++ return response
+
 
 **Reviewer**:
 
