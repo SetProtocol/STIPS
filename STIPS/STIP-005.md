@@ -1610,6 +1610,129 @@ function componentRedeemHook(
 + externalPositionUnit = _setToken.getExternalPositionRealUnit(_component, address(this))
 + usdcToWithdraw = externalPositionUnit * _setTokenQuantity
 + setToken.invokeWithdraw(usdcToWithdraw)
+-----
+
+> **lever**: called by manager
+
+```solidity
+function lever(
+  ISetToken _setToken,
+  uint256 _quoteQuantityUnits,
+  uint256 _minReceiveQuantityUnits,
+)
+  external
+  nonReentrant
+  onlyManagerAndValidSet(_setToken)
+```
+
+Calculate total trade amounts
++ totalQuoteTradeQuantity = quoteUnits * setToken.totalSupply
++ totalQuoteMinReceiveQuantity = quoteMinReceiveUnits * setToken.totalSupply*
+
+Find sum of all position values 
++ (, positionSpotPrices) = PerpModule.getPriceBasedInfo(_setToken)
++ positionValuesTotal = 0
++ vBasePositions = PerpModule.getPositions()
++ for vBase, index in vBasePositions
+  + positionValuesTotal += PerpV2.Exchange.getPositionSize(vBase) * positionSpotPrices[index]
+
+Trade
++ for vBase, index in vBasePositions
+  + Calculate weight of position 
+    + positionValue = PerpV2.Exchange.getPositionSize(vBase) * positionSpotPrices[index]
+    + weight = positionValue / positionValuesTotal
+
+  + Calculate component trade amounts:
+    + quoteTradeAmount = weight * totalQuoteTradeQuantity
+    + quoteMinReceiveAmount = weight * totalQuoteMinReceiveQuantity
+    + oppositeAmountBound = quoteMinReceiveAmount / vBasePrice
+
+  + Trade
+    + *If long* (when vBasePositionSize is positive)
+	    ```solidity
+	    params = OpenPositionParams({
+	      baseToken: collateralVAsset
+	      isBaseToQuote: false				// Q2B: long
+	      isExactInput: true				// exact input
+	      amount: vQuoteTradeSize			// input amount
+	      oppositeAmountBound: oppositeAmountBound	// lower bound of output base
+	    })
+	    ```
+    + *If short* (when vBasePositionSize is negative)
+	    ```solidity
+	    params = OpenPositionParams({
+	      baseToken: collateralVAsset
+	      isBaseToQuote: true	               		// B2Q: short
+	      isExactInput: false		       		// exact output
+	      amount: vQuoteTradeSize      			// output amount	
+	      oppositeAmountBound: oppositeAmountBound 	// upper bound of input base
+	    })
+	    ```
+    + target = PerpModule.protocolAddresses.clearingHouse
+    + *setToken.invokeOpenPosition(target params)*	
+	
+----
+
+> **delever**: called by manager
+
+```solidity
+function delever(
+  ISetToken _setToken,
+  uint256 _quoteQuantityUnits,
+  uint256 _minReceiveQuantityUnits,
+)
+  external
+  nonReentrant
+  onlyManagerAndValidSet(_setToken)
+```
+
+Calculate total trade amounts
++ totalQuoteTradeQuantity = quoteUnits * setToken.totalSupply
++ totalQuoteMinRepayQuantity = quoteMinRepayUnits * setToken.totalSupply*
+
+Find sum of all position values 
++ (, positionSpotPrices) = PerpModule.getPriceBasedInfo(_setToken)
++ positionValuesTotal = 0
++ vBasePositions = PerpModule.getPositions()
++ for vBase, index in vBasePositions
+  + positionValuesTotal += PerpV2.Exchange.getPositionSize(vBase) * positionSpotPrices[index]
+
+Trade
++ for vBase, index in vBasePositions
+  + Calculate weight of position
+    + positionValue = PerpV2.Exchange.getPositionSize(vBase) * positionSpotPrices[index]
+    + weight = positionValue / positionValuesTotal
+
+  + Calculate component trade amounts:
+    + quoteTradeAmount = weight * totalQuoteTradeQuantity
+    + vBaseTradeSize = quoteTradeAmount / vBasePrice
+    + oppositeAmountBound = weight * totalQuoteMinRepayQuantity
+
+  + Trade
+    + *If long* (when vBasePositionSize is positive)
+	  ```solidity
+	  params = OpenPositionParams({
+	    baseToken: vBase
+	    isBaseToQuote: true				// B2Q: short
+	    isExactInput: true				// exact input
+	    amount: vBaseTradeSize                    	// input amount
+	    oppositeAmountBound: oppositeAmountBound  	// lower bound of output quote
+	  })
+	  ```
+    + *If short* (when vBasePositionSize is negative)
+	  ```solidity
+	  params = OpenPositionParams({
+	    baseToken: collateralVAsset
+	    isBaseToQuote: false				// Q2B: long
+	    isExactInput: false			     	// exact output
+	    amount: vBaseTradeSize                     	// output amount
+	    oppositeAmountBound: oppositeAmountBound   	// upper bound of input quote
+	  })
+	  ```
+  
+  + target = PerpModule.protocolAddresses.clearingHouse
+  + setToken.invokeOpenPosition(target params)	
+
 
 **Reviewer**:
 
