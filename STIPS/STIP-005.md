@@ -966,111 +966,6 @@ To delever, we sell vETH, paying off our debt balance. Depending on the implemen
 	+ encodes trade call with slippage check to PerpProtocol to reduce vETH position 
 	+ sends via SetToken
 
-### PerpV2 Module Implementation Example
-
-<table>
-<tr>
-<td width="20%"><strong>Module Method</strong></td>
-<td><strong>Action</strong></td>
-<tr>
-<td width="20%" vAlign="top"><strong>Lever</strong></td>
-<td> 
- 
-Parameters passed in:
-+ setToken
-+ quoteUnits
-+ quoteMinReceiveUnits
-
-Convert quote units to trade amounts:
-+ *quoteTradeSize = quoteUnits * setToken.totalSupply*
-+ *quoteMinReceiveAmount = quoteMinReceiveUnits * setToken.totalSupply*
-+ *minReceiveAmount = quoteMinReceiveAmount / vBase price*
-
-Call *PerpV2.ClearingHouse.openPosition* via SetToken after calculating *minReceiveAmounts*
-	
-*If long*
-
-```solidity
-params = OpenPositionParams({
-  baseToken = collateralVAsset
-  isBaseToQuote = false			 // Q2B: long
-  isExactInput = true			 // exact input
-  amount = vQuoteTradeSize
-  oppositeAmountBound = minReceiveAmount // lower bound of output base
-  deadline = block.timestamp + 900,	 // 15 mins
-  sqrtPriceLimitX96 = 0			 // slippage protection
-})
-```
-
-*If short*
-	
-```solidity
-params = OpenPositionParams({
-  baseToken = collateralVAsset
-  isBaseToQuote = true			 // B2Q: short
-  isExactInput = false			 // exact output
-  amount = vQuoteTradeSize
-  oppositeAmountBound = minReceiveAmount // upper bound of input base
-  deadline = block.timestamp + 900,	 // 15 mins
-  sqrtPriceLimitX96 = 0			 // slippage protection
-})
-```
-	
-+ *setToken.invokeOpenPosition(params)*	
-	
-</td>
-</tr> 
-<tr>
-<td width="20%" vAlign="top"><strong>Delever</strong></td>
-<td>
-
-Parameters passed in:
-+ setToken
-+ quoteUnits
-+ quoteMinRepayUnits
-
-Calculate trade sizes and repay amounts
-
-+ *quoteTradeSize = quoteUnits * setToken.totalSupply*
-+ *vBaseTradeSize = quoteTradeSize / vBase price*
-+ *minRepayAmount = quoteMinRepayUnits * setToken.totalSupply*
-
-Call *PerpV2.ClearingHouse.openPosition* via SetToken 
-
-*If long*
-
-```solidity
-params = OpenPositionParams({
-  baseToken = collateralVAsset
-  isBaseToQuote = true			// B2Q: short
-  isExactInput = true			// exact input
-  amount = vBaseTradeSize
-  oppositeAmountBound = minRepayAmount  // lower bound of output quote
-  deadline = block.timestamp + 900,	// 15 mins
-  sqrtPriceLimitX96 = 0			// slippage protection
-})
-```
-
-*If short*
-
-```solidity
-params = OpenPositionParams({
-  baseToken = collateralVAsset
-  isBaseToQuote = false			// Q2B: long
-  isExactInput = false			// exact output
-  amount = vBaseTradeSize
-  oppositeAmountBound = minRepayAmount  // upper bound of input quote
-  deadline = block.timestamp + 900,	// 15 mins
-  sqrtPriceLimitX96 = 0			// slippage protection
-})
-```
-
-+ *setToken.invokeOpenPosition(params)*	
-
-</td>
-</tr>  
-</table>
-
 ## Open Questions
 
 * Sachin: how is owedRealizedPNL used in the protocol?
@@ -1143,7 +1038,7 @@ params = OpenPositionParams({
 
 **Reviewer**:
 
-## Checkpoint #2 Specification
+## Specification
 
 ## Contract: PerpV2Lib
 
