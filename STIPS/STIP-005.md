@@ -1051,7 +1051,7 @@ To delever, we sell vETH, paying off our debt balance. Depending on the implemen
 | invokeOpenPosition | SetToken | calls PerpV2.Clearinghouse to execute a trade |
 | invokeDeposit | SetToken | calls PerpV2.Vault to deposit collateral |
 | invokeWithdraw | SetToken | calls PerpV2.Vault to withdraw collateral |
-| invokeSwap | SetToken | calls PerpV2.Quoter to simulate a trade |
+| invokeQuoterSwap | SetToken | calls PerpV2.Quoter to simulate a trade |
 
 ### Functions
 
@@ -1508,6 +1508,40 @@ function componentRedeemHook(
 + externalPositionUnit = _setToken.getExternalPositionRealUnit(_component, address(this))
 + usdcToWithdraw = externalPositionUnit * _setTokenQuantity
 + setToken.invokeWithdraw(usdcToWithdraw)
+-----
+
+> **deposit**: called by manager
+
+```solidity
+function _deposit(
+  ISetToken _setToken, 
+  uint256 _collateralQuantityUnits
+) 
+  external
+  nonReentrant
+  onlyManagerAndValidSet(_setToken)
+```
+
++ notionalQuantity = _collateralQuantityUnits * _setToken.totalSupply
++ collateralToken = getCollateralToken(_setToken)
++ _setToken.invokeApprove(collateralToken, protocolAddresses.vault, notionalQuantity)
++ _setToken.invokeDeposit(protocolAddresses.vault, collateralToken, notionalQuantity)
+----
+
+> **withdraw**: called by manager
+
+```solidity
+function _withdraw(
+  ISetToken _setToken, 
+  uint256 _collateralQuantityUnits
+) 
+  external
+  nonReentrant
+  onlyManagerAndValidSet(_setToken)
+```
++ notionalQuantity = _collateralQuantityUnits * _setToken.totalSupply
++ collateralToken = getCollateralToken(_setToken)
++ _setToken.invokeWithdraw(protocolAddresses.vault, collateralToken, notionalQuantity)
 -----
 
 > **lever**: called by manager
