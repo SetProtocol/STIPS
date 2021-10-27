@@ -1,4 +1,4 @@
-# STIP-[xx]
+# STIP-007
 *Using template v0.1*
 ## Abstract
 Manager contracts to ensure decentralization, automation and safety of leverage tokens using perps
