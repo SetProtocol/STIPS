@@ -625,125 +625,6 @@ User wants to issue 1 unit of a SetToken representing a  2X leveraged Perp accou
 10. PerpProtocol calls USDC to transfer 10.02 from SetToken to PerpProtocol 
 11. PerpModuleAdapter encodes call to PerpProtocol to open a 2 ETH position for 20.02 vUSDC debt and sends via SetToken
 
-### PerpV2 Module Implementation Example
-
-<table><tr><td width="15%">Step</td><td>Action</td></tr>
-<tr><td valign="top">DIM.modulePreIssueHook</td>
-<td>
-
-**PerpModule.moduleIssuanceHook**	
-	
-Called as a modulePreIssueHook in DIM.issue(mintQuantity), before DIM calculates the issuance units.
-
-Read all required state from PerpV2 protocol contracts
-+ *vBasePositionSize = PerpAccountBalance.getPositionSize(vBase, setToken)*
-+ *vQuoteOpenNotional = PerpV2Exchange.getOpenNotional(vBase, setToken)*
-+ *collateralBalance = PerpV2Vault.balanceOf(setToken)*
-+ *pendingFunding = PerpExchange.getPendingFunding(vBase, setToken)*
-+ *carriedOwedRealizedPnL = PerpAccountBalance.getOwedAndUnrealizedPnl(setToken)*
-
-Calculate ideal cost of trade
-+ *vBasePositionUnit = vBasePositionSize / setToken.totalSupply*
-+ *vBaseTradeSize = abs(vBasePositionUnit * mintQuantity)*
-+ *spotPrice = getAMMPrice(vBaseToken)* 	
-+ *vBaseCostIdeal = vBaseTradeSize * spotPrice // without slippage or fees*
-
-Simulate trade to get its real cost as `deltaAvailableQuote` 
-  
-*If long:* (when vETHPositionUnit is positive)
-
-```solidity
-swapParams = {
-  baseToken: vBaseToken 
-  isBaseToQuote: false		// long
-  isExactInput: false		// need exact vQuote minted
-  amount: vBaseTradeSize
-  sqrtPriceLimitX96: 0		// slippage protection
-}
-```
-
-*If short:* (when vBasePositionUnit is negative)
-
-```solidity
-swapParams = {
-  baseToken: vBaseToken 
-  isBaseToQuote: true		// short
-  isExactInput: true		// need exact vQuote minted
-  amount: vBaseTradeSize
-  sqrtPriceLimitX96: 0		// slippage protection
-}
-```
-
-+ *vBaseCostReal = Quoter.swap(swapParams)* // includes slippage and protocol fees
-
-Calculate the slippage & fees amount issuer will bear (as a positive value)
-
-*If Long*:
-+ *slippageCost = vBaseCostReal - vBaseCostIdeal* 
-
-*If short*
-+ *slippageCost = vBaseCostIdeal - vBaseCostReal*	
-
-Calculate current leverage using AMM spot price
-+ *vBasePositionValue = vBasePositionSize * spotPrice*
-+ *currentLeverage = vBasePositionValue / (vBasePositionValue + vQuoteBalance + collateralBalance)*
-
-Calculate usdcAmountIn and set USDC externalPositionUnit such that DIM can use it for transfer calculation.
-The Perp account is a positive equity position
-+ *owedRealizedPnLPositionUnit = (carriedOwedRealizedPnL + pendingFunding) / setToken.totalSupply*
-+ *owedRealizedPnLDiscount = owedRealizedPnLPositionUnit * mintQuantity*
-+ *usdcAmountIn = (vBaseCostReal / current leverage) + slippageCost + owedRealizedPnLDiscount*
-+ *setToken.externalPositionUnit = usdcAmountIn / mintQuantity*
-
-</td></tr>
-<tr><td valign="top">DIM.externalPositionHook</td>
-<td>  
-
-**PerpModule.componentIssuanceHook**
-	
-Invoked as an externalPositionHook duuring DIM.resolveEquityPositions. Happens after DIM has read external USDC position (set during moduleIssuanceHook) and transferred in:
-+ *usdcAmount = mintQuantity * setToken.externalPositionUnit*
-
-Deposit USDC from SetToken into PerpV2
-+ *SetToken.invokeApprove(USDC, PerpV2Vault, usdcAmount)*  
-+ *SetToken.invokeDeposit(PerpV2Vault, USDC, usdcAmount)*
-
-Open position, calling PerpV2.ClearingHouse via SetToken.
-	
-**If Long:** (when vBasePositionSize is positive)
-	
-```solidity
-swapParams = {
-  baseToken: vBaseToken 
-  isBaseToQuote: false		// long
-  isExactInput: true		
-  amount: usdcAmount
-  sqrtPriceLimitX96: 0		// slippage protection
-}
-```
-
-**If Short:** (when vBasePositionSize is negative)
-
-+ *vBasePositionUnit = vBasePositionSize / setToken.totalSupply*
-+ *vBaseTradeSize = abs(vBasePositionUnit * mintQuantity)*
-	
-```solidity
-swapParams = {
-  baseToken: vBaseToken 
-  isBaseToQuote: true		// short
-  isExactInput: true		
-  amount: vBaseTradeSize
-  sqrtPriceLimitX96: 0		// slippage protection
-}
-```
-  
-+ *setToken.invokeOpenPosition(swapParams)*
-  
-</td>
-</tr>
-</table>
-
-
 ## Redemption
 
 This section includes:
@@ -784,100 +665,6 @@ UserA owns 10 SetTokens which represent a leveraged Perp position in ETH and wan
 9. PerpProtocol calls *USDC.transfer(setToken, componentQuantity)* to transfer USDC from Protocol back to SetToken. 
 
 10. DIM calls SetToken to transfer *componentQuantity* amount of USDC from SetToken to User 
-
-
-
-### PerpV2 Module Implementation Example
-
-<table> 
-<tr><td width="20%"><strong>Redemption Step</strong></td><td><strong>Action</strong></td></tr>   
-<tr> <td valign="top"> DIM.modulePreRedeemHook() </td>
-<td>
-
-**PerpModule.moduleRedeemHook(setToken, redeemQuantity)**
-
-Called after managers preRedeemHook and before burn() in DIM. Sells vBase and updates the external USDC position (a positive equity position) on the SetToken:
-
-**Steps:**
-	
-Read required data from Perp protocol
-	
-+ vBasePositionSize = PerpAccountBalance.getPositionSize(vBaseToken, setToken)
-+ vBasePositionUnit =  vBasePositionSize / setToken.totalSupply
-+ vQuoteOpenNotional = PerpExchange.getOpenNotional(vBaseToken, setToken)
-+ pendingFunding = PerpExchange.getPendingFunding(vBase, setToken) 
-
-Calculate how much to sell and our expected PnL
-	
-+ vBaseToSell = abs(redeemQuantity * vBasePositionUnit) 
-+ closeRatio = vBaseToSell / vBasePositionSize 
-+ reducedOpenNotional = vQuoteOpenNotional * close ratio 
-+ openNotionalFraction = (vQuoteOpenNotional  * -1 ) + reducedOpenNotional 
-
-We may have already accrued PnL from non-issuance/redemption sources (ex: levering, liquidation) 
-
-+ carriedOwedRealizedPnL = PerpAccountBalance.getOwedAndUnrealizedPnl(setToken) 
-+ totalFundingAndCarriedPnL = pendingFunding + carriedOwedRealizedPnL		
-+ owedRealizedPnLPositionUnit = totalFundingAndCarriedPnL / setToken.totalSupply	
-	
-*If long*: (when vBasePositionUnit is positive)
-	
-```solidity	
-deltaAvailableQuote = CH.openPosition({ 
-  isBaseToQuote: true, 
-  isExactInput: true, 
-  amount: vBaseToSell
-  ...
-}) 
-```
-
-*If short*: ((when vBasePositionUnit is negative)
-
-```solidity	
-deltaAvailableQuote = CH.openPosition({ 
-  isBaseToQuote: false, 
-  isExactInput: false, 
-  amount: vBaseToSell
-  ...
-})
-```
-
-Calculate realized PnL
-
-*If long*
-+ realizedPnL = reducedOpenNotional + deltaAvailableQuote
-
-*If short*
-+ realizedPnL = reducedOpenNotional - deltaAvailableQuote
-
-Calculate amount of USDC to withdraw
-+ collateralPositionUnit =  PerpVault.balanceOf(setToken) / setToken.totalSupply
-+ usdcToWithdraw = 
-  + (collateralPositionUnit * redeemQuantity) + 
-  + (owedRealizedPnLPositionUnit * redeemQuantity) + 
-  + realizedPnL 
-
-
-Set the external position unit for DIM 
-+ setToken.externalPositionUnit = usdcToWithdraw / redeemQuantity  
-
-
-</td></tr>
-<tr>
-<td vAlign="top">DIM.externalPositionHook()</td>
-<td>
-	
-**PerpModule.componentRedeemHook**
-
-Called during *DIM.resolveEquityPositions* via *DIM.externalPositionHook*. Withdraws USDC amount calculated from external position unit.
-
-**Steps:**
-	
-Call PerpV2.Vault via SetToken to withdraw USDC to SetToken	
-+ setToken.invokeWithdraw(usdcToWithdraw)
-	  
-</td></tr>
-</table>
 
 
 ## Trade, Deposit, Withdraw, Lever, Delever
@@ -1545,6 +1332,284 @@ function invokeQuoterSwap(
 + response = setToken.invoke(_quoter, 0, data)
 + return response
 
+
+## Contract: PerpModule
+
+#### Structs
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+| | | |
+
+#### Constants
+| Type 	| Name 	| Description 	| Value |
+|------	|------	|-------------	|-------|
+| | | | |
+#### Public Variables
+| Type 	| Name 	| Description |
+|------	|------	|-------------|
+| | | |
+
+#### Modifiers
+| Function | Description |
+| ----- | ----- |
+
+#### Functions
+| Function | Caller | Description |
+| ----- | ----- | ----- |
+| moduleIssueHook | DIM | calculates amount of collateral token to deposit in PerpV2 for mint |
+| componentIssueHook | DIM | opens positions in PerpV2 for mint |
+| moduleRedeemHook | DIM | closes positions for redeem |
+| componentRedeemHook | DIM | withdraws collateral token from PerpV2 and transfers to user |
+| deposit | Manager | deposits collateral token in PerpV2 |
+| withdraw | Manager | withdraws collateral token from PerpV2 |
+| trade | Manager | opens positions in PerpV2 |
+| lever | Manager | rebalances Perp positions to increase leverage ratio |
+| delever | Manager | rebalances Perp positions to decrease leverage ratio |
+| getPositionInfo | any | gets Perp protocol position balances (as positionUnits) |
+| getPriceBasedPositionInfo | any | gets Perp account value and current leverage ratio |
+
+
+### Functions
+
+> **moduleIssueHook**: called as a *modulePreIssueHook* in *DIM.issue*
+
+```solidity
+function moduleIssueHook(
+  ISetToken _setToken, 
+  uint256 _setTokenQuantity
+) 
+  external 
+  override 
+  onlyModule(_setToken)
+```    
++ usdcAmountIn = 0
++ vBasePositions = PerpModule.getPositions(_setToken)
+
+for vBase of vBasePositions:
+
++ Read all required state from PerpV2 protocol contracts
+  + vBasePositionSize = PerpAccountBalance.getPositionSize(vBase, setToken)
+  + vQuoteOpenNotional = PerpV2Exchange.getOpenNotional(vBase, setToken)
+  + collateralBalance = PerpV2Vault.balanceOf(setToken)
+  + pendingFunding = PerpExchange.getPendingFunding(vBase, setToken)
+  + carriedOwedRealizedPnL = PerpAccountBalance.getOwedAndUnrealizedPnl(setToken)
+
++ Calculate ideal cost of trade
+  + vBasePositionUnit = vBasePositionSize / setToken.totalSupply
+  + vBaseTradeSize = abs(vBasePositionUnit * mintQuantity)
+  + spotPrice = getAMMPrice(vBaseToken) 	
+  + vBaseCostIdeal = vBaseTradeSize * spotPrice // without slippage or fees
+
++ Simulate trade to get its real cost as *deltaAvailableQuote* 
+
+  + *If long:* (when vETHPositionUnit is positive)
+
+  ```solidity
+  swapParams = {
+    baseToken: vBaseToken 
+    isBaseToQuote: false	// long
+    isExactInput: false	// need exact vQuote minted
+    amount: vBaseTradeSize
+    sqrtPriceLimitX96: 0	// slippage protection
+  }
+  ```
+
+  + *If short:* (when vBasePositionUnit is negative)
+
+  ```solidity
+  swapParams = {
+    baseToken: vBaseToken 
+    isBaseToQuote: true	// short
+    isExactInput: true	// need exact vQuote minted
+    amount: vBaseTradeSize
+    sqrtPriceLimitX96: 0	// slippage protection
+  }
+  ```
+  
+  + target = PerpModule.protocolAddresses.quoter
+  + vBaseCostReal = setToken.invokeQuoterSwap(target, swapParams) // includes slippage and protocol fees
+
++ Calculate the slippage & fees amount issuer will bear (as a positive value)
+  + *If Long*:
+    + slippageCost = vBaseCostReal - vBaseCostIdeal 
+
+  + *If short*
+    + slippageCost = vBaseCostIdeal - vBaseCostReal	
+
++ Calculate current leverage using AMM spot price
+  + vBasePositionValue = vBasePositionSize * spotPrice
+  + currentLeverage = vBasePositionValue / (vBasePositionValue + vQuoteBalance + collateralBalance)
+
++ Calculate addtional usdcAmountIn and add to running total.  
+  + owedRealizedPnLPositionUnit = (carriedOwedRealizedPnL + pendingFunding) / setToken.totalSupply
+  + owedRealizedPnLDiscount = owedRealizedPnLPositionUnit * mintQuantity
+  + usdcAmountIn += (vBaseCostReal / current leverage) + slippageCost + owedRealizedPnLDiscount
+
+Set USDC externalPositionUnit such that DIM can use it for transfer calculation.
++ newUnit = usdcAmountIn / mintQuantity
++ component = PerpModule.getCollateralComponent(_setToken) 
++ setToken.editExternalPositionUnit(_component, address(this), newUnit)
+----
+
+> **componentIssueHook**: called as an *externalPositionHook* during *DIM.resolveEquityPositions*
+
+```solidity
+function componentIssueHook(
+  ISetToken _setToken, 
+  uint256 _setTokenQuantity, 
+  IERC20 _component
+) 
+  external 
+  override 
+  onlyModule(_setToken) 
+```
++ externalPositionUnit = _setToken.getExternalPositionRealUnit(_component, address(this))
++ usdcAmount = mintQuantity * externalPositionUnit
+
++ Deposit USDC from SetToken into PerpV2
+  + SetToken.invokeApprove(USDC, PerpV2Vault, usdcAmount)  
+  + SetToken.invokeDeposit(PerpV2Vault, USDC, usdcAmount)
+
++ vBasePositions = PerpModule.getPositions()
+
++ for vBase of vBasePositions
+  + vBasePositionSize = PerpV2Exchange.getPositionSize(vBase)
+  + vBasePositionUnit = vBasePositionSize / setToken.totalSupply
+  + vBaseTradeSize = abs(vBasePositionUnit * mintQuantity)
+
+  + Open position, calling PerpV2.ClearingHouse via SetToken.
+    + **If Long:** (when vBasePositionSize is positive)
+	
+      ```solidity
+      openPositionParams = {
+        baseToken: vBaseToken 
+        isBaseToQuote: false		// long
+        isExactInput: false		// exact output
+        amount: vBaseTradeSize
+        sqrtPriceLimitX96: 0		// slippage protection
+      }
+      
+      target = PerpModule.protocolAddresses.clearingHouse
+      setToken.invokeOpenPosition(target, openPositionParams)
+      ```
+
+    + **If Short:** (when vBasePositionSize is negative)
+	
+      ```solidity
+      openPositionParams = {
+        baseToken: vBaseToken 
+        isBaseToQuote: true		// short
+        isExactInput: true		
+        amount: vBaseTradeSize
+        sqrtPriceLimitX96: 0		// slippage protection
+      }
+      
+      target = PerpModule.protocolAddresses.clearingHouse
+      setToken.invokeOpenPosition(target, openPositionParams)
+      ```
+-----
+
+> **moduleRedeemHook**: called as a *modulePreRedeemHook* in *DIM*
+
+```solidity
+function moduleRedeemHook(
+  ISetToken _setToken, 
+  uint256 _setTokenQuantity
+) 
+  external 
+  override 
+  onlyModule(_setToken)
+```
++ realizedPnL = 0
++ vBasePositions = PerpModule.getPositions(_setToken)
+
++ for vBase of vBasePositions
+  + Read required data from Perp protocol
+    + vBasePositionSize = PerpAccountBalance.getPositionSize(vBaseToken, setToken)
+    + vBasePositionUnit =  vBasePositionSize / setToken.totalSupply
+    + vQuoteOpenNotional = PerpExchange.getOpenNotional(vBaseToken, setToken)
+    + pendingFunding = PerpExchange.getPendingFunding(vBase, setToken) 
+
+  + Calculate how much to sell and our expected PnL
+	
+    + vBaseToSell = abs(redeemQuantity * vBasePositionUnit) 
+    + closeRatio = vBaseToSell / vBasePositionSize 
+    + reducedOpenNotional = vQuoteOpenNotional * close ratio 
+    + openNotionalFraction = (vQuoteOpenNotional  * -1 ) + reducedOpenNotional 
+
+  + Account for already accrued PnL from non-issuance/redemption sources (ex: levering, liquidation) 
+
+    + carriedOwedRealizedPnL = PerpAccountBalance.getOwedAndUnrealizedPnl(setToken) 
+    + totalFundingAndCarriedPnL = pendingFunding + carriedOwedRealizedPnL		
+    + owedRealizedPnLPositionUnit = totalFundingAndCarriedPnL / setToken.totalSupply	
+  
+  + Trade
+
+    + *If long*: (when vBasePositionUnit is positive)
+
+    ```solidity	
+    openPositionParams = {
+      baseToken: vBase
+      isBaseToQuote: true, 
+      isExactInput: true, 
+      amount: vBaseToSell
+      ...
+    }
+    
+    target = PerpModule.protocolAddresses.clearingHouse
+    deltaAvailableQuote = _setToken.invokeOpenPosition(target, openPositionParams) 
+    ```
+
+    + *If short*: ((when vBasePositionUnit is negative)
+
+    ```solidity	
+    openPositionParams = { 
+      baseToken: vBase
+      isBaseToQuote: false, 
+      isExactInput: false, 
+      amount: vBaseToSell
+      ...
+    }
+    
+    target = PerpModule.protocolAddresses.clearingHouse
+    deltaAvailableQuote = _setToken.invokeOpenPosition(target, openPositionParams)
+    ```
+
+  + Calculate realized PnL and add to running total
+    + *If long*
+      + realizedPnL += reducedOpenNotional + deltaAvailableQuote
+
+    + *If short*
+      + realizedPnL += reducedOpenNotional - deltaAvailableQuote
+
++ Calculate amount of USDC to withdraw
+  + collateralPositionUnit =  PerpVault.balanceOf(setToken) / setToken.totalSupply
+  + usdcToWithdraw = 
+    + (collateralPositionUnit * redeemQuantity) + 
+    + (owedRealizedPnLPositionUnit * redeemQuantity) + 
+    + realizedPnL 
+
++ Set the external position unit for DIM 
+  + newUnit = usdcToWithdraw / redeemQuantity
+  + component = PerpModule.getCollateralComponent(_setToken) 
+  + setToken.editExternalPositionUnit(_component, address(this), newUnit)
+-----
+
+> **componentRedeemHook**: called during *DIM.resolveEquityPositions* via *DIM.externalPositionHook*. 
+
+```solidity
+function componentRedeemHook(
+  ISetToken _setToken, 
+  uint256 _setTokenQuantity, 
+  IERC20 _component
+)
+  external 
+  override 
+  onlyModule(_setToken)
+```
++ externalPositionUnit = _setToken.getExternalPositionRealUnit(_component, address(this))
++ usdcToWithdraw = externalPositionUnit * _setTokenQuantity
++ setToken.invokeWithdraw(usdcToWithdraw)
 
 **Reviewer**:
 
