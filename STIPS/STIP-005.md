@@ -1826,10 +1826,36 @@ function removeModule() external override onlyValidAndInitializedSet(ISetToken(m
 + require(positionInfo.collateralBalance == 0)
 + delete positions[setToken]
 + delete collateralToken[setToken]
-+ delete allowedSetTokens[setToken]
 -----
 
 ### Methods carried over without change from ALM/CLM
+
+> **initialize**: (Adapted from ALM/CLM - removed collateral and borrow asset addition logic)
+
+```solidity
+function initialize(ISetToken _setToken)
+    external
+    onlySetManager(_setToken, msg.sender)
+    onlyValidAndPendingSet(_setToken)
+{
+    if (!anySetAllowed) {
+        require(allowedSetTokens[_setToken], "Not allowed SetToken");
+    }
+
+    // Initialize module before trying register
+    _setToken.initializeModule();
+
+    // Get debt issuance module registered to this module and require that it is initialized
+    require(_setToken.isInitializedModule(getAndValidateAdapter(DEFAULT_ISSUANCE_MODULE_NAME)), "Issuance not initialized");
+
+    // Try if register exists on any of the modules including the debt issuance module
+    address[] memory modules = _setToken.getModules();
+    for(uint256 i = 0; i < modules.length; i++) {
+        try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
+    }
+}
+```
+-----
 
 > **updateAllowedSetToken**: Enable/disable ability of a SetToken to initialize this module
 
