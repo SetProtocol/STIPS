@@ -1042,6 +1042,38 @@ To delever, we sell vETH, paying off our debt balance. Depending on the implemen
 
 ## Contract: PerpV2Lib
 
+#### Reference: PerpV2 Interfaces
+
+```solidity
+struct SwapParams {
+  address baseToken;
+  bool isBaseToQuote;
+  bool isExactInput;
+  uint256 amount;
+  uint160 sqrtPriceLimitX96; // price slippage protection
+}
+
+struct SwapResponse {
+  uint256 deltaAvailableBase;
+  uint256 deltaAvailableQuote;
+  int256 exchangedPositionSize;
+  int256 exchangedPositionNotional;
+  uint160 sqrtPriceX96;
+}
+
+struct OpenPositionParams {
+  address baseToken;
+  bool isBaseToQuote;
+  bool isExactInput;
+  uint256 amount;
+  uint256 oppositeAmountBound;
+  uint256 deadline;
+  uint160 sqrtPriceLimitX96;
+  bytes32 referralCode;
+}
+```
+
+#### Functions
 | Function | Caller | Description |
 | ----- | ----- | ----- |
 | getDepositCallData | PerpModule | encodes PerpV2.Vault deposit method calldata |
@@ -1137,17 +1169,6 @@ getQuoterSwapCallData(IQuoter _quoter, SwapParams _params)
 > invokeOpenPosition
 
 ```solidity
-struct OpenPositionParams {
-  address baseToken;
-  bool isBaseToQuote;
-  bool isExactInput;
-  uint256 amount;
-  uint256 oppositeAmountBound;
-  uint256 deadline;
-  uint160 sqrtPriceLimitX96;
-  bytes32 referralCode;
-}
-
 function invokeOpenPosition(
   ISetToken _setToken, 
   IClearingHouse _clearingHouse, 
@@ -1198,22 +1219,6 @@ function invokeWithdraw(
 > invokeQuoterSwap
 
 ```solidity
-struct SwapParams {
-  address baseToken;
-  bool isBaseToQuote;
-  bool isExactInput;
-  uint256 amount;
-  uint160 sqrtPriceLimitX96; // price slippage protection
-}
-
-struct SwapResponse {
-  uint256 deltaAvailableBase;
-  uint256 deltaAvailableQuote;
-  int256 exchangedPositionSize;
-  int256 exchangedPositionNotional;
-  uint160 sqrtPriceX96;
-}
-
 function invokeQuoterSwap(
   ISetToken _setToken, 
   IQuoter _quoter, 
