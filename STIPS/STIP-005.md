@@ -1230,6 +1230,13 @@ function invokeQuoterSwap(
 
 ## Contract: PerpModule
 
+#### Inheritance
+
++ ModuleBase
++ ReentrancyGuard
++ Ownable
++ IModuleIssuanceHook
+
 #### Structs
 
 + **PerpV2ProtocolAddresses**
@@ -1241,7 +1248,7 @@ function invokeQuoterSwap(
 | address | accountBalance | exposes data about account values and positions |
 | address | exchange | exposes data about account values and positions |
 
-+ **PositionInfo**
++ **PositionInfo**: All data sourced from PerpV2 protocol contracts
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
