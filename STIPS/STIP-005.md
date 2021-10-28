@@ -1529,7 +1529,7 @@ function componentRedeemHook(
 + setToken.invokeWithdraw(usdcToWithdraw)
 -----
 
-> **deposit**: called by manager
+> **deposit**: 
 
 ```solidity
 function _deposit(
@@ -1543,11 +1543,13 @@ function _deposit(
 
 + notionalQuantity = _collateralQuantityUnits * _setToken.totalSupply
 + collateralToken = getCollateralToken(_setToken)
-+ _setToken.invokeApprove(collateralToken, protocolAddresses.vault, notionalQuantity)
-+ _setToken.invokeDeposit(protocolAddresses.vault, collateralToken, notionalQuantity)
++ decimals = collateralToken.decimals()
++ notionalQuantityInCollateralDecimals = _formatCollateralToken(notionalQuantity, decimals)
++ _setToken.invokeApprove(collateralToken, protocolAddresses.vault, notionalQuantityInCollateralDecimals)
++ _setToken.invokeDeposit(protocolAddresses.vault, collateralToken, notionalQuantityInCollateralDecimals)
 ----
 
-> **withdraw**: called by manager
+> **withdraw**: 
 
 ```solidity
 function _withdraw(
@@ -1560,10 +1562,12 @@ function _withdraw(
 ```
 + notionalQuantity = _collateralQuantityUnits * _setToken.totalSupply
 + collateralToken = getCollateralToken(_setToken)
-+ _setToken.invokeWithdraw(protocolAddresses.vault, collateralToken, notionalQuantity)
++ decimals = collateralToken.decimals()
++ notionalQuantityInCollateralDecimals = _formatCollateralToken(notionalQuantity, decimals)
++ _setToken.invokeWithdraw(protocolAddresses.vault, collateralToken, notionalQuantityInCollateralDecimals)
 -----
 
-> **trade**: called by manager
+> **trade**: 
 
 ```solidity
 function trade(
@@ -1593,8 +1597,9 @@ Format Trade parameters
     referralCode
  ) = abi.decode(bytes, (bool,uint256,uint160,bytes32))
  
-Execute trade and return deltas. *minCreditQuantityUnits* check is performed by PerpV2 
+Execute trade and accrue fees. *minCreditQuantityUnits* check is performed by PerpV2 
 + (deltaBase, deltaQuote) = setToken.invokeOpenPosition(_setToken, protocolAddresses.clearingHouse, tradeParams)
++ _accrueProtocolFee(_setToken, deltaQuote)
 
 Check position balance and update position data structure with additions or removals
 + positions = getPositions(_setToken)
@@ -1604,11 +1609,11 @@ Check position balance and update position data structure with additions or remo
 + elseif (baseBalance > 0 && !positions.contains(tradeParams.baseToken)) 
   + addPosition(_setToken, tradeParams.baseToken)
 
-Return
+Return deltas
 + return (deltaBase, deltaQuote)
 ------
 
-> **lever**: called by manager
+> **lever**: 
 
 ```solidity
 function lever(
@@ -1622,6 +1627,7 @@ function lever(
 ```
 
 Calculate total trade amounts
++ totalDeltaQuoteQuantity = 0
 + totalTradeQuoteQuantity = _quoteQuantityUnits * _setToken.totalSupply
 + totalMinReceiveQuoteQuantity = _minReceiveQuoteQuantityUnits * _setToken.totalSupply*
 
@@ -1665,11 +1671,13 @@ Trade
 	    })
 	    ```
     + target = protocolAddresses.clearingHouse
-    + _setToken.invokeOpenPosition(target params)	
-	
+    + (,deltaQuote) = _setToken.invokeOpenPosition(target params)
+    + totalDeltaQuoteQuantity += deltaQuote 	
+
++ _accrueProtocolFee(_setToken, totalDeltaQuoteQuantity)
 ----
 
-> **delever**: called by manager
+> **delever**: 
 
 ```solidity
 function delever(
@@ -1683,6 +1691,7 @@ function delever(
 ```
 
 Calculate total trade amounts
++ totalDeltaQuoteQuantity = 0
 + totalTradeQuoteQuantity = _quoteQuantityUnits * _setToken.totalSupply
 + totalMinReceiveQuoteQuantity = _minReceiveQuoteQuantityUnits * _setToken.totalSupply*
 
@@ -1727,11 +1736,14 @@ Trade
 	  ```
   
   + target = PerpModule.protocolAddresses.clearingHouse
-  + setToken.invokeOpenPosition(target params)	
+  + (,deltaQuote) = setToken.invokeOpenPosition(target, params)
+  + totalDeltaQuoteQuantity += deltaQuote 	
+
++ _accrueProtocolFee(_setToken, totalDeltaQuoteQuantity)	
 
 -----
 
-> **getPositionInfo**: called by anyone
+> **getPositionInfo**: 
 
 ```solidity
 function getPositionInfo(
@@ -1760,7 +1772,7 @@ PositionInfo memory info = PositionInfo({
 
 _____
 
-> **getPriceBasedPositionInfo**: called by anyone
+> **getPriceBasedPositionInfo**: 
 ```solidity
 function getPriceBasedPositionInfo(ISetToken _setToken) 
   external
@@ -1817,6 +1829,36 @@ function removeModule() external override onlyValidAndInitializedSet(ISetToken(m
 + require(positionInfo.collateralBalance == 0)
 + delete positions[setToken]
 + delete collateralToken[setToken]
+-----
+
+### InternalMethods
+
+> **_accrueProtocolFee**
+
+```solidity
+function _accrueProtocolFee(
+    ISetToken _setToken, 
+    uint256 _exchangedQuantity
+) 
+    internal 
+    returns(uint256) 
+```
+
++ collateralToken = getCollateralToken(_setToken)
++ protocolFeeTotal = getModuleFee(PROTOCOL_TRADE_FEE_INDEX, _exchangedQuantity);
++ protocolFeeTotalUnits = protocolFeeTotal / _setToken.totalSupply
++ withdraw(_setToken, protocolFeeTotalUnits)
++ payProtocolFeeFromSetToken(_setToken, collateralToken, protocolFeeTotal);
++ return protocolFeeTotal;
+-----
+
+> **_formatCollateralToken**: for converting precise unit quantities to PerpV2 settlement units (e.g USDC)
+
+```solidity
+function formatCollateralToken(uint256 amount, uint8 decimals) internal pure returns (uint256) {
+  return amount.div(10**(18 - decimals));
+}
+```
 -----
 
 ### Methods carried over without change from ALM/CLM
