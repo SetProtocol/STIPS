@@ -707,10 +707,10 @@ Executes trade in PerpV2 protocol per parameters and config
 ```solidity
 function trade(
    ISetToken _setToken,
-   address _sendToken,  
-   int256 _sendQuantity, 	// (10**18)
-   address _receiveToken,
-   int256 _minReceiveQuantity,  // (10**18)
+   address _debitToken,  
+   int256 _debitQuantityUnits, 	
+   address _creditToken,
+   int256 _minCreditQuantityUnits,  
 
    // ABI encode additional configuration for trade
    bytes memory _data        
@@ -789,10 +789,10 @@ delever(ISetToken setToken, uint256 quoteUnits, uint256 quoteMinReceiveUnits)
 
 ```solidity
 {
-  _sendToken: vUSDCAddress , 
-  _sendQuantity: -100,
-  _receiveToken: vETHAddress,
-  _minReceiveQuantity: 9.9 
+  _debitToken: vUSDCAddress , 
+  _debitQuantityUnits: -100,
+  _creditToken: vETHAddress,
+  _minCreditQuantityUnits: 9.9 
 }
 ```
 
@@ -819,10 +819,10 @@ delever(ISetToken setToken, uint256 quoteUnits, uint256 quoteMinReceiveUnits)
 
 ```solidity
 {
-  _sendToken: vETHAddress,  
-  _sendQuantity: -10,
-  _receiveToken: vUSDCAddress,
-  _minReceiveQuantity: 101
+  _debitToken: vETHAddress,  
+  _debitQuantityUnits: -10,
+  _creditToken: vUSDCAddress,
+  _minCreditQuantityUnits: 101
 }
 ```
 
@@ -845,10 +845,10 @@ User wants to convert 100 units of a default USDC position into 2X long vETH Per
 6. PerpProtocol transfers 100 USDC from SetToken to PerpProtocol as collateral
 7. User calls PerpModule trade configured with:
       ```
-      sendToken: vUSDCAddress
-      sendQuantity: toPreciseUnit(200) 
-      receiveToken: vETHAddress
-      minReceiveQuantity: ...
+      debitToken: vUSDCAddress
+      debitQuantityUnits: toPreciseUnit(200) 
+      creditToken: vETHAddress
+      minCreditQuantityUnits: ...
       ```
 
 8. PerpModule passes trade call through to *PerpProtocolAdapter.trade()*
@@ -873,9 +873,9 @@ User wants to convert a long ETH Perp external position (which uses USDC as coll
 2. PerpModule calls *PerpProtocolAdapter.getPositionInfo(setToken)* to get data from PerpProtocol and returns *vETHPositionSize* to User
 3. User calls *PerpModule.trade* configured with
       ```
-      sendToken: vETHAddress
-      sendQuantity: -10  // e.g sell vETH to realize USDC 
-      receiveToken: vUSDCAddress 
+      debitToken: vETHAddress
+      debitQuantityUnits: -10  // e.g sell vETH to realize USDC 
+      creditToken: vUSDCAddress 
       minReceiveToken: ... 
       ```
 
