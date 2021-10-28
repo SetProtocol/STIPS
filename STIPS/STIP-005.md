@@ -1544,6 +1544,51 @@ function _withdraw(
 + _setToken.invokeWithdraw(protocolAddresses.vault, collateralToken, notionalQuantity)
 -----
 
+> **trade**: called by manager
+
+```solidity
+function trade(
+  ISetToken _setToken,
+  address _debitToken,  
+  int256 _debitQuantityUnits, 	  // (negative)
+  address _creditToken,
+  int256 _minCreditQuantityUnits, // (positive)
+  bytes memory _data        
+)
+  external
+  nonReentrant
+  onlyManagerAndValidSet(_setToken)
+  returns (uint256 deltaBase, uint256 deltaQuote)
+```
+
+Format Trade parameters
++ collateralToken = getCollateralToken(_setToken)
++ isBaseToQuote = _debitToken != collateralToken
++ baseToken = (isBaseToQuote) ? _creditToken : _debitToken 
++ amount = abs(_debitQuantityUnits * _setToken.totalSupply)
++ oppositeAmountBound = abs(_creditQuantityUnits * _setToken.totalSupply)
++ isExactInput = true
++ (
+    deadline,
+    sqrtPriceLimitX96,
+    referralCode
+ ) = abi.decode(bytes, (bool,uint256,uint160,bytes32))
+ 
+Execute trade and return deltas. *minCreditQuantityUnits* check is performed by PerpV2 
++ (deltaBase, deltaQuote) = setToken.invokeOpenPosition(_setToken, protocolAddresses.clearingHouse, tradeParams)
+
+Check position balance and update position data structure with additions or removals
++ positions = getPositions(_setToken)
++ baseBalance = PerpV2.AccountBalance.getPositionSize(_setToken, tradeParams.baseToken) 
++ if (baseBalance == 0) 
+  + removePosition(_setToken, tradeParams.baseToken)
++ elseif (baseBalance > 0 && !positions.contains(tradeParams.baseToken)) 
+  + addPosition(_setToken, tradeParams.baseToken)
+
+Return
++ return (deltaBase, deltaQuote)
+------
+
 > **lever**: called by manager
 
 ```solidity
