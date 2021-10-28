@@ -1665,6 +1665,85 @@ Trade
   + target = PerpModule.protocolAddresses.clearingHouse
   + setToken.invokeOpenPosition(target params)	
 
+-----
+
+> **getPositionInfo**: called by anyone
+
+```solidity
+function getPositionInfo(
+  ISetToken _setToken, 
+  address baseToken
+) returns (
+  int256 collateralBalance
+  int256 baseBalance
+  int256 quoteBalance
+  int256 owedRealizedPnL
+  int256 pendingFunding
+  uint256 freeCollateral
+  int256 accountValue
+  int256 marginRequirement
+)
+```
+
++ collateralBalance = protocolAddresses.Vault.balanceOf(_setToken)
++ baseBalance = protocolAddresses.AccountBalance.getPositionSize(_setToken, baseToken)
++ quoteBalance = protocolAddresses.Exchange.getOpenNotional(_setToken, baseToken)
++ (owedRealizedPnL, ) = protocolAddresses.AccountBalance.getOwedAndUnrealizedPnL(_setToken)
++ pendingFunding = protocolAddresses.Exchange.getAllPendingFundingPayments(_setToken)
++ freeCollateral = protocolAddresses.Vault.getFreeCollateral(_setToken)
++ accountValue = protocolAddresses.Clearinghouse.getAccountValue(_setToken)
++ marginRequirement = protocolAddresses.AccountBalance.getMarginRequirementForLiquidation(_setToken)
+
+return (collateralBalance, ....)
+
+_____
+
+> **getPriceBasedPositionInfo**: called by anyone
+```solidity
+function getPriceBasedPositionInfo(
+  ISetToken _setToken, 
+) returns (
+  int256 accountValuePositionUnit
+  uint256 currentLeverageRatio
+  uint256[] positionSpotPrices
+)
+```
+
++ positionSpotPrices = []
++ netPositionValue = 0
++ vBasePositions = getPositions(_setToken)
+
+Get spot price for each position and sum position values
++ for vBase of vBasePositions
+  + ```solidity
+    swapParams = {
+      baseToken: vBase,
+      isBaseToQuote: false,
+      isExactInput: true,
+      amount: 1.0101 // include protocol fee
+      sqrtPriceLimitX96: 0
+    }
+    ```
+
+  + (deltaBase,...) = setToken.invokeQuoterSwap(protocolAddresses.quoter, swapParams)
+  + price = 1 / deltaBase 
+  + positionSpotPrices.push(price) 
+  + netPositionValue += PerpV2.AccountBalance.getPositionSize(_setToken, vBase) * price
+
+Calculate perp account value
++ netNotional = PerpV2.AccountBalance.getNetQuoteBalance(_setToken)
++ collateral = PerpV2.Vault.balanceOf(_setToken)
++ (owedRealizedPnL, ) = PerpV2.AccountBalance.getOwedUnrealizedPnL(_setToken)
++ accountValuePositionUnit = (netPositionValue + netNotional + collateral + owedRealizedPnL) / _setToken.totalSupply
+
+Calculate leverage ratio
++ leverageRatio = abs(netPositionValue) / (netPositionValue + netNotional + collateral)
+
+Return
++ return (accountValuePositionUnit, leverageRatio, positionSpotPrices)
+
+----
+
 
 **Reviewer**:
 
