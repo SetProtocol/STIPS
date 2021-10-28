@@ -1231,18 +1231,43 @@ function invokeQuoterSwap(
 ## Contract: PerpModule
 
 #### Structs
+
++ **PerpV2ProtocolAddresses**
+
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-| | | |
+| address | vault | manages account collateral (deposits and withdrawals )|
+| address | clearingHouse | manages trading (open position) |
+| address | accountBalance | exposes data about account values and positions |
+| address | exchange | exposes data about account values and positions |
+
++ **PositionInfo**
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+| int256 | collateralBalance | total quantity of vault collateral |
+| int256 | baseBalance | quantity of baseToken position open |
+| int256 | quoteBalance | quantity of USDC notional open for baseToken position |
+| int256 | owedRealizedPnL | total quantity of account's realized PnL |
+| int256 | pendingFunding | total quantity of funding payments pending for account |
+| uint256 | freeCollateral | min(collateral, accountValue) - marginRequirement |
+| int256 | accountValue | sum of collateralBalance, owedRealizedPnL, pendingFunding, oracle-priced position values total, open notional quote total |
+| int256 | marginRequirement | oracle-priced position values total * minimum margin requirement ratio (6.25%) |
+| uint256 | freeCollateral | min(collateral, accountValue) - marginRequirement |
 
 #### Constants
 | Type 	| Name 	| Description 	| Value |
 |------	|------	|-------------	|-------|
-| | | | |
+| string | DEFAULT_ISSUANCE_MODULE_NAME | String identifying the DIM in the IntegrationRegistry| "DefaultIssuanceModule" |
+| uint256 | PROTOCOL_TRADE_FEE_INDEX | 0 index stores protocol fee % on the controller, charged in the _executeTrade function| 0 |
+
+
 #### Public Variables
 | Type 	| Name 	| Description |
 |------	|------	|-------------|
-| | | |
+| mapping(ISetToken => address[]| positions | List of baseTokens account has open positions for |
+| mapping(ISetToken => address) | collateralToken | CollateralToken approved for deposits by manager | 
+| PerpV2ProtocolAddresses | protocolAddresses | PerpV2 system contract addresses |
 
 #### Modifiers
 | Function | Description |
