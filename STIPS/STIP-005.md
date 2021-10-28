@@ -1325,9 +1325,9 @@ for vBase, index of vBasePositions:
   + vBasePositionUnit = positionInfo.baseBalance / _setToken.totalSupply
   + vBaseTradeAmount = abs(vBasePositionUnit * _setTokenQuantity)
   + spotPrice = positionSpotPrices[index] 	
-  + vBaseCostIdeal = vBaseTradeAmount * spotPrice // without slippage or fees
+  + quoteCostIdeal = vBaseTradeAmount * spotPrice // without slippage or fees
 
-+ Simulate trade to get its real cost as *deltaAvailableQuote* 
++ Simulate trade to get its real cost as *deltaQuote* 
 
   + *If long:* (when vETHPositionUnit is positive)
 
@@ -1354,14 +1354,14 @@ for vBase, index of vBasePositions:
   ```
   
   + target = protocolAddresses.quoter
-  + vBaseCostReal = setToken.invokeQuoterSwap(target, swapParams) // includes slippage and protocol fees
+  + deltaQuote = setToken.invokeQuoterSwap(target, swapParams) // includes slippage and protocol fees
 
 + Calculate the slippage & fees amount issuer will bear (as a positive value)
   + *If Long*:
-    + slippageCost = vBaseCostReal - vBaseCostIdeal 
+    + slippageCost = deltaQuote - quoteCostIdeal 
 
   + *If short*
-    + slippageCost = vBaseCostIdeal - vBaseCostReal	
+    + slippageCost = quoteCostIdeal - deltaQuote	
 
 + Calculate current leverage using AMM spot price
   + vBasePositionValue = positionInfo.baseBalance * spotPrice
@@ -1370,7 +1370,7 @@ for vBase, index of vBasePositions:
 + Calculate addtional usdcAmountIn and add to running total.  
   + owedRealizedPnLPositionUnit = (positionInfo.carriedOwedRealizedPnL + positionInfo.pendingFunding) / setToken.totalSupply
   + owedRealizedPnLDiscount = owedRealizedPnLPositionUnit * _setTokenQuantity
-  + usdcAmountIn += (vBaseCostReal / current leverage) + slippageCost + owedRealizedPnLDiscount
+  + usdcAmountIn += (deltaQuote / current leverage) + slippageCost + owedRealizedPnLDiscount
 
 Set USDC externalPositionUnit such that DIM can use it for transfer calculation.
 + newUnit = usdcAmountIn / _setTokenQuantity
@@ -1410,7 +1410,7 @@ function componentIssueHook(
 	
       ```solidity
       openPositionParams = {
-        baseToken: vBaseToken 
+        baseToken: vBase 
         isBaseToQuote: false		// long
         isExactInput: false		// exact output
         amount: vBaseTradeAmount
@@ -1425,7 +1425,7 @@ function componentIssueHook(
 	
       ```solidity
       openPositionParams = {
-        baseToken: vBaseToken 
+        baseToken: vBase 
         isBaseToQuote: true		// short
         isExactInput: true		
         amount: vBaseTradeAmount
@@ -1481,7 +1481,7 @@ function moduleRedeemHook(
     }
     
     target = protocolAddresses.clearingHouse
-    deltaAvailableQuote = _setToken.invokeOpenPosition(target, openPositionParams) 
+    deltaQuote = _setToken.invokeOpenPosition(target, openPositionParams) 
     ```
 
     + *If short*: ((when vBasePositionUnit is negative)
@@ -1496,15 +1496,15 @@ function moduleRedeemHook(
     }
     
     target = protocolAddresses.clearingHouse
-    deltaAvailableQuote = _setToken.invokeOpenPosition(target, openPositionParams)
+    deltaQuote = _setToken.invokeOpenPosition(target, openPositionParams)
     ```
 
   + Calculate realized PnL and add to running total
     + *If long*
-      + realizedPnL += reducedOpenNotional + deltaAvailableQuote
+      + realizedPnL += reducedOpenNotional + deltaQuote
 
     + *If short*
-      + realizedPnL += reducedOpenNotional - deltaAvailableQuote
+      + realizedPnL += reducedOpenNotional - deltaQuote
 
 + Calculate amount of USDC to withdraw
   + collateralPositionUnit = protocolAddresses.vault.balanceOf(_setToken) / _setToken.totalSupply
@@ -1592,17 +1592,19 @@ function trade(
 ```
 
 Format Trade parameters
-+ collateralToken = getCollateralToken(_setToken)
-+ isBaseToQuote = _debitToken != collateralToken
-+ baseToken = (isBaseToQuote) ? _creditToken : _debitToken 
-+ amount = abs(_debitQuantityUnits * _setToken.totalSupply)
-+ oppositeAmountBound = abs(_creditQuantityUnits * _setToken.totalSupply)
-+ isExactInput = true
-+ (
-    deadline,
-    sqrtPriceLimitX96,
-    referralCode
- ) = abi.decode(bytes, (bool,uint256,uint160,bytes32))
+
++ tradeParams = 
+  + collateralToken = getCollateralToken(_setToken)
+  + isBaseToQuote = _debitToken != collateralToken
+  + baseToken = (isBaseToQuote) ? _creditToken : _debitToken 
+  + amount = abs(_debitQuantityUnits * _setToken.totalSupply)
+  + oppositeAmountBound = abs(_creditQuantityUnits * _setToken.totalSupply)
+  + isExactInput = true
+  + (
+      deadline,
+      sqrtPriceLimitX96,
+      referralCode
+    ) = abi.decode(bytes, (bool,uint256,uint160,bytes32))
  
 Execute trade and accrue fees. *minCreditQuantityUnits* check is performed by PerpV2 
 + (deltaBase, deltaQuote) = setToken.invokeOpenPosition(_setToken, protocolAddresses.clearingHouse, tradeParams)
