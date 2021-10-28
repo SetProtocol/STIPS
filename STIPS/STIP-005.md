@@ -1816,6 +1816,19 @@ Return
 
 ----
 
+> **removeModule**
+
+```solidity
+function removeModule() external override onlyValidAndInitializedSet(ISetToken(msg.sender))
+```
++ setToken = ISetToken(msg.sender)
++ positionInfo = getPositionInfo(setToken)
++ require(positionInfo.collateralBalance == 0)
++ delete positions[setToken]
++ delete collateralToken[setToken]
++ delete allowedSetTokens[setToken]
+-----
+
 ### Methods carried over without change from ALM/CLM
 
 > **updateAllowedSetToken**: Enable/disable ability of a SetToken to initialize this module
