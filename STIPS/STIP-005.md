@@ -1379,8 +1379,8 @@ for vBase, index of vBasePositions:
 
 Set USDC externalPositionUnit such that DIM can use it for transfer calculation.
 + newUnit = usdcAmountIn / _setTokenQuantity
-+ component = getCollateralComponent(_setToken) 
-+ _setToken.editExternalPositionUnit(component, address(this), newUnit)
++ token = collateralToken[_setToken] 
++ _setToken.editExternalPositionUnit(token, address(this), newUnit)
 ----
 
 > **componentIssueHook**: called as an *externalPositionHook* during *DIM.resolveEquityPositions*
@@ -1399,9 +1399,9 @@ function componentIssueHook(
 + usdcAmount = _setTokenQuantity * externalPositionUnit
 
 + Deposit collateral from SetToken into PerpV2
-  + component = getCollateralComponent(_setToken) 
-  + SetToken.invokeApprove(component, protocolAddresses.vault, usdcAmount)  
-  + SetToken.invokeDeposit(protocolAddresses.vault, component, usdcAmount)
+  + token = collateralToken[_setToken] 
+  + SetToken.invokeApprove(token, protocolAddresses.vault, usdcAmount)  
+  + SetToken.invokeDeposit(protocolAddresses.vault, token, usdcAmount)
 
 + vBasePositions = getPositions(_setToken)
 
@@ -1520,8 +1520,8 @@ function moduleRedeemHook(
 
 + Set the external position unit for DIM 
   + newUnit = usdcToWithdraw / _setTokenQuantity
-  + component = getCollateralComponent(_setToken) 
-  + setToken.editExternalPositionUnit(component, address(this), newUnit)
+  + token = collateralToken[_setToken] 
+  + setToken.editExternalPositionUnit(token, address(this), newUnit)
 -----
 
 > **componentRedeemHook**: called during *DIM.resolveEquityPositions* via *DIM.externalPositionHook*. 
@@ -1554,11 +1554,11 @@ function _deposit(
 ```
 
 + notionalQuantity = _collateralQuantityUnits * _setToken.totalSupply
-+ collateralToken = getCollateralToken(_setToken)
-+ decimals = collateralToken.decimals()
++ token = collateralToken[_setToken]
++ decimals = token.decimals()
 + notionalQuantityInCollateralDecimals = _formatCollateralToken(notionalQuantity, decimals)
 + _setToken.invokeApprove(collateralToken, protocolAddresses.vault, notionalQuantityInCollateralDecimals)
-+ _setToken.invokeDeposit(protocolAddresses.vault, collateralToken, notionalQuantityInCollateralDecimals)
++ _setToken.invokeDeposit(protocolAddresses.vault, token, notionalQuantityInCollateralDecimals)
 ----
 
 > **withdraw**: 
@@ -1573,10 +1573,10 @@ function _withdraw(
   onlyManagerAndValidSet(_setToken)
 ```
 + notionalQuantity = _collateralQuantityUnits * _setToken.totalSupply
-+ collateralToken = getCollateralToken(_setToken)
-+ decimals = collateralToken.decimals()
++ token = collateralToken[_setToken]
++ decimals = token.decimals()
 + notionalQuantityInCollateralDecimals = _formatCollateralToken(notionalQuantity, decimals)
-+ _setToken.invokeWithdraw(protocolAddresses.vault, collateralToken, notionalQuantityInCollateralDecimals)
++ _setToken.invokeWithdraw(protocolAddresses.vault, token, notionalQuantityInCollateralDecimals)
 -----
 
 > **trade**: 
@@ -1599,8 +1599,8 @@ function trade(
 Format Trade parameters
 
 + tradeParams = 
-  + collateralToken = getCollateralToken(_setToken)
-  + isBaseToQuote = _debitToken != collateralToken
+  + collateral = collateralToken[_setToken]
+  + isBaseToQuote = _debitToken != collateral
   + baseToken = (isBaseToQuote) ? _creditToken : _debitToken 
   + amount = abs(_debitQuantityUnits * _setToken.totalSupply)
   + oppositeAmountBound = abs(_creditQuantityUnits * _setToken.totalSupply)
@@ -1754,7 +1754,23 @@ Trade
   + totalDeltaQuoteQuantity += deltaQuote 	
 
 + _accrueProtocolFee(_setToken, totalDeltaQuoteQuantity)	
+-----
 
+> **setCollateralToken**: Updates identity of token which gets deposited into PerpV2 vault
+
+```solidity
+function setCollateralToken(
+  ISetToken _setToken, 
+  address _collateralToken
+) 
+  external 
+  onlyManagerAndValidSet(_setToken)
+```
+
+Check that perp account is empty and update collateral token
++ collateralBalance = protocolAddresses.vault.balanceOf(_setToken)
++ require(collateralBalance == 0)
++ collateralToken[_setToken] = _collateralToken
 -----
 
 > **getPositionInfo**: 
@@ -1858,11 +1874,11 @@ function _accrueProtocolFee(
     returns(uint256) 
 ```
 
-+ collateralToken = getCollateralToken(_setToken)
++ token = collateralToken[_setToken]
 + protocolFeeTotal = getModuleFee(PROTOCOL_TRADE_FEE_INDEX, _exchangedQuantity);
 + protocolFeeTotalUnits = protocolFeeTotal / _setToken.totalSupply
 + withdraw(_setToken, protocolFeeTotalUnits)
-+ payProtocolFeeFromSetToken(_setToken, collateralToken, protocolFeeTotal);
++ payProtocolFeeFromSetToken(_setToken, token, protocolFeeTotal);
 + return protocolFeeTotal;
 -----
 
@@ -1875,12 +1891,15 @@ function formatCollateralToken(uint256 amount, uint8 decimals) internal pure ret
 ```
 -----
 
-### Methods carried over without change from ALM/CLM
+### Methods carried over with minimal or no changes from ALM/CLM
 
-> **initialize**: (Adapted from ALM/CLM - removed collateral and borrow asset addition logic)
+> **initialize**: 
++ Adapted from ALM/CLM 
+  + removed collateral and borrow asset addition logic
+  + added setCollateralToken logic
 
 ```solidity
-function initialize(ISetToken _setToken)
+function initialize(ISetToken _setToken, address _collateralToken)
     external
     onlySetManager(_setToken, msg.sender)
     onlyValidAndPendingSet(_setToken)
@@ -1900,6 +1919,9 @@ function initialize(ISetToken _setToken)
     for(uint256 i = 0; i < modules.length; i++) {
         try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
     }
+    
+    // Set collateralToken 
+    setCollateralToken(_setToken, _collateralToken)
 }
 ```
 -----
