@@ -1312,14 +1312,10 @@ function moduleIssueHook(
 for vBase, index of vBasePositions:
 
 + Read all required state from PerpV2 protocol contracts
-  + vBasePositionSize = PerpAccountBalance.getPositionSize(vBase, _setToken)
-  + vQuoteOpenNotional = PerpV2Exchange.getOpenNotional(vBase, _setToken)
-  + collateralBalance = PerpV2Vault.balanceOf(_setToken)
-  + pendingFunding = PerpExchange.getPendingFunding(vBase, _setToken)
-  + carriedOwedRealizedPnL = PerpAccountBalance.getOwedAndUnrealizedPnl(_setToken)
+  + positionInfo = getPositionInfo(_setToken, vBase)
 
 + Calculate ideal cost of trade
-  + vBasePositionUnit = vBasePositionSize / _setToken.totalSupply
+  + vBasePositionUnit = positionInfo.baseBalance / _setToken.totalSupply
   + vBaseTradeAmount = abs(vBasePositionUnit * _setTokenQuantity)
   + spotPrice = positionSpotPrices[index] 	
   + vBaseCostIdeal = vBaseTradeAmount * spotPrice // without slippage or fees
@@ -1361,11 +1357,11 @@ for vBase, index of vBasePositions:
     + slippageCost = vBaseCostIdeal - vBaseCostReal	
 
 + Calculate current leverage using AMM spot price
-  + vBasePositionValue = vBasePositionSize * spotPrice
-  + currentLeverage = vBasePositionValue / (vBasePositionValue + vQuoteBalance + collateralBalance)
+  + vBasePositionValue = positionInfo.baseBalance * spotPrice
+  + currentLeverage = vBasePositionValue / (vBasePositionValue + positionInfo.quoteBalance + positionInfo.collateralBalance)
 
 + Calculate addtional usdcAmountIn and add to running total.  
-  + owedRealizedPnLPositionUnit = (carriedOwedRealizedPnL + pendingFunding) / setToken.totalSupply
+  + owedRealizedPnLPositionUnit = (positionInfo.carriedOwedRealizedPnL + positionInfo.pendingFunding) / setToken.totalSupply
   + owedRealizedPnLDiscount = owedRealizedPnLPositionUnit * _setTokenQuantity
   + usdcAmountIn += (vBaseCostReal / current leverage) + slippageCost + owedRealizedPnLDiscount
 
@@ -1392,17 +1388,17 @@ function componentIssueHook(
 
 + Deposit collateral from SetToken into PerpV2
   + component = getCollateralComponent(_setToken) 
-  + SetToken.invokeApprove(component, PerpV2Vault, usdcAmount)  
-  + SetToken.invokeDeposit(PerpV2Vault, component, usdcAmount)
+  + SetToken.invokeApprove(component, protocolAddresses.vault, usdcAmount)  
+  + SetToken.invokeDeposit(protocolAddresses.vault, component, usdcAmount)
 
-+ vBasePositions = PerpModule.getPositions()
++ vBasePositions = getPositions(_setToken)
 
 + for vBase of vBasePositions
-  + vBasePositionSize = PerpV2Exchange.getPositionSize(vBase)
+  + vBasePositionSize = protocolAddresses.exchange.getPositionSize(_setToken, vBase)
   + vBasePositionUnit = vBasePositionSize / _setToken.totalSupply
   + vBaseTradeAmount = abs(vBasePositionUnit * _setTokenQuantity)
 
-  + Open position, calling PerpV2.ClearingHouse via SetToken.
+  + Open position, calling ClearingHouse via SetToken.
     + **If Long:** (when vBasePositionSize is positive)
 	
       ```solidity
@@ -1450,22 +1446,18 @@ function moduleRedeemHook(
 
 + for vBase of vBasePositions
   + Read required data from Perp protocol
-    + vBasePositionSize = PerpAccountBalance.getPositionSize(vBaseToken, _setToken)
-    + vBasePositionUnit =  vBasePositionSize / _setToken.totalSupply
-    + vQuoteOpenNotional = PerpExchange.getOpenNotional(vBaseToken, _setToken)
-    + pendingFunding = PerpExchange.getPendingFunding(vBase, _setToken) 
-
+    + positionInfo = getPositionInfo(_setToken, vBase)
+    
   + Calculate how much to sell and our expected PnL
-	
+    + vBasePositionUnit =  positionInfo.baseBalance / _setToken.totalSupply	
     + vBaseTradeAmount = abs(_setTokenQuantity * vBasePositionUnit) 
-    + closeRatio = vBaseToSell / vBasePositionSize 
-    + reducedOpenNotional = vQuoteOpenNotional * close ratio 
-    + openNotionalFraction = (vQuoteOpenNotional  * -1 ) + reducedOpenNotional 
+    + closeRatio = vBaseTradeAmount / positionInfo.baseBalance 
+    + reducedOpenNotional = positionInfo.quoteBalance * close ratio 
+    + openNotionalFraction = (positionInfo.quoteBalance  * -1 ) + reducedOpenNotional 
 
   + Account for already accrued PnL from non-issuance/redemption sources (ex: levering, liquidation) 
 
-    + carriedOwedRealizedPnL = PerpAccountBalance.getOwedAndUnrealizedPnl(_setToken) 
-    + totalFundingAndCarriedPnL = pendingFunding + carriedOwedRealizedPnL		
+    + totalFundingAndCarriedPnL = positionInfo.pendingFunding + positionInfo.owedRealizedPnL		
     + owedRealizedPnLPositionUnit = totalFundingAndCarriedPnL / _setToken.totalSupply	
   
   + Trade
@@ -1481,7 +1473,7 @@ function moduleRedeemHook(
       ...
     }
     
-    target = PerpModule.protocolAddresses.clearingHouse
+    target = protocolAddresses.clearingHouse
     deltaAvailableQuote = _setToken.invokeOpenPosition(target, openPositionParams) 
     ```
 
@@ -1606,7 +1598,7 @@ Execute trade and return deltas. *minCreditQuantityUnits* check is performed by 
 
 Check position balance and update position data structure with additions or removals
 + positions = getPositions(_setToken)
-+ baseBalance = PerpV2.AccountBalance.getPositionSize(_setToken, tradeParams.baseToken) 
++ baseBalance = protocolAddresses.AccountBalance.getPositionSize(_setToken, tradeParams.baseToken) 
 + if (baseBalance == 0) 
   + removePosition(_setToken, tradeParams.baseToken)
 + elseif (baseBalance > 0 && !positions.contains(tradeParams.baseToken)) 
@@ -1638,12 +1630,12 @@ Find sum of all position values
 + positionValuesTotal = 0
 + vBasePositions = getPositions()
 + for vBase, index in vBasePositions
-  + positionValuesTotal += PerpV2.Exchange.getPositionSize(vBase) * positionSpotPrices[index]
+  + positionValuesTotal += protocolAddresses.exchange.getPositionSize(vBase) * positionSpotPrices[index]
 
 Trade
 + for vBase, index in vBasePositions
   + Calculate weight of position 
-    + positionValue = PerpV2.Exchange.getPositionSize(vBase) * positionSpotPrices[index]
+    + positionValue = protocolAddresses.exchange.getPositionSize(vBase) * positionSpotPrices[index]
     + weight = positionValue / positionValuesTotal
 
   + Calculate component trade amounts:
@@ -1699,12 +1691,12 @@ Find sum of all position values
 + positionValuesTotal = 0
 + vBasePositions = getPositions()
 + for vBase, index in vBasePositions
-  + positionValuesTotal += PerpV2.Exchange.getPositionSize(vBase) * positionSpotPrices[index]
+  + positionValuesTotal += protocolAddresses.exchange.getPositionSize(vBase) * positionSpotPrices[index]
 
 Trade
 + for vBase, index in vBasePositions
   + Calculate weight of position
-    + positionValue = PerpV2.Exchange.getPositionSize(vBase) * positionSpotPrices[index]
+    + positionValue = protocolAddresses.exchange.getPositionSize(vBase) * positionSpotPrices[index]
     + weight = positionValue / positionValuesTotal
 
   + Calculate component trade amounts:
@@ -1744,40 +1736,39 @@ Trade
 ```solidity
 function getPositionInfo(
   ISetToken _setToken, 
-  address baseToken
-) returns (
-  int256 collateralBalance
-  int256 baseBalance
-  int256 quoteBalance
-  int256 owedRealizedPnL
-  int256 pendingFunding
-  uint256 freeCollateral
-  int256 accountValue
-  int256 marginRequirement
-)
+  address _baseToken
+) 
+  external
+  view
+  returns (PositionInfo memory info)
 ```
 
-+ collateralBalance = protocolAddresses.Vault.balanceOf(_setToken)
-+ baseBalance = protocolAddresses.AccountBalance.getPositionSize(_setToken, baseToken)
-+ quoteBalance = protocolAddresses.Exchange.getOpenNotional(_setToken, baseToken)
-+ (owedRealizedPnL, ) = protocolAddresses.AccountBalance.getOwedAndUnrealizedPnL(_setToken)
-+ pendingFunding = protocolAddresses.Exchange.getAllPendingFundingPayments(_setToken)
-+ freeCollateral = protocolAddresses.Vault.getFreeCollateral(_setToken)
-+ accountValue = protocolAddresses.Clearinghouse.getAccountValue(_setToken)
-+ marginRequirement = protocolAddresses.AccountBalance.getMarginRequirementForLiquidation(_setToken)
+```solidity
+PositionInfo memory info = PositionInfo({
+  collateralBalance: protocolAddresses.Vault.balanceOf(_setToken)
+  baseBalance: protocolAddresses.AccountBalance.getPositionSize(_setToken, _baseToken)
+  quoteBalance: protocolAddresses.Exchange.getOpenNotional(_setToken, _baseToken)
+  owedRealizedPnL: protocolAddresses.AccountBalance.getOwedAndUnrealizedPnL(_setToken)
+  pendingFunding: protocolAddresses.Exchange.getAllPendingFundingPayments(_setToken)
+  freeCollateral: protocolAddresses.Vault.getFreeCollateral(_setToken)
+  accountValue: protocolAddresses.Clearinghouse.getAccountValue(_setToken)
+  marginRequirement: protocolAddresses.AccountBalance.getMarginRequirementForLiquidation(_setToken)
+})
+```
 
-return (collateralBalance, ....)
++ return info
 
 _____
 
 > **getPriceBasedPositionInfo**: called by anyone
 ```solidity
-function getPriceBasedPositionInfo(
-  ISetToken _setToken, 
-) returns (
-  int256 accountValuePositionUnit
-  uint256 currentLeverageRatio
-  uint256[] positionSpotPrices
+function getPriceBasedPositionInfo(ISetToken _setToken) 
+  external
+  view
+  returns (
+    int256 accountValuePositionUnit
+    uint256 currentLeverageRatio
+    uint256[] positionSpotPrices
 )
 ```
 
@@ -1800,12 +1791,12 @@ Get spot price for each position and sum position values
   + (deltaBase,...) = setToken.invokeQuoterSwap(protocolAddresses.quoter, swapParams)
   + price = 1 / deltaBase 
   + positionSpotPrices.push(price) 
-  + netPositionValue += PerpV2.AccountBalance.getPositionSize(_setToken, vBase) * price
+  + netPositionValue += protocolAddresses.accountBalance.getPositionSize(_setToken, vBase) * price
 
 Calculate perp account value
-+ netNotional = PerpV2.AccountBalance.getNetQuoteBalance(_setToken)
-+ collateral = PerpV2.Vault.balanceOf(_setToken)
-+ (owedRealizedPnL, ) = PerpV2.AccountBalance.getOwedUnrealizedPnL(_setToken)
++ netNotional = protocolAddresses.accountBalance.getNetQuoteBalance(_setToken)
++ collateral = protocolAddresses.vault.balanceOf(_setToken)
++ (owedRealizedPnL, ) = protocolAddresses.accountBalance.getOwedUnrealizedPnL(_setToken)
 + accountValuePositionUnit = (netPositionValue + netNotional + collateral + owedRealizedPnL) / _setToken.totalSupply
 
 Calculate leverage ratio
