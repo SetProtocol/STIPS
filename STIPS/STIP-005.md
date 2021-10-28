@@ -1268,6 +1268,8 @@ function invokeQuoterSwap(
 | mapping(ISetToken => address[]| positions | List of baseTokens account has open positions for |
 | mapping(ISetToken => address) | collateralToken | CollateralToken approved for deposits by manager | 
 | PerpV2ProtocolAddresses | protocolAddresses | PerpV2 system contract addresses |
+| mapping(ISetToken => bool) | allowedSetTokens | Mapping of SetToken to boolean indicating if SetToken is on allow list |
+| bool | anySetAllowed | Boolean that returns if any SetToken can initialize this module |
 
 #### Modifiers
 | Function | Description |
@@ -1814,6 +1816,43 @@ Return
 
 ----
 
+### Methods carried over without change from ALM/CLM
+
+> **updateAllowedSetToken**: Enable/disable ability of a SetToken to initialize this module
+
+```solidity
+function updateAllowedSetToken(ISetToken _setToken, bool _status) external onlyOwner {
+    require(controller.isSet(address(_setToken)) || allowedSetTokens[_setToken], "Invalid SetToken");
+    allowedSetTokens[_setToken] = _status;
+    emit SetTokenStatusUpdated(_setToken, _status);
+}
+```
+-----
+
+> **updateAnySetAllowed**: Toggle whether ANY SetToken is allowed to initialize this module
+
+```solidity
+function updateAnySetAllowed(bool _anySetAllowed) external onlyOwner {
+    anySetAllowed = _anySetAllowed;
+    emit AnySetAllowedUpdated(_anySetAllowed);
+}
+```
+-----
+
+> **registerToModule**: Add registration of this module on the debt issuance module for the SetToken
+
+```solidity
+function registerToModule(
+  ISetToken _setToken, 
+  IDebtIssuanceModule _debtIssuanceModule
+) 
+  external 
+  onlyManagerAndValidSet(_setToken) 
+{
+    require(_setToken.isInitializedModule(address(_debtIssuanceModule)), "Issuance not initialized");
+    _debtIssuanceModule.registerToIssuanceModule(_setToken);
+}
+```
 
 **Reviewer**:
 
