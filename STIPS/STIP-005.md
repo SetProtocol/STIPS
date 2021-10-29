@@ -996,6 +996,14 @@ To delever, we sell vETH, paying off our debt balance. Depending on the implemen
     * [2021/2/21 BTC Flash Crash](https://medium.com/perpetual-protocol/2021-2-21-btc-flash-crash-149eef35f7f8) (V1)
     * [2021/4/18 Flash Crash](https://perpetualprotocol.medium.com/2021-4-18-flash-crash-19d9a1a16047) (V1)
 
+**Questions from Review**
+
++ > [Brian] As a more general question, will PERP need a new implementation in order to work with multiple types of Quote assets? Right now is seems like USDC is assumed to be the quote asset for the whole system. Can that be changed on their end with the current impl or will they need to release a new "version"?
+  + [Chris] The PerpV2 team (via Telegram) says that USDC will remain the quote asset when they implement a multi-collateral vault. It will be possible to deposit ETH (for example) but the rest of the system's accounting will remain the same. From our standpoint, reading from vault.balanceOf(setToken) will need to be handled differently since it's an input into our perp account valuation and leverage ratio formulas. It's not clear what their vault API will be like when the design changes.
+ 
++ > [Brian] it's a little hard for Perp since we don't have an example of how it would be implemented but what if we had multiple forms of collateral? How is the position synced on issuance and redemption?
+  
+
 [300]: https://github.com/perpetual-protocol/perp-lushan/blob/main/contracts/lens/Quoter.sol
 [301]: https://github.com/perpetual-protocol/perp-lushan/blob/67d7550fd0fd9fc1ca277a356c53e04bc9ac1985/test/clearingHouse/ClearingHouse.openPosition.test.ts#L204
 [302]: https://github.com/perpetual-protocol/perp-lushan/blob/67d7550fd0fd9fc1ca277a356c53e04bc9ac1985/test/clearingHouse/ClearingHouse.partialClose.test.ts#L244-L252
