@@ -37,18 +37,14 @@ In general, external perpetual protocols simplify the lever and delever flows fo
 |Leverage ratio calculation - Take the total collateral value / SetToken value. Valuation is calculated using Chainlink oracles|Leverage ratio calculation - Since there is only 1 USDC external position, the value must be derived from reading the perp exchange’s view functions. Perp V2 uses Chainlink oracles|
 |Max borrow - Retrieve the collateralFactorMantissa in Compound and maxLtv and liquidationThreshold in Aave|Max "borrow" - call [getImRatio()](https://github.com/perpetual-protocol/perp-lushan/blob/c6b6a3810bdb37534d6931b8be24c5de0bbd122c/contracts/ClearingHouseConfig.sol#L91-L96) and (1 - imRatio) to get the "maxLtv" and call [getMmRatio()](https://github.com/perpetual-protocol/perp-lushan/blob/c6b6a3810bdb37534d6931b8be24c5de0bbd122c/contracts/ClearingHouseConfig.sol#L91-L96) and (1 - mmRatio) to get the liquidation threshold |
 |Collateral value - Read the balance of collateral c or aToken and use Chainlink to price|Collateral value - call [getTotalAbsPositionValue](https://github.com/perpetual-protocol/perp-lushan/blob/main/contracts/AccountBalance.sol#L299)|
+|Debt value - Read the balance of variable debt on Aave or borrowBalanceOf on cToken|Debt value - call [getTotalDebtValue](https://github.com/perpetual-protocol/perp-lushan/blob/main/contracts/AccountBalance.sol#L198)|
 
 ### Perp Module Interface
 This is the current iteration of the interface we are thinking of for trading on the perp module:
 ```solidity
-function trade(
-   ISetToken _setToken,
-   address _baseToken,  
-   address _quoteToken,
-   int256 _quantity,    // (10**18)
-   int256 _minReceiveQuantity,  // (10**18)
-   bytes memory _data        
-)
+lever(ISetToken setToken, uint256 quoteUnits, uint256 quoteMinReceiveUnits)
+
+delever(ISetToken setToken, uint256 quoteUnits, uint256 quoteMinReceiveUnits)
 ```
 
 ## Open Questions
@@ -57,6 +53,7 @@ function trade(
 - [ ] Should we keep the ripcord / safety mechanism the same?
     - Yes. No good reason to change it and gas fees are much lower on L2 so incentive can be way lower
 - [ ] What functions are needed to derive the state from Perp?
+    - getTotalAbsPositionValue, getImRatio, getMmRatio, getTotalDebt
 - [ ] Can this be generalized to use FST and PERP?
 - [ ] Can we make an assumption that spot and perp prices are going to be very close?
 
