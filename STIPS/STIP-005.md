@@ -43,11 +43,11 @@ If the exchange's insurance fund is depleted, whether globally or for a particul
 [(Source: Perpetuals V2 (Curie) AMA)](https://medium.com/perpetual-protocol/perpetual-protocol-ama-the-curie-release-b8ecc0ad2fb4)
 
 
-## Protocols 
+## Protocols
 
 ### Perpetual Protocol V2
 
-#### Overview 
+#### Overview
 
 Perpetual Protocol virtualizes assets on an AMM and allows users who have deposited USDC into the system to act as takers or makers for them.
 
@@ -63,7 +63,7 @@ There is no secondary market for PERP’s virtual asset tokens; they are wholly 
 The realizable value of a long position is the sum of:
 + the vAsset swap value on the AMM (positive)
 + debt (the USDC paid to put on the poition) (negative)
-+ vault collateral (USDC deposits) (positive) 
++ vault collateral (USDC deposits) (positive)
 + pending funding accrued at the time of settlement (positive or negative)
 
 #### Oracle Valuation Engine
@@ -79,8 +79,8 @@ Traders interact with the protocol through the [ClearingHouse][1] contract which
 
 [1]: https://github.com/perpetual-protocol/perp-lushan/blob/main/contracts/ClearingHouse.sol
 
-* open a long position
-* open a short position
+* open or add to a long position
+* open or add to a short position
 * reduce the size of any position
 
 Uniswap V3 returns_ token1/token0_  prices where _token0_ and _token1_ are calculated by comparing assets _(token0 < token1_). PERP fixes the order of base (synthetic) and quote (collateral) tokens as  **B0Q1** (base=token0, quote=token1). At the moment the system supports a single collateral token (USDC). Account and position values are denominated in USDC and all positions close to USDC.
@@ -117,7 +117,7 @@ IClearingHouse.OpenPositionParams params = IClearingHouse.OpenPositionParams({
 
 PERP provides accounts with an initial margin ratio of 10% and sets their minimum margin ratio at 6.25%. Margin levels are evaluated as a sum of an account’s positions - e.g the system is cross-margin by default. In practice, traders can open positions whose spot market valuation is  ~9X the value of collateral they’ve deposited into the system. For margin requirement purposes, positions are priced using Chainlink oracles for the parent asset of a virtual asset.
 
-As the oracle price for a parent asset changes, the total margin requirement for an account scales with it such that the leverage ratio for a position maintains a constant relation to the position’s value in sport markets. (See  Appendix/Simulations/Leverage for an example).
+As the oracle price for a parent asset changes, the total margin requirement for an account scales with it such that the leverage ratio for a position maintains a constant relation to the position’s value in spot markets. (See  Appendix/Simulations/Leverage for an example).
 
 #### Funding
 
@@ -148,11 +148,11 @@ This is currently WIP with no unit tests in the perp-lushan repository, as of co
 + [FutureSwap docs][400]
 + This project’s code [is not open sourced](https://github.com/futureswap/Protocol) at the moment. (We've approached them about getting access.)
 
-#### Pricing Engine 
+#### Pricing Engine
 
-Futureswap trades the futures contract's underlying assets directly on UniswapV3 out of reserves capitalized with trader collateral and staker liquidity. 
+Futureswap trades the futures contract's underlying assets directly on UniswapV3 out of reserves capitalized with trader collateral and staker liquidity.
 
-Traders deposit collateral to manage a position in a specific asset/stable pair market. In principle ETH could be the "stable" side of the pair (enabling ETH collateralization) if the market is structured that way but typically "stable" is USDC-like and "asset" is a crypto volatile. 
+Traders deposit collateral to manage a position in a specific asset/stable pair market. In principle ETH could be the "stable" side of the pair (enabling ETH collateralization) if the market is structured that way but typically "stable" is USDC-like and "asset" is a crypto volatile.
 
 The realizable value of a Futureswap long position is the sum of:
 
@@ -160,7 +160,7 @@ The realizable value of a Futureswap long position is the sum of:
 + debt (the stable amount borrowed to put on the poition) (negative)
 + pending funding accrued at the time of settlement (positive or negative)
 
-#### Funding 
+#### Funding
 
 Futureswap funding fees incentivize long and short positions to balance each other out. If there are more longs than shorts, longs pay asset to shorts and vice versa. This payment is modelled as happening continuously in each time interval and the funding rate is charged on every contract interaction, per the following formula:
 
@@ -170,17 +170,17 @@ The rate at which an asset is transferred is proportional to the imbalance betwe
 
 #### Auto-deleveraging
 
-Futureswap doesn't have an insurance fund. Instead it uses an auto-deleveraging mechanism to balance its ledger when trades attempted on UniswapV3 fail due to liquidity shortages. ADL skips the Uniswap pool and executes orders by force-closing positions on the opposite side of the book, beginning with the most highly leveraged counterparties. 
+Futureswap doesn't have an insurance fund. Instead it uses an auto-deleveraging mechanism to balance its ledger when trades attempted on UniswapV3 fail due to liquidity shortages. ADL skips the Uniswap pool and executes orders by force-closing positions on the opposite side of the book, beginning with the most highly leveraged counterparties.
 
-This means it's possible to be liquidated even when your position is in profit. ADL'd positions are closed at a small premium to market and low-leverage positions are at least risk of being unwound by force.  
+This means it's possible to be liquidated even when your position is in profit. ADL'd positions are closed at a small premium to market and low-leverage positions are at least risk of being unwound by force.
 
 #### Trade API
 
 **User flow**
 
 1. Read the address of Perp pair exchange (ex: ETH/USD) from a registry where ETH is "asset" and USDC is "stable"
-2. Approve exchange for amount to transfer on the stable token (ex: USDC.approve(...)). 
-3. Use ExchangeAddress.changePosition() to deposit, withdraw and trade 
+2. Approve exchange for amount to transfer on the stable token (ex: USDC.approve(...)).
+3. Use ExchangeAddress.changePosition() to deposit, withdraw and trade
 
 **Interface: changePosition()**
 ```solidity
@@ -190,13 +190,13 @@ ExchangeAddress.changePosition(
   int256 stableBound  // Max amount stable to pay for asset (net slippage and fees). Long = negative, Short = positive
 );
 
-Returns: 
+Returns:
 (
-  int256 startAsset   // Asset amount the position had before changePosition() was called  
-  int256 startStable  // Stable amount the position had before changePosition() was called   
-  int256 totalAsset   // Asset amount the position had after execution of changePosition()  
-  int256 totalStable  // Stable amount the position had after execution of changePosition()  
-  int256 traderPayout // Stable amount sent to the trader  
+  int256 startAsset   // Asset amount the position had before changePosition() was called
+  int256 startStable  // Stable amount the position had before changePosition() was called
+  int256 totalAsset   // Asset amount the position had after execution of changePosition()
+  int256 totalStable  // Stable amount the position had after execution of changePosition()
+  int256 traderPayout // Stable amount sent to the trader
 )
 ```
 
@@ -221,7 +221,7 @@ Where ETH = 10 USDC, slippage is 1%
 | getPositionSize() | (asset,...) = getPosition() |
 | getPendingFunding() | [recipe][401] |
 | vault.balanceOf() + getOpenNotional() | (,stable,...) = getPosition() |
-| realizedPnL | traderPayout (return param of *changePosition()*) | 
+| realizedPnL | traderPayout (return param of *changePosition()*) |
 | carriedOwedRealizedPnL | always settled to stable balance |
 
 [401]: https://docs.futureswap.com/protocol/developer/trade#get-funding-rate
@@ -257,12 +257,12 @@ Mai's interfaces for trade, deposit and withdrawal are:
 
 ```solidity
 
- // Trades and returns the updated position amount of the trader 
+ // Trades and returns the updated position amount of the trader
  function trade(
      uint256 perpetualIndex,   // The index of the perpetual in the liquidity pool
      address trader,           // The address of trader
      int256 amount,            // The position amount of the trade
-     int256 limitPrice,        // The worst price the trader accepts 
+     int256 limitPrice,        // The worst price the trader accepts
      uint256 deadline,         // The deadline of the trade
      address referrer,         // The referrer's address of the trade
      uint32 flags              // The flags of the trade
@@ -292,8 +292,8 @@ Resources:
 
 **Fundamental Concepts**
 
-* Issuance replicates the current position (e.g its leverage and ratio of components).  USDC enters our system and we allocate resources to preserve the sets existing properties as we open positions on the external protocol.
-* Redemption is about replicating the current position as USDC leaves our system and we close positions on the external protocol.
+* Issuance replicates the set's current positions (e.g its leverage and ratio of components).  USDC enters our system and we allocate resources to preserve the set's existing properties as we open positions on the external protocol.
+* Redemption is about replicating the current position as USDC leaves our system and we reduce positions on the external protocol.
 
 **Design Goals**
 
@@ -303,11 +303,11 @@ Resources:
 
 **Set System Compatibility Issues**
 
-+ We plan to track the components that make up Perp position as addresses (of virtualAssets or pools) and read quantities from the external protocols on the fly using protocol specific viewer methods. For back-end purposes we will need to provide an API for viewing Perp position details and assigning a value to the Perp account. 
++ We plan to track the components that make up Perp position as addresses (of virtualAssets or pools) and read quantities from the external protocols on the fly using protocol specific viewer methods. For back-end purposes we will need to provide an API for viewing Perp position details and assigning a value to the Perp account.
 
 **Design Challenges**
 
-+ **vAsset Pricing**: For most operations, we'll need to get a spot price for virtual assets from UniswapV3. 
++ **vAsset Pricing**: For most operations, we'll need to get a spot price for virtual assets from UniswapV3.
 
  	One approach is to use Perp’s Quoter API to get a quote for `1.0101 USDC` worth of vBase (e.g amountOut per vUSDC net of Perp protocol fees). This would look like:
 
@@ -318,17 +318,22 @@ Resources:
   		amount: toPreciseUnit(1.0101),
 		...
 	});
- 
+
 	spotPrice = 1 / vBaseAmountOut
 	```
 
-	*Quoter.swap* simulates a trade on the AMM and is very gas intensive.   
-	
-	A safe math Solidity algorithm to derive the price from the Uniswap price square root would be more gas efficient but requires additional research. (We wrote a convenience Solidity method to do this for our scenario tests ([see here][720]) but it reverts with multiplication overflow for prices as low as $20.  Maybe there’s another technique.) 
+	*Quoter.swap* simulates a trade on the AMM and is very gas intensive.
+
+	~~A safe math Solidity algorithm to derive the price from the Uniswap price square root would be more gas efficient but requires additional research. (We wrote a convenience Solidity method to do this for our scenario tests ([see here][720]) but it reverts with multiplication overflow for prices as low as $20.  Maybe there’s another technique.)~~
+
+  We found [an inexpensive mathematical solution][721] for this which converts Uniswap's priceSqrt into a mid-price in PerpV2's own code...
+
++ **AMM Market Manipulation (via flash loan)**: TODO (attack description)
+  + [Our initial modeling][722] of flash-loan attacks suggest they're not profitable.
 
 [720]: https://github.com/SetProtocol/perp-lushan-copy/blob/c03072188a58e71fe9a405c77b2a0c3be7ada795/contracts/ClearingHouse.sol#L907-L909
-
-+ **AMM Market Manipulation (via flash loan)**: TODO (attack description) 
+[721]: https://github.com/SetProtocol/set-protocol-v2/blob/d2f81d12de37ec47553f285534efd99ca4dc664a/contracts/protocol/modules/PerpV2LeverageModule.sol#L733-L738
+[722]: https://docs.google.com/spreadsheets/d/1UjxIs6hw1bFJalxwmHnONfX40K-hPhOm6oqyXnC6qsg/edit#gid=418389280&range=1:1
 
 ### Required Set Contracts
 
@@ -341,21 +346,24 @@ Has an external USDC position managed by PerpV2 protocol.
 
 </td>
 </tr>
-<tr><td>DebtIssuanceModule</td><td></td>
+<tr><td>PerpIssuanceModule</td>
+<td>
+
+WIP: A variant of the DebtIssuance module (inherits it) which includes viewer methods to help front-end applications display how much collateral token an issuance request will cost (or a redemption request will yield).
+
+</td>
 </tr>
 <tr><td valign="top">
 
-PerpModule
-
-PerpV2Adapter
+PerpLeverageModule
 
 </td>
 <td>
 
-Exposes a standard leverage module API 
-      
-+ lever 
-+ delever 
+Exposes a standard leverage module API
+
++ lever
++ delever
 + moduleIssuanceHook
 + moduleRedeemHook
 + componentIssuanceHook
@@ -365,12 +373,12 @@ Exposes a standard leverage module API
 
 + *deposit*: transfers assets from SetToken to Perp protocol
 + *withdraw*: transfers assets from Perp protocol to SetToken
-+ *trade*: manage long/short positions on margin
 
 **New: Viewer API**
 
-+ *getPositionInfo*: gets position, debt, collateral, funding and PnL balances
-+ getPriceBasedInfo: gets AMM spot price and current leverage ratio
++ *getPositionInfo*: gets base and quote positions,
++ *getAccountInfo*: gets vault collateral, funding and owedRealizedPnL balances
++ *getSpotPrice*: gets the UniswapV3 mid-point price of a base asset
 
 <tr><td valign="top">
 
@@ -385,15 +393,15 @@ Encodes PerpV2 Protocol method calldata and invokes with SetToken
 + invokeWithdraw
 + invokeOpenPosition
 + invokeQuoterSwap
-  
+
 </td></tr></table>
 
 ### Required PerpV2 Contracts
 
 <table><tr><td valign="top"> Vault </td>
-<td> 
+<td>
 
-Entry point into the protocol. Where funds are deposited/withdrawn and collateral is stored.  
+Entry point into the protocol. Where funds are deposited/withdrawn and collateral is stored.
 
 ```solidity
 deposit(address token, uint256 amount)
@@ -404,19 +412,19 @@ balanceOf(address trader) returns (int256)
 </td></tr>
 <tr><td valign="top"> ClearingHouse</td>
 
-<td> 
+<td>
 
 Exposes Perp’s trading API
 
 ```solidity
 openPosition(OpenPositionParams memory params)
-```  
+```
 
 </td></tr>
 <tr><td valign="top"> AccountBalance</td>
-<td> 
+<td>
 
-Exposes "credit side" balances: position and PnL info
+Exposes getters for position and PnL info
 
 ```solidity
 getPositionSize(address trader, address baseToken) returns (int256)
@@ -425,25 +433,25 @@ getOwedAndUnrealizedPnl(address trader) returns (int256)
 
 </td></tr>
 <tr><td valign="top"> Exchange</td>
-<td> 
+<td>
 
-Exposes "debit side" balances: openNotional and pending funding payments 
+Exposes getters for openNotional balance and pending funding payments
 
 ```solidity
 getOpenNotional(address trader, address baseToken) returns (int256)
-getPendingFundingPayment(address trader, address baseToken) returns (int256) 
+getPendingFundingPayment(address trader, address baseToken) returns (int256)
 ```
 
 </td></tr>
 <tr><td valign="top"> Quoter</td>
-<td> 
+<td>
 
 Provides a way to get trade quotes from the Perp AMM by simulating swaps. Quotes include protocol fees.
 
 ```solidity
 swap(SwapParams memory params)
 ```
-  
+
 </td></tr>
 </table>
 
@@ -462,32 +470,32 @@ Use existing collateral to Borrow debt asset, trade it for collateral asset and 
 </td>
 
 <td><div>
-      
-Open a position using *ClearingHouse.openPosition()* 
+
+Open a position using *ClearingHouse.openPosition()*
 
 Under the hood the PerpV2 system does something similar to what our existing leverage modules do:
-  + Use vault’s USDC as collateral to mint vUSDC 
-  + Swap vUSDC for vETH 
-  + Clearing house receives vETH and manages it on SetToken’s behalf 
+  + Use vault’s USDC as collateral to mint vUSDC
+  + Swap vUSDC for vETH
+  + Clearing house receives vETH and manages it on SetToken’s behalf
 
-Amount of vUSDC minted depends on our leverage ratio. 
-We can specify the exact amount of vUSDC we wish to send or the amount of vETH we wish to receive in 
-the CH.openPosition() function. It is similar to how we do it in UniswapV2. 
-      
+Amount of vUSDC minted depends on our leverage ratio.
+We can specify the exact amount of vUSDC we wish to send or the amount of vETH we wish to receive in
+the CH.openPosition() function. It is similar to how we do it in UniswapV2.
+
 </div></td></tr>
 
-<tr> 
+<tr>
 <td valign="top"><strong>Delever</strong></td>
 <td valign="top"> <p> Trade collateral asset for borrow asset and repay borrow asset </p></td>
 <td>
 
-Reduce a position using *CH.openPosition()* by inverting the value for *isBaseToQuote* used when 
-increasing the position. 
+Reduce a position using *CH.openPosition()* by inverting the value for *isBaseToQuote* used when
+increasing the position.
 
 Under the hood the PerpV2 system does something similar to what our existing leverage modules do
-+ Clearing house sells vETH and reduces the vUSDC notional open position, paying down debt 
-+ Slippage, fees and funding accrue to owedRealizedPnL. These get socialized among all set holders during 
-  issuance and redemption 
++ Clearing house sells vETH and reduces the vUSDC notional open position, paying down debt
++ Slippage, fees and funding accrue to owedRealizedPnL. These get socialized among all set holders during
+  issuance and redemption
 
 </td>
 </tr>
@@ -503,20 +511,18 @@ Sync, issuance and redemption are fundamentally different and more complex.
 <td valign="top">Pricing Engine</td>
 <td valign="top">
 
-Open AMM 
+Open AMM
 
-Price always remained very close to oracle price. 
+Price always remained very close to oracle price.
 
 </td>
 <td valign="top">
 
 Closed AMM
 
-Since the pool is a futures market, indirectly anchored to the spot price by a funding mechanism, its quotes can deviate a 
-lot from the asset prices we want to track. 
+Since the pool is a futures market, indirectly anchored to the spot price by a funding mechanism, its prices can deviate from those of the parent assets we want to track.
 
-This  forces us to calculate our realizable value during syncing by using prices from the AMM and not just our Chainlink 
-oracle. 
+This  forces us to calculate our realizable value during syncing by using prices from the AMM and not just our Chainlink oracle.
 
 </td>
 </tr>
@@ -531,8 +537,7 @@ oracle.
 <td valign="top">
 
 + Fetch data from external protocol</li>
-+ Update position units on virtual SetToken based on fetched data if necessary
-+ Update external USDC position unit on real SetToken based on simulation of Perp account's realizable value 
++ Update external USDC position unit on SetToken based on calculation of Perp account's realizable value
 
 </td>
 </tr>
@@ -540,40 +545,39 @@ oracle.
 <td valign="top">Issuance</td>
 <td valign="top">
 
-The issuer acquires the asset to which he wants leveraged exposure and deposits that in our system. The amount of asset 
-deposited is equal to the amount of exposure the issuer needs. 
+The issuer acquires the asset to which he wants leveraged exposure and deposits that in our system. The amount of asset
+deposited is equal to the amount of exposure the issuer needs.
 
-After deposit, we return the issuer the minted SetToken along with a different asset (USDC) with: 
+After deposit, we return the issuer the minted SetToken along with a different asset (USDC) with:
 + *returned amount = (deposited amount)/(leverage ratio)*
-
-There is no AMM involved in this process. (Although it might have been used to acquire the initial asset) 
-
-</td>
-<td valign="top">
-
-The issuer deposits only the collateral asset (USDC) to our system and gets exposure to any asset that is supported by the 
-external protocol. 
-
-There is an AMM involved in this process. Albeit a closed and lagging one. 
-
-</td>
-</tr>
-<tr>
-<td valign="top">Redemption</td>
-<td valign="top">
-
-The redeemer sends the debt asset and SetToken to be redeemed. We burn the SetToken and unwind the leverage position. 
-We return to the redeemer the amount of the leveraged asset that he had exposure to. 
 
 There is no AMM involved in this process. (Although it might have been used to acquire the initial asset)
 
 </td>
 <td valign="top">
 
-The redeemer brings only the SetToken. While we only return to the redeemer the USDC value of the amount of asset that he 
-had exposure to. 
+The issuer deposits only the collateral asset (USDC) to our system and gets exposure to any asset that is supported by the
+external protocol.
 
-There is an AMM involved in this process. 
+There is an AMM involved in this process.
+</td>
+</tr>
+<tr>
+<td valign="top">Redemption</td>
+<td valign="top">
+
+The redeemer sends the debt asset and SetToken to be redeemed. We burn the SetToken and unwind the leverage position.
+We return to the redeemer the amount of the leveraged asset that he had exposure to.
+
+There is no AMM involved in this process. (Although it might have been used to acquire the initial asset)
+
+</td>
+<td valign="top">
+
+The redeemer brings only the SetToken. While we only return to the redeemer the USDC value of the amount of asset that he
+had exposure to.
+
+There is an AMM involved in this process.
 
 </td>
 </tr>
@@ -581,26 +585,30 @@ There is an AMM involved in this process.
 <td valign="top">Frequency of rebalances</td>
 <td valign="top">
 
-In CLM/ALM, since our position was a CDP, we had to actively manage our leverage ratios, keep track of them and call 
-lever/delever every 24 hours. 
+In CLM/ALM, since our position was a CDP, we had to actively manage our leverage ratios, keep track of them and call
+lever/delever every 24 hours.
 
 </td>
 <td valign="top">
 
 Leverage ratios be pushed off the target by:
 + price movement of underlying assets
-+ funding flows  
-  
-Like CDPs Perp positions are exposed to liquidation risks when account values drop below minimum margin requirements. 
++ funding flows
 
-The module will need to support active maintenance of the leverage target although it's unclear what the rebalance cadence 
-might need to be. 
+Like CDPs Perp positions are exposed to liquidation risks when account values drop below minimum margin requirements.
+
+The module will need to support active maintenance of the leverage target although it's unclear what the rebalance cadence
+might need to be.
 
 </td>
 </tr>
 </table>
 
 ### PerpV2 Issuance, Redemption and Lever/Delever flow analysis
+
+**:warning: NOTE:  :warning:**
+
+The user flows documented here are for a module design that encapsulates PerpV2 specific logic in a dedicated adapter. However we decided to drop the adapter pattern for our initial implementation - all logic resides in a PerpV2 module instead.
 
 ## Issuance
 
@@ -609,9 +617,9 @@ might need to be.
 ### User story: Issuing 1 set (with slippage)
 
 User wants to issue 1 unit of a SetToken representing a  2X leveraged Perp account which uses USDC as collateral. ETH costs $10 and each Set is worth $10. The execution cost of replicating the position in the PerpProtocol is $.02 ( slippage and fees).
- 
+
 1. User calls *DIM.issue(1)*
-2. DIM calls *PerpProtocolAdapter.moduleIssuanceHook(setToken, 1)* via PerpModule  
+2. DIM calls *PerpProtocolAdapter.moduleIssuanceHook(setToken, 1)* via PerpModule
 3. PerpProtocolAdapter:
   	+ Reads account balances from PerpProtocol
   	+ Calculates USDC mint cost by simulating the trade on PerpProtocol, returning a slippage-adjusted, funding-discounted value of 10.02 to PerpModule.
@@ -621,8 +629,8 @@ User wants to issue 1 unit of a SetToken representing a  2X leveraged Perp accou
 6. DIM calls USDC to transfer 10.02 USDC from User to SetToken
 7. DIM calls *PerpModuleAdapter.componentIssuanceHook* via PerpModule
 8. PerpModuleAdapter calls SetToken to approve transfer of USDC from SetToken to PerpProtocol
-9. PerpModuleAdapter encodes call to *PerpProtocol.deposit(setToken, 10.02)* and sends via SetToken 
-10. PerpProtocol calls USDC to transfer 10.02 from SetToken to PerpProtocol 
+9. PerpModuleAdapter encodes call to *PerpProtocol.deposit(setToken, 10.02)* and sends via SetToken
+10. PerpProtocol calls USDC to transfer 10.02 from SetToken to PerpProtocol
 11. PerpModuleAdapter encodes call to PerpProtocol to open a 2 ETH position for 20.02 vUSDC debt and sends via SetToken
 
 ## Redemption
@@ -633,41 +641,41 @@ This section includes:
 
 ![](../assets/stip-005/perp_userflow_redeem.png "")
 
-### User Story: Redeeming 10 Sets 
+### User Story: Redeeming 10 Sets
 
-UserA owns 10 SetTokens which represent a leveraged Perp position in ETH and wants to redeem them for the Perp’s collateral token, USDC.  
+UserA owns 10 SetTokens which represent a leveraged Perp position in ETH and wants to redeem them for the Perp’s collateral token, USDC.
 
 1. User calls *DIM.redeem(setToken, 10)*
 
-2. DIM calls *PerpModule moduleRedeemHook(setToken, 10)* which passes call through to PerpAdapter contract for protocol 
+2. DIM calls *PerpModule moduleRedeemHook(setToken, 10)* which passes call through to PerpAdapter contract for protocol
    specific implementation.
 
 3. PerpAdapter:
      + Reads vETH position size, margin debt, and collateral positions from protocol, calculating their position units
      + Calculates amount of pending payments (funding, carried PnL) which existing set holders must settle as a position unit
 
-4. PerpAdapter encodes call to PerpProtocol to sell *vETHPositionUnit * 10* amount and sends via SetToken (see Trade user flow for details). 
-   Using the quote delta amount generated by the swap, it calculates amount of USDC to return for redemption, making sure 
+4. PerpAdapter encodes call to PerpProtocol to sell *vETHPositionUnit * 10* amount and sends via SetToken (see Trade user flow for details).
+   Using the quote delta amount generated by the swap, it calculates amount of USDC to return for redemption, making sure
    redeemer pays slippage and their share of pending funding fees, carried PnL
       + *realizedPnL = deltaQuote - | expected debt reduction |*
       + *usdcOut = (collateral per set * 10) - (funding debt per set * 10) + realizedPnL*
 
 5. PerpModule sets the SetToken *externalPositionUnit* to: *usdcOut / 10*
 
-6. After burning 10 SetTokens, DIM reads SetToken’s *externalPositionUnit* and calculates the usdc *componentQuantity* to 
+6. After burning 10 SetTokens, DIM reads SetToken’s *externalPositionUnit* and calculates the usdc *componentQuantity* to
    return to user
 
-7. DIM resolves the equity position by calling PerpModule’s *componentRedeemHook* which calls the PerpAdapter’s redeemHook 
-   implementation  
+7. DIM resolves the equity position by calling PerpModule’s *componentRedeemHook* which calls the PerpAdapter’s redeemHook
+   implementation
 
 8. PerpAdapter encodes call to *PerpProtocol.withdraw(setToken, componentQuantity)* and sends via SetToken
 
-9. PerpProtocol calls *USDC.transfer(setToken, componentQuantity)* to transfer USDC from Protocol back to SetToken. 
+9. PerpProtocol calls *USDC.transfer(setToken, componentQuantity)* to transfer USDC from Protocol back to SetToken.
 
-10. DIM calls SetToken to transfer *componentQuantity* amount of USDC from SetToken to User 
+10. DIM calls SetToken to transfer *componentQuantity* amount of USDC from SetToken to User
 
 
-## Trade, Deposit, Withdraw, Lever, Delever
+## Lever, Delever, Deposit, Withdraw
 
 The PerpModule should expose a basic trade API which lets users manage positions for arbitrary strategies.
 
@@ -676,7 +684,7 @@ The PerpModule should expose a basic trade API which lets users manage positions
 We need to be able to:
 + convert a default USDC position into a Perp protocol collateral deposit
 + convert deposited collateral back into a default USDC position
-+ increase and reduce virtual token positions, 
++ increase and reduce virtual token positions,
 + trade on margin, e.g. specify a quote amount which is higher than the deposit amount
 + take long and short positions
 + encode a variety configuration options available in different protocols
@@ -699,135 +707,48 @@ struct OpenPositionParams {
 
 <table><tr><td>Method</td><td>Description</td></tr>
 <tr>
-<td>trade</td> 
-<td>
-
-Executes trade in PerpV2 protocol per parameters and config
-
-```solidity
-function trade(
-   ISetToken _setToken,
-   address _debitToken,  
-   int256 _debitQuantityUnits, 	
-   address _creditToken,
-   int256 _minCreditQuantityUnits,  
-
-   // ABI encode additional configuration for trade
-   bytes memory _data        
-)
-```
-
-</td></tr>
-<tr>
 <td>deposit</td>
 <td>
 
-Converts precise unit *quantity* of default USDC position into an external PerpV2 position
+Converts *quantity* (in position units) of a default position into an external PerpV2 position, depositing collateral into the Perp vault contract.
 
 ```solidity
-deposit(ISetToken _setToken, uint256 _quantity)
+deposit(ISetToken _setToken, uint256 _quantityUnit)
 ````
-	
+
 </td>
 </tr>
 <tr>
-<td>withdraw</td> 
+<td>withdraw</td>
 <td>
 
-Converts precise unit *quantity* of external perp account collateral position into a default USDC position  
+Converts *quantity* (in position units) of external perp account collateral position into a default  position
 
 ```solidity
-withdraw(ISetToken _setToken, uint256 _quantity)
+withdraw(ISetToken _setToken, uint256 _quantityUnit)
 ```
 
 </td></tr>
-<td>lever</td> 
+<td>lever</td>
 <td>
 
-Increases size of vAsset positions to rebalance towards a higher leverage ratio 
-	
-```solidity	
-lever(ISetToken setToken, uint256 quoteUnits, uint256 quoteMinReceiveUnits)
+Increases size of a vAsset positions (increasing leverage ratio)
+
+```solidity
+lever(ISetToken setToken, address baseToken, int256 baseUnits, uint256 quoteReceiveUnits)
 ```
 
 </td></tr>
-<td>delever</td> 
-<td>
-	
-Decreases size of vAsset positions to rebalance towards a lower leverage ratio
-	
-```solidity
-delever(ISetToken setToken, uint256 quoteUnits, uint256 quoteMinReceiveUnits)
-```
-	
-</td></tr></table>
-
-</table>
-
-**PerpV2 to Trade Parameter Mapping**
-
-+ Assume ETH = 10 USDC
-
-<table><tr><td>Action</td><td>PerpV2 params</td><td>Trade API params</td></tr>
-<tr><td valign="top">Long 10ETH</td> 
-
+<td>delever</td>
 <td>
 
-```solidity
-{
-  baseToken: vETHAddress,
-  isBaseToQuote: false,			    
-  isExactInput: true,			      
-  amount: 100 (vUSDC),
-  
-  // lower bound of output base
-  oppositeAmountBound: 9.9 (vETH) 
-}
-```
-
-</td><td valign="top">
+Decreases size of vAsset positions (reducing leverage ratio)
 
 ```solidity
-{
-  _debitToken: vUSDCAddress , 
-  _debitQuantityUnits: -100,
-  _creditToken: vETHAddress,
-  _minCreditQuantityUnits: 9.9 
-}
-```
-
-</td></tr>
-
-
-<tr><td valign="top">Short 10 ETH</td>
-
-<td>
-
-```solidity
-{
-  baseToken: vETHAddress,
-  isBaseToQuote: true,			    
-  isExactInput: true,			      
-  amount: 10 (ETH)
-  
-  // lower bound of output quote
-  oppositeAmountBound: 101 USDC 
-}
-```
-
-</td><td valign="top">
-
-```solidity
-{
-  _debitToken: vETHAddress,  
-  _debitQuantityUnits: -10,
-  _creditToken: vUSDCAddress,
-  _minCreditQuantityUnits: 101
-}
+delever(ISetToken setToken, address baseToken, int256 baseUnits, uint256 quoteReceiveUnits)
 ```
 
 </td></tr></table>
-
 
 ### Generalized User Flows
 
@@ -835,27 +756,26 @@ delever(ISetToken setToken, uint256 quoteUnits, uint256 quoteMinReceiveUnits)
 
 ![](../assets/stip-005/perp_userflow_trade_buy.png "")
 
-User wants to convert 100 units of a default USDC position into 2X long vETH Perp position
+Assuming a SetToken supply of one, user wants to convert 100 units of a default USDC position into 2X long vETH Perp position
 
 1. User calls *PerpModule.deposit(setToken, 100)*
-2. PerpModule calls PerpProtocolAdapter to get address to approve deposit for 
+2. PerpModule calls PerpProtocolAdapter to get address to approve deposit for
 3. PerpModule calls *SetToken.invokeApprove(USDC, PerpProtocol, 100)*
 4. PerpModule calls *PerpProtocolAdapter.deposit(setToken, 100)*
 5. PerpProtocolAdapter calls PerpProtocol deposit method
 6. PerpProtocol transfers 100 USDC from SetToken to PerpProtocol as collateral
-7. User calls PerpModule trade configured with:
+7. User calls *PerpModule.lever*  with:
       ```
-      debitToken: vUSDCAddress
-      debitQuantityUnits: toPreciseUnit(200) 
-      creditToken: vETHAddress
-      minCreditQuantityUnits: ...
+      baseToken: vUSDCAddress
+      baseQuantityUnits: 200
+      quoteReceiveQuantityUnits: ... // slippage bound
       ```
 
 8. PerpModule passes trade call through to *PerpProtocolAdapter.trade()*
 
-9. PerpProtocolAdapter: 
+9. PerpProtocolAdapter:
     + formats trade parameters as necessary for the target protocol
-    + validates trade parameters 
+    + validates trade parameters
     + encodes call to PerpProtocol to execute trade and sends via SetToken
     + validates outcome
 
@@ -867,22 +787,21 @@ User wants to convert 100 units of a default USDC position into 2X long vETH Per
 
 ![](../assets/stip-005/perp_userflow_trade_sell.png "")
 
-User wants to convert a long ETH Perp external position (which uses USDC as collateral) into a default USDC position. 
+User wants to convert a long ETH Perp external position (which uses USDC as collateral) into a default USDC position.
 
 1. User calls *PerpModule.getPositionInfo(setToken)* to get *vETHPositionSize*
 2. PerpModule calls *PerpProtocolAdapter.getPositionInfo(setToken)* to get data from PerpProtocol and returns *vETHPositionSize* to User
-3. User calls *PerpModule.trade* configured with
+3. User calls *PerpModule.delever* configured with
       ```
-      debitToken: vETHAddress
-      debitQuantityUnits: -10  // e.g sell vETH to realize USDC 
-      creditToken: vUSDCAddress 
-      minReceiveToken: ... 
+      baseToken: vUSDCAddress
+      baseQuantityUnits: 200
+      quoteReceiveQuantityUnits: ... // slippage bound
       ```
 
-4. PerpModule passes trade call through to *PerpProtocolAdapter.trade()*
-5. PerpProtocolAdapter 
+4. PerpModule passes trade call through to *PerpProtocolAdapter._trade()*
+5. PerpProtocolAdapter
       + formats trade parameters as necessary for the target protocol
-      + validates trade parameters 
+      + validates trade parameters
       + calls PerpProtocol to execute trade and validates outcome
 
 5. PerpModule calls *PerpProtocolAdapter.getPositionInfo* to get data from PerpProtocol and calculates new Set price from PerpProtocol’s spot price and vETH, collateral, debt positions
@@ -893,46 +812,44 @@ User wants to convert a long ETH Perp external position (which uses USDC as coll
 8. PerpModule calls *PerpProtocolAdapter.getPositionInfo(setToken)*  to get data from PerpProtocol and returns collateralPositionSize to user
 9. User call *PerpModule.withdraw(setToken, usdcPositionSize)*
 10. PerpModule calls *PerpProtocolAdapter.withdraw(setToken, collateralPositionSize)*
-11. PerpProtocolAdapter encodes call to PerpProtocol withdraw and sends via SetToken 
+11. PerpProtocolAdapter encodes call to PerpProtocol withdraw and sends via SetToken
 12. PerpProtocol calls *USDC.transfer(setToken, collateralPositionSize)* to transfer USDC to SetToken
 13. PerpModule updates SetToken’s position units:
-      + *USDC externalPositionUnit = 0* 
+      + *USDC externalPositionUnit = ...*
       + *USDC defaultPositionUnit = collateralPositionSize / setToken.totalSupply*
 
 ### User story: Levering
 
 ![](../assets/stip-005/perp_userflow_lever.png "")
 
-A manager has a leveraged ETH SetToken whose target leverage ratio is 2.0 but whose effective leverage ratio has fallen to 1.8 as the price of ETH rises. They want to rebalance it to the target ratio. 
+A manager has a leveraged ETH SetToken whose target leverage ratio is 2.0 but whose effective leverage ratio has fallen to 1.8 as the price of ETH rises. They want to rebalance it to the target ratio.
 
 To lever up, we buy vETH, increasing our debt balance. Slippage is reflected in the new vETH balance and specific protocol implementations may realize funding as PnL
 
-1. Manager: 
-    + calls *PerpModule.getPriceBasedInfo(setToken)* to fetch a spot price for vETH and current leverage ratio from the PerpProtocol via a PerpProtocolAdapter contract
-    + calls *PerpModule.getPositionInfo(setToken)* to fetch position, debt and collateral balances from PerpProtocol via PerpProtocolAdapter contract.
-    + Manager uses this info to calculate the *quoteUnits* of their rebalance, where *quoteUnits*:
-    	+ is denominated in the protocol's deposit collateral token 
-    	+ represents a fraction of the Perp account's *externalPositionUnit* 
+1. Manager:
+    + calls *PerpModule.getSpotPrice(setToken, vETH)* to fetch a spot price from the PerpProtocol via a PerpProtocolAdapter contract
+    + calls *PerpModule.getPositionInfo(setToken)* to fetch position balances from PerpProtocol via PerpProtocolAdapter contract.
+    + Manager uses this info to calculate the *baseUnits* of their rebalance, where *baseUnits* represents some fraction of the Perp account's *externalPositionUnit*
 
-2. Manager calls *PerpModule.lever(setToken, quoteUnits, quoteMinReceiveUnits)*
+2. Manager calls *PerpModule.lever(setToken, baseUnits, quoteReceiveUnits)*
 
-3. PerpModule: 
-	+ calculates: *openPositionAmount = quoteUnits * setToken.totalSupply*  
-	+ calculates: *quoteMinReceiveAmount =  quoteMinReceivedUnits * setToken.totalSupply*
-	+ calculates: *vETHMinReceiveAmount = quoteMinReceivedAmount / vETH price*
+3. PerpModule:
+	+ calculates: *openPositionAmount = quoteUnits * setToken.totalSupply*
+	+ calculates: *quoteReceiveAmount =  quoteReceivedUnits * setToken.totalSupply*
+	+ calculates: *vETHMReceiveAmount = quoteReceivedAmount / vETH price*
 	+ calls PerpProtocolAdapter.trade configured with:
 
 	    ```
 	    baseAsset = vETH
-	    isBaseToQuote = false  // e.g buy vETH with USDC 
+	    isBaseToQuote = false  // e.g buy vETH with USDC
 	    isExactAmount = true
-	    amount = openPositionAmount 
+	    amount = openPositionAmount
 	    minReceived = vETHMinReceiveAmount
 	    ```
 
 4. PerpProtocolAdapter:
-	+ formats and validates trade params, 
-	+ encodes trade call with slippage check to PerpProtocol to increase vETH position 
+	+ formats and validates trade params,
+	+ encodes trade call with slippage check to PerpProtocol to increase vETH position
 	+ sends via SetToken
 
 ### User story: Delevering
@@ -943,19 +860,19 @@ A manager has  a leveraged ETH SetToken whose target leverage ratio is 2.0 but w
 
 To delever, we sell vETH, paying off our debt balance. Depending on the implementation of the protocol, slippage, fees, and funding will be realized as PnL
 
-1. Manager calls PerpModule to fetch data from PerpProtocol via PerpProtocolAdapter contract and calculates a *quoteUnits* amount to sell for their rebalance (as in the lever user flow)
+1. Manager calls PerpModule to fetch data from PerpProtocol via PerpProtocolAdapter contract and calculates a *baseUnits* amount to sell for their rebalance (as in the lever user flow)
 
-2. Manager calls *PerpModule.delever(setToken, quoteUnits, quoteMinReceiveUnits)*
+2. Manager calls *PerpModule.delever(setToken, baseUnits, quoteReceiveUnits)*
 
 3. PerpModule:
 	+ calculates: *totalQuoteAmount = quoteUnits * setToken.totalSupply*
 	+ calculates: *closePositionAmount* = totalQuoteAmount / vETH price*
-	+ calculates: *quoteMinReceiveAmount = quoteMinReceiveUnits * setToken.totalSupply*
+	+ calculates: *quoteReceiveAmount = quoteReceiveUnits * setToken.totalSupply*
 	+ calls PerpProtocolAdapter.trade configured with:
 
 	    ```
 	    baseAsset = vETH
-	    isBaseToQuote = true  // e.g sell vETH to realize USDC 
+	    isBaseToQuote = true  // e.g sell vETH to realize USDC
 	    isExactAmount = true
 	    amount = closePositionAmount
 	    minReceived = quoteMinReceivedUnits
@@ -963,7 +880,7 @@ To delever, we sell vETH, paying off our debt balance. Depending on the implemen
 
 4. PerpProtocolAdapter:
 	+ formats and validates trade params
-	+ encodes trade call with slippage check to PerpProtocol to reduce vETH position 
+	+ encodes trade call with slippage check to PerpProtocol to reduce vETH position
 	+ sends via SetToken
 
 ## Open Questions
@@ -980,16 +897,16 @@ To delever, we sell vETH, paying off our debt balance. Depending on the implemen
         * ~~EOA only (not viable since contracts are the rebalancers)~~
         *
 * Why does free collateral decline as the Oracle price moves up, independent of any other change?
-* Total unrealized PNL seems highly decoupled from realizable values. To value our position at any moment, is synthesizing the owedRealizedPNL the right approach / What is the best way to get a trade quote? (Asked in Telegram) 
+* Total unrealized PNL seems highly decoupled from realizable values. To value our position at any moment, is synthesizing the owedRealizedPNL the right approach / What is the best way to get a trade quote? (Asked in Telegram)
   + > (Shao Kang-Lee in Telegram): "since uniV3 can't calculate something like getAmountOut before, so we learn from their Periphery repo's - we can call our [Quoter.swap][300] to get the return amount, then calculate the pnl based on market price with slippage. However, we don't recommend to use it onchain because [it's very gas intensive]"
 * What is an[ “index price spread attack][301]”
   + > (Shao Kang-Lee in Telegram) "..this is being solved": Perp team design discussion here: [index price spread attack][303].
-  + > Summary: this is a potential Perp Protocol vulnerability in which someone could open a long position with zero collateral 
-      under certain conditions. (Currently precluded by the "conservative" formula they use to calculate margin requirements) 
-* What is a “[bad debt attack][302]” ? 
+  + > Summary: this is a potential Perp Protocol vulnerability in which someone could open a long position with zero collateral
+      under certain conditions. (Currently precluded by the "conservative" formula they use to calculate margin requirements)
+* What is a “[bad debt attack][302]” ?
   + > (Shao Kang-Lee in Telegram) "..this is being solved": Perp team design discussion here: [bad debt attack][304]
-  + > Summary: The attacker takes a large short position, driving AMM prices lower such that underwater longs can be liquidated. 
-      Long positions are then closed by force, the market drops and the attacker closes their short position at a profit. 
+  + > Summary: The attacker takes a large short position, driving AMM prices lower such that underwater longs can be liquidated.
+      Long positions are then closed by force, the market drops and the attacker closes their short position at a profit.
 * What exposure to flash loans does the funding mechanism have?
     * Can check this by reading pendingFunding between fnCall’s that move the pool price….
 * What is the system’s behavior in a flash crash?
@@ -1000,9 +917,9 @@ To delever, we sell vETH, paying off our debt balance. Depending on the implemen
 
 + > [Brian] As a more general question, will PERP need a new implementation in order to work with multiple types of Quote assets? Right now is seems like USDC is assumed to be the quote asset for the whole system. Can that be changed on their end with the current impl or will they need to release a new "version"?
   + [Chris] The PerpV2 team (via Telegram) says that USDC will remain the quote asset when they implement a multi-collateral vault. It will be possible to deposit ETH (for example) but the rest of the system's accounting will remain the same. From our standpoint, reading from vault.balanceOf(setToken) will need to be handled differently since it's an input into our perp account valuation and leverage ratio formulas. It's not clear what their vault API will be like when the design changes.
- 
+
 + > [Brian] it's a little hard for Perp since we don't have an example of how it would be implemented but what if we had multiple forms of collateral? How is the position synced on issuance and redemption?
-  
+
 
 [300]: https://github.com/perpetual-protocol/perp-lushan/blob/main/contracts/lens/Quoter.sol
 [301]: https://github.com/perpetual-protocol/perp-lushan/blob/67d7550fd0fd9fc1ca277a356c53e04bc9ac1985/test/clearingHouse/ClearingHouse.openPosition.test.ts#L204
@@ -1085,7 +1002,7 @@ struct OpenPositionParams {
 | Function | Caller | Description |
 | ----- | ----- | ----- |
 | getDepositCallData | PerpModule | encodes PerpV2.Vault deposit method calldata |
-| getWithdrawCallData | PerpModule | encodes PerpV2.Vault withdraw method calldata | 
+| getWithdrawCallData | PerpModule | encodes PerpV2.Vault withdraw method calldata |
 | getOpenPositionCallData | PerpModule | encodes PerpV2.ClearingHouse method calldata |
 | getQuoterSwapCallData | PerpModule | encodes PerpV2.Quoter swap method data |
 | invokeOpenPosition | SetToken | calls PerpV2.Clearinghouse to execute a trade |
@@ -1101,11 +1018,11 @@ struct OpenPositionParams {
 
 ```solidity
 getDepositCallData(IVault _vault, address _depositToken, uint256 _amount)
-  public 
+  public
   pure
   returns (
-    address _target, 
-    uint256 _value, 
+    address _target,
+    uint256 _value,
     bytes _data
   )
 ```
@@ -1121,11 +1038,11 @@ getDepositCallData(IVault _vault, address _depositToken, uint256 _amount)
 
 ```solidity
 getWithdrawCallData(IVault _vault, address _withdrawToken, uint256 _amount)
-  public 
+  public
   pure
   returns (
-    address _target, 
-    uint256 _value, 
+    address _target,
+    uint256 _value,
     bytes _data
   )
 ```
@@ -1141,17 +1058,17 @@ getWithdrawCallData(IVault _vault, address _withdrawToken, uint256 _amount)
 
 ```solidity
 getOpenPositionCallData(IClearingHouse _clearingHouse, PerpV2OpenPositionParams _params)
-  public 
+  public
   pure
   returns (
-    address _target, 
-    uint256 _value, 
+    address _target,
+    uint256 _value,
     bytes _data
   )
 ```
 + signature = *"openPosition([address,bool,bool,uint256,uint256,uint256,uint160,bytes32])"*
 + data = abi.encodeWithSignature(signature, [..._params])
-+ return (_clearingHouse, 0, data) 
++ return (_clearingHouse, 0, data)
 -----
 
 > getQuoterSwapCallData
@@ -1160,11 +1077,11 @@ getOpenPositionCallData(IClearingHouse _clearingHouse, PerpV2OpenPositionParams 
 
 ```solidity
 getQuoterSwapCallData(IQuoter _quoter, SwapParams _params)
-  public 
+  public
   pure
   returns (
-    address _target, 
-    uint256 _value, 
+    address _target,
+    uint256 _value,
     bytes _data
   )
 ```
@@ -1178,13 +1095,13 @@ getQuoterSwapCallData(IQuoter _quoter, SwapParams _params)
 
 ```solidity
 function invokeOpenPosition(
-  ISetToken _setToken, 
-  IClearingHouse _clearingHouse, 
-  OpenPositionParams _params       
-) 
+  ISetToken _setToken,
+  IClearingHouse _clearingHouse,
+  OpenPositionParams _params
+)
   external
   returns (
-    uint256 deltaBase, 
+    uint256 deltaBase,
     uint256 deltaQuote
   )
 ```
@@ -1198,8 +1115,8 @@ function invokeOpenPosition(
 
 ```solidity
 function invokeDeposit(
-  ISetToken _setToken, 
-  IVault _vault, 
+  ISetToken _setToken,
+  IVault _vault,
   address _depositToken,
   uint256 _amount
 ) external
@@ -1213,8 +1130,8 @@ function invokeDeposit(
 
 ```solidity
 function invokeWithdraw(
-  ISetToken _setToken, 
-  IVault _vault, 
+  ISetToken _setToken,
+  IVault _vault,
   address _withdrawToken,
   uint256 _amount
 ) external
@@ -1228,10 +1145,10 @@ function invokeWithdraw(
 
 ```solidity
 function invokeQuoterSwap(
-  ISetToken _setToken, 
-  IQuoter _quoter, 
+  ISetToken _setToken,
+  IQuoter _quoter,
   SwapParams _params,
-) 
+)
   external
   returns (SwapResponse _response)
 ```
@@ -1252,28 +1169,23 @@ function invokeQuoterSwap(
 
 #### Structs
 
-+ **PerpV2ProtocolAddresses**
-
-| Type 	| Name 	| Description 	|
-|------	|------	|-------------	|
-| address | vault | manages account collateral (deposits and withdrawals )|
-| address | clearingHouse | manages trading (open position) |
-| address | accountBalance | exposes data about account values and positions |
-| address | exchange | exposes data about account values and positions |
 
 + **PositionInfo**: All data sourced from PerpV2 protocol contracts
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-| int256 | collateralBalance | total quantity of vault collateral |
+| address | baseToken | virtual PerpV2 asset |
 | int256 | baseBalance | quantity of baseToken position open |
 | int256 | quoteBalance | quantity of USDC notional open for baseToken position |
+
++ **AccountInfo**:
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+| int256 | collateralBalance | total quantity of vault collateral |
 | int256 | owedRealizedPnL | total quantity of account's realized PnL |
 | int256 | pendingFunding | total quantity of funding payments pending for account |
-| uint256 | freeCollateral | min(collateral, accountValue) - marginRequirement |
-| int256 | accountValue | sum of collateralBalance, owedRealizedPnL, pendingFunding, oracle-priced position values total, open notional quote total |
-| int256 | marginRequirement | oracle-priced position values total * minimum margin requirement ratio (6.25%) |
-| uint256 | freeCollateral | min(collateral, accountValue) - marginRequirement |
+
 
 #### Constants
 | Type 	| Name 	| Description 	| Value |
@@ -1286,10 +1198,14 @@ function invokeQuoterSwap(
 | Type 	| Name 	| Description |
 |------	|------	|-------------|
 | mapping(ISetToken => address[]| positions | List of baseTokens account has open positions for |
-| mapping(ISetToken => address) | collateralToken | CollateralToken approved for deposits by manager | 
-| PerpV2ProtocolAddresses | protocolAddresses | PerpV2 system contract addresses |
+| mapping(ISetToken => address) | collateralToken | CollateralToken approved for deposits by manager |
 | mapping(ISetToken => bool) | allowedSetTokens | Mapping of SetToken to boolean indicating if SetToken is on allow list |
 | bool | anySetAllowed | Boolean that returns if any SetToken can initialize this module |
+| IAccountBalance | perpAccountBalance | PerpV2 contract address: provides getters for base, quote, and owedRealizedPnl balances |
+| IClearingHouse | perpClearingHouse | PerpV2 contract address: provides a trading API |
+| IExchange | perpExchange | PerpV2 contract address: provides getters for UniswapV3 pools and pending funding balances |
+| IVault | perpVault | PerpV2 contract: handles deposits and withdrawals and provides getter for collateral balances |
+| IQuoter | perpQuoter | PerpV2 contract: exposes `swap` method to simulate trades |
 
 #### Modifiers
 | Function | Description |
@@ -1310,6 +1226,8 @@ function invokeQuoterSwap(
 | getPositionInfo | any | gets Perp protocol position balances (as positionUnits) |
 | getPriceBasedPositionInfo | any | gets Perp account value and current leverage ratio |
 | getPositions | any | returns list vBase addresses Perp account has open positions for |
+| getIssuanceAdjustments | any | returns the USDC quantity units necessary to issue some set quantity |
+| getRedemptionAdjustments | any | returns the USDC quantity received when redeeming some set quantity |
 
 
 ### Functions
@@ -1318,13 +1236,13 @@ function invokeQuoterSwap(
 
 ```solidity
 function moduleIssueHook(
-  ISetToken _setToken, 
+  ISetToken _setToken,
   uint256 _setTokenQuantity
-) 
-  external 
-  override 
+)
+  external
+  override
   onlyModule(_setToken)
-```    
+```
 + usdcAmountIn = 0
 + vBasePositions = getPositions(_setToken)
 + (,positionSpotPrices) = getPriceBasedPositionInfo(_setToken)
@@ -1337,16 +1255,20 @@ for vBase, index of vBasePositions:
 + Calculate ideal cost of trade
   + vBasePositionUnit = positionInfo.baseBalance / _setToken.totalSupply
   + vBaseTradeAmount = abs(vBasePositionUnit * _setTokenQuantity)
-  + spotPrice = positionSpotPrices[index] 	
-  + quoteCostIdeal = vBaseTradeAmount * spotPrice // without slippage or fees
+  + spotPrice = positionSpotPrices[index]
+  + idealDeltaQuote = vBaseTradeAmount * spotPrice // without slippage or fees
 
-+ Simulate trade to get its real cost as *deltaQuote* 
++ Calculate current leverage using AMM spot price
+  + vBasePositionValue = positionInfo.baseBalance * spotPrice
+  + currentLeverage = vBasePositionValue / (vBasePositionValue + positionInfo.quoteBalance + AccountInfo.collateralBalance)
+
++ Execute trade and get its real cost as *deltaQuote* ("borrows" on margin)
 
   + *If long:* (when vETHPositionUnit is positive)
 
   ```solidity
-  swapParams = {
-    baseToken: vBase 
+  openPositionParams = {
+    baseToken: vBase
     isBaseToQuote: false	// long
     isExactInput: false	// need exact vQuote minted
     amount: vBaseTradeAmount
@@ -1357,37 +1279,33 @@ for vBase, index of vBasePositions:
   + *If short:* (when vBasePositionUnit is negative)
 
   ```solidity
-  swapParams = {
-    baseToken: vBase 
+  openPositionParams = {
+    baseToken: vBase
     isBaseToQuote: true	// short
     isExactInput: true	// need exact vQuote minted
     amount: vBaseTradeAmount
     sqrtPriceLimitX96: 0	// slippage protection
   }
   ```
-  
-  + target = protocolAddresses.quoter
-  + deltaQuote = setToken.invokeQuoterSwap(target, swapParams) // includes slippage and protocol fees
+
+  + target = perpQuoter
+  + deltaQuote = setToken.invokeOpenPosition(target,  openPositionParams)
 
 + Calculate the slippage & fees amount issuer will bear (as a positive value)
   + *If Long*:
-    + slippageCost = deltaQuote - quoteCostIdeal 
+    + slippageCost = deltaQuote - idealDeltaQuote
 
   + *If short*
-    + slippageCost = quoteCostIdeal - deltaQuote	
+    + slippageCost = idealDeltaQuote - deltaQuote
 
-+ Calculate current leverage using AMM spot price
-  + vBasePositionValue = positionInfo.baseBalance * spotPrice
-  + currentLeverage = vBasePositionValue / (vBasePositionValue + positionInfo.quoteBalance + positionInfo.collateralBalance)
-
-+ Calculate addtional usdcAmountIn and add to running total.  
++ Calculate addtional usdcAmountIn and add to running total.
   + owedRealizedPnLPositionUnit = (positionInfo.carriedOwedRealizedPnL + positionInfo.pendingFunding) / setToken.totalSupply
   + owedRealizedPnLDiscount = owedRealizedPnLPositionUnit * _setTokenQuantity
-  + usdcAmountIn += (deltaQuote / current leverage) + slippageCost + owedRealizedPnLDiscount
+  + usdcAmountIn += (idealDeltaQuote / current leverage) + slippageCost + owedRealizedPnLDiscount
 
 Set USDC externalPositionUnit such that DIM can use it for transfer calculation.
 + newUnit = usdcAmountIn / _setTokenQuantity
-+ token = collateralToken[_setToken] 
++ token = collateralToken[_setToken]
 + _setToken.editExternalPositionUnit(token, address(this), newUnit)
 ----
 
@@ -1395,70 +1313,33 @@ Set USDC externalPositionUnit such that DIM can use it for transfer calculation.
 
 ```solidity
 function componentIssueHook(
-  ISetToken _setToken, 
-  uint256 _setTokenQuantity, 
+  ISetToken _setToken,
+  uint256 _setTokenQuantity,
   IERC20 _component
-) 
-  external 
-  override 
-  onlyModule(_setToken) 
+)
+  external
+  override
+  onlyModule(_setToken)
 ```
 + externalPositionUnit = _setToken.getExternalPositionRealUnit(_component, address(this))
 + usdcAmount = _setTokenQuantity * externalPositionUnit
 
 + Deposit collateral from SetToken into PerpV2
-  + token = collateralToken[_setToken] 
-  + SetToken.invokeApprove(token, protocolAddresses.vault, usdcAmount)  
-  + SetToken.invokeDeposit(protocolAddresses.vault, token, usdcAmount)
+  + token = collateralToken[_setToken]
+  + SetToken.invokeApprove(token, perpVault, usdcAmount)
+  + SetToken.invokeDeposit(perpVault, token, usdcAmount)
 
-+ vBasePositions = getPositions(_setToken)
-
-+ for vBase of vBasePositions
-  + vBasePositionSize = protocolAddresses.exchange.getPositionSize(_setToken, vBase)
-  + vBasePositionUnit = vBasePositionSize / _setToken.totalSupply
-  + vBaseTradeAmount = abs(vBasePositionUnit * _setTokenQuantity)
-
-  + Open position, calling ClearingHouse via SetToken.
-    + **If Long:** (when vBasePositionSize is positive)
-	
-      ```solidity
-      openPositionParams = {
-        baseToken: vBase 
-        isBaseToQuote: false		// long
-        isExactInput: false		// exact output
-        amount: vBaseTradeAmount
-        sqrtPriceLimitX96: 0		// slippage protection
-      }
-      
-      target = protocolAddresses.clearingHouse
-      _setToken.invokeOpenPosition(target, openPositionParams)
-      ```
-
-    + **If Short:** (when vBasePositionSize is negative)
-	
-      ```solidity
-      openPositionParams = {
-        baseToken: vBase 
-        isBaseToQuote: true		// short
-        isExactInput: true		
-        amount: vBaseTradeAmount
-        sqrtPriceLimitX96: 0		// slippage protection
-      }
-      
-      target = protocolAddresses.clearingHouse
-      _setToken.invokeOpenPosition(target, openPositionParams)
-      ```
 -----
 
 > **moduleRedeemHook**: called as a *modulePreRedeemHook* in *DIM*
 
 ```solidity
 function moduleRedeemHook(
-  ISetToken _setToken, 
+  ISetToken _setToken,
   uint256 _setTokenQuantity
-) 
-  external 
-  override 
+)
+  external
+  override
   onlyModule(_setToken)
 ```
 + realizedPnL = 0
@@ -1467,48 +1348,48 @@ function moduleRedeemHook(
 + for vBase of vBasePositions
   + Read required data from Perp protocol
     + positionInfo = getPositionInfo(_setToken, vBase)
-    
+
   + Calculate how much to sell and our expected PnL
-    + vBasePositionUnit =  positionInfo.baseBalance / _setToken.totalSupply	
-    + vBaseTradeAmount = abs(_setTokenQuantity * vBasePositionUnit) 
-    + closeRatio = vBaseTradeAmount / positionInfo.baseBalance 
-    + reducedOpenNotional = positionInfo.quoteBalance * close ratio 
-    + openNotionalFraction = (positionInfo.quoteBalance  * -1 ) + reducedOpenNotional 
+    + vBasePositionUnit =  positionInfo.baseBalance / _setToken.totalSupply
+    + vBaseTradeAmount = abs(_setTokenQuantity * vBasePositionUnit)
+    + closeRatio = vBaseTradeAmount / positionInfo.baseBalance
+    + reducedOpenNotional = positionInfo.quoteBalance * close ratio
+    + openNotionalFraction = (positionInfo.quoteBalance  * -1 ) + reducedOpenNotional
 
-  + Account for already accrued PnL from non-issuance/redemption sources (ex: levering, liquidation) 
+  + Account for already accrued PnL from non-issuance/redemption sources (ex: levering, liquidation)
 
-    + totalFundingAndCarriedPnL = positionInfo.pendingFunding + positionInfo.owedRealizedPnL		
-    + owedRealizedPnLPositionUnit = totalFundingAndCarriedPnL / _setToken.totalSupply	
-  
+    + totalFundingAndCarriedPnL = positionInfo.pendingFunding + positionInfo.owedRealizedPnL
+    + owedRealizedPnLPositionUnit = totalFundingAndCarriedPnL / _setToken.totalSupply
+
   + Trade
 
     + *If long*: (when vBasePositionUnit is positive)
 
-    ```solidity	
+    ```solidity
     openPositionParams = {
       baseToken: vBase
-      isBaseToQuote: true, 
-      isExactInput: true, 
+      isBaseToQuote: true,
+      isExactInput: true,
       amount: vBaseTradeAmount
       ...
     }
-    
-    target = protocolAddresses.clearingHouse
-    deltaQuote = _setToken.invokeOpenPosition(target, openPositionParams) 
+
+    target = perpClearingHouse
+    deltaQuote = _setToken.invokeOpenPosition(target, openPositionParams)
     ```
 
     + *If short*: ((when vBasePositionUnit is negative)
 
-    ```solidity	
-    openPositionParams = { 
+    ```solidity
+    openPositionParams = {
       baseToken: vBase
-      isBaseToQuote: false, 
-      isExactInput: false, 
+      isBaseToQuote: false,
+      isExactInput: false,
       amount: vBaseTradeAmount
       ...
     }
-    
-    target = protocolAddresses.clearingHouse
+
+    target = perpClearingHouse
     deltaQuote = _setToken.invokeOpenPosition(target, openPositionParams)
     ```
 
@@ -1520,28 +1401,28 @@ function moduleRedeemHook(
       + realizedPnL += reducedOpenNotional - deltaQuote
 
 + Calculate amount of USDC to withdraw
-  + collateralPositionUnit = protocolAddresses.vault.balanceOf(_setToken) / _setToken.totalSupply
-  + usdcToWithdraw = 
-    + (collateralPositionUnit * _setTokenQuantity) + 
-    + (owedRealizedPnLPositionUnit * _setTokenQuantity) + 
-    + realizedPnL 
+  + collateralPositionUnit = perpVault.balanceOf(_setToken) / _setToken.totalSupply
+  + usdcToWithdraw =
+    + (collateralPositionUnit * _setTokenQuantity) +
+    + (owedRealizedPnLPositionUnit * _setTokenQuantity) +
+    + realizedPnL
 
-+ Set the external position unit for DIM 
++ Set the external position unit for DIM
   + newUnit = usdcToWithdraw / _setTokenQuantity
-  + token = collateralToken[_setToken] 
+  + token = collateralToken[_setToken]
   + setToken.editExternalPositionUnit(token, address(this), newUnit)
 -----
 
-> **componentRedeemHook**: called during *DIM.resolveEquityPositions* via *DIM.externalPositionHook*. 
+> **componentRedeemHook**: called during *DIM.resolveEquityPositions* via *DIM.externalPositionHook*.
 
 ```solidity
 function componentRedeemHook(
-  ISetToken _setToken, 
-  uint256 _setTokenQuantity, 
+  ISetToken _setToken,
+  uint256 _setTokenQuantity,
   IERC20 _component
 )
-  external 
-  override 
+  external
+  override
   onlyModule(_setToken)
 ```
 + externalPositionUnit = _setToken.getExternalPositionRealUnit(_component, address(this))
@@ -1549,313 +1430,156 @@ function componentRedeemHook(
 + setToken.invokeWithdraw(usdcToWithdraw)
 -----
 
-> **deposit**: 
+> **deposit**:
 
 ```solidity
 function _deposit(
-  ISetToken _setToken, 
-  uint256 _collateralQuantityUnits
-) 
-  external
-  nonReentrant
-  onlyManagerAndValidSet(_setToken)
-```
-
-+ notionalQuantity = _collateralQuantityUnits * _setToken.totalSupply
-+ token = collateralToken[_setToken]
-+ decimals = token.decimals()
-+ notionalQuantityInCollateralDecimals = _formatCollateralToken(notionalQuantity, decimals)
-+ _setToken.invokeApprove(collateralToken, protocolAddresses.vault, notionalQuantityInCollateralDecimals)
-+ _setToken.invokeDeposit(protocolAddresses.vault, token, notionalQuantityInCollateralDecimals)
-----
-
-> **withdraw**: 
-
-```solidity
-function _withdraw(
-  ISetToken _setToken, 
-  uint256 _collateralQuantityUnits
-) 
-  external
-  nonReentrant
-  onlyManagerAndValidSet(_setToken)
-```
-+ notionalQuantity = _collateralQuantityUnits * _setToken.totalSupply
-+ token = collateralToken[_setToken]
-+ decimals = token.decimals()
-+ notionalQuantityInCollateralDecimals = _formatCollateralToken(notionalQuantity, decimals)
-+ _setToken.invokeWithdraw(protocolAddresses.vault, token, notionalQuantityInCollateralDecimals)
------
-
-> **trade**: 
-
-```solidity
-function trade(
   ISetToken _setToken,
-  address _debitToken,  
-  int256 _debitQuantityUnits, 	  // (negative)
-  address _creditToken,
-  int256 _minCreditQuantityUnits, // (positive)
-  bytes memory _data        
+  uint256 _collateralQuantityUnits
 )
   external
   nonReentrant
   onlyManagerAndValidSet(_setToken)
-  returns (uint256 deltaBase, uint256 deltaQuote)
 ```
 
-Format Trade parameters
++ notionalQuantity = _collateralQuantityUnits * _setToken.totalSupply
++ token = collateralToken[_setToken]
++ decimals = token.decimals()
++ notionalQuantityInCollateralDecimals = _formatCollateralToken(notionalQuantity, decimals)
++ _setToken.invokeApprove(collateralToken, perpVault, notionalQuantityInCollateralDecimals)
++ _setToken.invokeDeposit(perpVault, token, notionalQuantityInCollateralDecimals)
+----
 
-+ tradeParams = 
-  + collateral = collateralToken[_setToken]
-  + isBaseToQuote = _debitToken != collateral
-  + baseToken = (isBaseToQuote) ? _creditToken : _debitToken 
-  + amount = abs(_debitQuantityUnits * _setToken.totalSupply)
-  + oppositeAmountBound = abs(_creditQuantityUnits * _setToken.totalSupply)
-  + isExactInput = true
-  + (
-      deadline,
-      sqrtPriceLimitX96,
-      referralCode
-    ) = abi.decode(bytes, (bool,uint256,uint160,bytes32))
- 
-Execute trade and accrue fees. *minCreditQuantityUnits* check is performed by PerpV2 
-+ (deltaBase, deltaQuote) = setToken.invokeOpenPosition(_setToken, protocolAddresses.clearingHouse, tradeParams)
-+ _accrueProtocolFee(_setToken, deltaQuote)
+> **withdraw**:
 
-Check position balance and update position data structure with additions or removals
-+ positions = getPositions(_setToken)
-+ baseBalance = protocolAddresses.AccountBalance.getPositionSize(_setToken, tradeParams.baseToken) 
-+ if (baseBalance == 0) 
-  + removePosition(_setToken, tradeParams.baseToken)
-+ elseif (baseBalance > 0 && !positions.contains(tradeParams.baseToken)) 
-  + addPosition(_setToken, tradeParams.baseToken)
+```solidity
+function _withdraw(
+  ISetToken _setToken,
+  uint256 _collateralQuantityUnits
+)
+  external
+  nonReentrant
+  onlyManagerAndValidSet(_setToken)
+```
++ notionalQuantity = _collateralQuantityUnits * _setToken.totalSupply
++ token = collateralToken[_setToken]
++ decimals = token.decimals()
++ notionalQuantityInCollateralDecimals = _formatCollateralToken(notionalQuantity, decimals)
++ _setToken.invokeWithdraw(perpVault, token, notionalQuantityInCollateralDecimals)
+-----
 
-Return deltas
-+ return (deltaBase, deltaQuote)
-------
-
-> **lever**: 
+> **lever**:
 
 ```solidity
 function lever(
   ISetToken _setToken,
-  uint256 _quoteQuantityUnits,
-  uint256 _minReceiveQuoteQuantityUnits,
+  address _baseToken
+  int256 _baseQuantityUnits,
+  uint256 _quoteReceiveQuantityUnits,
 )
   external
   nonReentrant
   onlyManagerAndValidSet(_setToken)
 ```
++ Discover direction
+  + isShort = _baseQuantityUnits < 0
 
-Calculate total trade amounts
-+ totalDeltaQuoteQuantity = 0
-+ totalTradeQuoteQuantity = _quoteQuantityUnits * _setToken.totalSupply
-+ totalMinReceiveQuoteQuantity = _minReceiveQuoteQuantityUnits * _setToken.totalSupply*
++ Calculate component notional trade amount:
+  + baseTradeNotionalQuantity = abs(_baseQuantityUnits * setToken.totalSupply)
+  + quoteReceiveNotionalQuantity = _quoteReceiveQuantityUnits * setToken.totalSupply
 
-Find sum of all position values 
-+ (, positionSpotPrices) = getPriceBasedPositionInfo(_setToken)
-+ positionValuesTotal = 0
-+ vBasePositions = getPositions()
-+ for vBase, index in vBasePositions
-  + positionValuesTotal += protocolAddresses.exchange.getPositionSize(vBase) * positionSpotPrices[index]
++ Trade
+  + *If long* (when _baseQuantityUnits is positive)
+    ```solidity
+    params = OpenPositionParams({
+      baseToken: vBase
+      isBaseToQuote: false				                      // Q2B: long
+      isExactInput: false				                        // exact output
+      amount: baseTradeNotionalQuantity			            // input amount
+      oppositeAmountBound: quoteReceiveNotionalQuantity	// upper bound of input quote
+    })
+    ```
+  + *If short* (when _baseQuantityUnits is negative)
+    ```solidity
+    params = OpenPositionParams({
+      baseToken: vBase
+      isBaseToQuote: true	               		              // B2Q: short
+      isExactInput: true		       		                    // exact input
+      amount: baseTradeNotionalQuantity      			        // output amount
+      oppositeAmountBound: quoteReceiveNotionalQuantity 	// lower bound of output quote
+    })
+    ```
+  + target = perpClearingHouse
+  + (,deltaQuote) = _setToken.invokeOpenPosition(target params)
 
-Trade
-+ for vBase, index in vBasePositions
-  + Calculate weight of position 
-    + positionValue = protocolAddresses.exchange.getPositionSize(vBase) * positionSpotPrices[index]
-    + weight = positionValue / positionValuesTotal
-
-  + Calculate component trade amounts:
-    + tradeQuoteAmount = weight * totalTradeQuoteQuantity
-    + minReceiveQuoteAmount = weight * totalMinReceiveQuoteQuantity
-    + oppositeAmountBound = minReceiveQuoteAmount / vBasePrice
-
-  + Trade
-    + *If long* (when vBasePositionSize is positive)
-	    ```solidity
-	    params = OpenPositionParams({
-	      baseToken: vBase
-	      isBaseToQuote: false				// Q2B: long
-	      isExactInput: true				// exact input
-	      amount: tradeQuoteAmount			// input amount
-	      oppositeAmountBound: oppositeAmountBound	// lower bound of output base
-	    })
-	    ```
-    + *If short* (when vBasePositionSize is negative)
-	    ```solidity
-	    params = OpenPositionParams({
-	      baseToken: vBase
-	      isBaseToQuote: true	               		// B2Q: short
-	      isExactInput: false		       		// exact output
-	      amount: tradeQuoteAmount      			// output amount	
-	      oppositeAmountBound: oppositeAmountBound 	// upper bound of input base
-	    })
-	    ```
-    + target = protocolAddresses.clearingHouse
-    + (,deltaQuote) = _setToken.invokeOpenPosition(target params)
-    + totalDeltaQuoteQuantity += deltaQuote 	
-
-+ _accrueProtocolFee(_setToken, totalDeltaQuoteQuantity)
++ Accrue fees
+  + _accrueProtocolFee(_setToken, deltaQuote)
 ----
 
-> **delever**: 
+> **delever**:
 
 ```solidity
 function delever(
   ISetToken _setToken,
-  uint256 _quoteQuantityUnits,
-  uint256 _minReceiveQuoteQuantityUnits,
+  address _baseToken,
+  uint256 _baseQuantityUnits,
+  uint256 _quoteReceiveQuantityUnits,
 )
   external
   nonReentrant
   onlyManagerAndValidSet(_setToken)
 ```
++ Discover direction, inverting because delever is reducing position exposure
+  + isShort = (_baseQuantityUnits * -1) < 0
 
-Calculate total trade amounts
-+ totalDeltaQuoteQuantity = 0
-+ totalTradeQuoteQuantity = _quoteQuantityUnits * _setToken.totalSupply
-+ totalMinReceiveQuoteQuantity = _minReceiveQuoteQuantityUnits * _setToken.totalSupply*
++ Calculate component notional trade amount:
+  + baseTradeNotionalQuantity = abs(_baseQuantityUnits * setToken.totalSupply)
+  + quoteReceiveNotionalQuantity = _quoteReceiveQuantityUnits * setToken.totalSupply
 
-Find sum of all position values 
-+ (, positionSpotPrices) = getPriceBasedPositionInfo(_setToken)
-+ positionValuesTotal = 0
-+ vBasePositions = getPositions()
-+ for vBase, index in vBasePositions
-  + positionValuesTotal += protocolAddresses.exchange.getPositionSize(vBase) * positionSpotPrices[index]
++ Trade
+  + *If long* (when _baseQuantityUnits is positive)
+    ```solidity
+    params = OpenPositionParams({
+      baseToken: vBase
+      isBaseToQuote: true                               // B2Q: sell
+      isExactInput: true                                // exact input
+      amount: baseTradeNotionalQuantity                 // input amount
+      oppositeAmountBound: quoteReceiveNotionalQuantity // lower bound of output quote
+    })
+    ```
+  + *If short* (when _baseQuantityUnits is negative)
+    ```solidity
+    params = OpenPositionParams({
+      baseToken: vBase
+      isBaseToQuote: false                                // Q2B: buy
+      isExactInput: false                                 // exact output
+      amount: baseTradeNotionalQuantity                   // output amount
+      oppositeAmountBound: quoteReceiveNotionalQuantity   // upper bound of input quote
+    })
+    ```
+  + target = perpClearingHouse
+  + (,deltaQuote) = _setToken.invokeOpenPosition(target params)
 
-Trade
-+ for vBase, index in vBasePositions
-  + Calculate weight of position
-    + positionValue = protocolAddresses.exchange.getPositionSize(vBase) * positionSpotPrices[index]
-    + weight = positionValue / positionValuesTotal
-
-  + Calculate component trade amounts:
-    + quoteTradeAmount = weight * totalTradeQuoteQuantity
-    + vBaseTradeAmount = quoteTradeAmount / positionSpotPrices[index]
-    + oppositeAmountBound = weight * totalMinReceiveQuoteQuantity
-
-  + Trade
-    + *If long* (when vBasePositionSize is positive)
-	  ```solidity
-	  params = OpenPositionParams({
-	    baseToken: vBase
-	    isBaseToQuote: true				// B2Q: short
-	    isExactInput: true				// exact input
-	    amount: vBaseTradeAmount                    	// input amount
-	    oppositeAmountBound: oppositeAmountBound  	// lower bound of output quote
-	  })
-	  ```
-    + *If short* (when vBasePositionSize is negative)
-	  ```solidity
-	  params = OpenPositionParams({
-	    baseToken: vBase
-	    isBaseToQuote: false				// Q2B: long
-	    isExactInput: false			     	// exact output
-	    amount: vBaseTradeAmount                     	// output amount
-	    oppositeAmountBound: oppositeAmountBound   	// upper bound of input quote
-	  })
-	  ```
-  
-  + target = PerpModule.protocolAddresses.clearingHouse
-  + (,deltaQuote) = setToken.invokeOpenPosition(target, params)
-  + totalDeltaQuoteQuantity += deltaQuote 	
-
-+ _accrueProtocolFee(_setToken, totalDeltaQuoteQuantity)	
++ Accrue fees
+  + _accrueProtocolFee(_setToken, deltaQuote)
 -----
 
 > **setCollateralToken**: Updates identity of token which gets deposited into PerpV2 vault
 
 ```solidity
 function setCollateralToken(
-  ISetToken _setToken, 
+  ISetToken _setToken,
   address _collateralToken
-) 
-  external 
+)
+  external
   onlyManagerAndValidSet(_setToken)
 ```
 
 Check that perp account is empty and update collateral token
-+ collateralBalance = protocolAddresses.vault.balanceOf(_setToken)
++ collateralBalance = perpVault.balanceOf(_setToken)
 + require(collateralBalance == 0)
 + collateralToken[_setToken] = _collateralToken
 -----
-
-> **getPositionInfo**: 
-
-```solidity
-function getPositionInfo(
-  ISetToken _setToken, 
-  address _baseToken
-) 
-  external
-  view
-  returns (PositionInfo memory info)
-```
-
-```solidity
-PositionInfo memory info = PositionInfo({
-  collateralBalance: protocolAddresses.Vault.balanceOf(_setToken)
-  baseBalance: protocolAddresses.AccountBalance.getPositionSize(_setToken, _baseToken)
-  quoteBalance: protocolAddresses.Exchange.getOpenNotional(_setToken, _baseToken)
-  owedRealizedPnL: protocolAddresses.AccountBalance.getOwedAndUnrealizedPnL(_setToken)
-  pendingFunding: protocolAddresses.Exchange.getAllPendingFundingPayments(_setToken)
-  freeCollateral: protocolAddresses.Vault.getFreeCollateral(_setToken)
-  accountValue: protocolAddresses.Clearinghouse.getAccountValue(_setToken)
-  marginRequirement: protocolAddresses.AccountBalance.getMarginRequirementForLiquidation(_setToken)
-})
-```
-
-+ return info
-
-_____
-
-> **getPriceBasedPositionInfo**: 
-```solidity
-function getPriceBasedPositionInfo(ISetToken _setToken) 
-  external
-  view
-  returns (
-    int256 accountValuePositionUnit
-    uint256 currentLeverageRatio
-    uint256[] positionSpotPrices
-)
-```
-
-+ positionSpotPrices = []
-+ netPositionValue = 0
-+ vBasePositions = getPositions(_setToken)
-
-Get spot price for each position and sum position values
-+ for vBase of vBasePositions
-  + ```solidity
-    swapParams = {
-      baseToken: vBase,
-      isBaseToQuote: false,
-      isExactInput: true,
-      amount: 1.0101 // include protocol fee
-      sqrtPriceLimitX96: 0
-    }
-    ```
-
-  + (deltaBase,...) = setToken.invokeQuoterSwap(protocolAddresses.quoter, swapParams)
-  + price = 1 / deltaBase 
-  + positionSpotPrices.push(price) 
-  + netPositionValue += protocolAddresses.accountBalance.getPositionSize(_setToken, vBase) * price
-
-Calculate perp account value
-+ netNotional = protocolAddresses.accountBalance.getNetQuoteBalance(_setToken)
-+ collateral = protocolAddresses.vault.balanceOf(_setToken)
-+ (owedRealizedPnL, ) = protocolAddresses.accountBalance.getOwedUnrealizedPnL(_setToken)
-+ accountValuePositionUnit = (netPositionValue + netNotional + collateral + owedRealizedPnL) / _setToken.totalSupply
-
-Calculate leverage ratio
-+ leverageRatio = abs(netPositionValue) / (netPositionValue + netNotional + collateral)
-
-Return
-+ return (accountValuePositionUnit, leverageRatio, positionSpotPrices)
-
-----
 
 > **removeModule**
 
@@ -1869,17 +1593,104 @@ function removeModule() external override onlyValidAndInitializedSet(ISetToken(m
 + delete collateralToken[setToken]
 -----
 
+> **getIssuanceAdjustments**
+```solidity
+function getIssuanceAdjustments(
+    ISetToken _setToken,
+    uint256 _setTokenQuantity
+)
+    external
+    view
+    returns (int256[] memory);
+```
+
++ This method's logic is identical to `moduleIssueHook` *except* that trade is simulated with `perQuoter.swap` to acquire the delta quote value necessary to calculate the amount of USDC to transfer in.
+
+-----
+
+> **getRedemptionAdjustments**
+```solidity
+function getRedemptionAdjustments(
+    ISetToken _setToken,
+    uint256 _setTokenQuantity
+)
+    external
+    view
+    returns (int256[] memory);
+```
+
++ This method's logic is identical to `moduleRedeemHook` *except* that trade is simulated with `perQuoter.swap` to acquire the delta quote value necessary to calculate the amount of USDC to transfer out.
+
+_____
+
+> **getPositionInfo**:
+
+```solidity
+function getPositionInfo(
+  ISetToken _setToken,
+  address _baseToken
+)
+  external
+  view
+  returns (PositionInfo[] memory info)
+```
+
+
++ infoArray = []
+
++ for address of postions
+  ```solidity
+  PositionInfo memory info = PositionInfo({
+    baseToken: address
+    baseBalance: perpAccountBalance.getPositionSize(_setToken, _baseToken)
+    quoteBalance: perpExchange.getOpenNotional(_setToken, _baseToken)
+  })
+  ```
+
++ infoArray.push(info)
+
++ return infoArray
+----
+
+> **getSpotPrice**:
+```solidity
+function getSpotPrice(address _baseToken)
+  external
+  view
+  returns (uint256 price)
+{
+
+  address pool = perpExchange.getPool(_baseToken);
+  (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
+  uint256 priceX96 = _formatSqrtPriceX96ToPriceX96(sqrtPriceX96);
+  return _formatX96ToX10_18(priceX96);
+}
+```
+----
+
+> **getAccountInfo**
+
+```solidity
+function getAccountInfo(ISetToken _setToken) public view returns (AccountInfo memory accountInfo) {
+    accountInfo = AccountInfo({
+        collateralBalance: _getCollateralBalance(_setToken),
+        owedRealizedPnl: perpAccountBalance.getOwedRealizedPnl(address(_setToken)),
+        pendingFundingPayments: perpExchange.getAllPendingFundingPayment(address(_setToken))
+    });
+}
+```
+
 ### InternalMethods
 
 > **_accrueProtocolFee**
 
 ```solidity
 function _accrueProtocolFee(
-    ISetToken _setToken, 
+    ISetToken _setToken,
     uint256 _exchangedQuantity
-) 
-    internal 
-    returns(uint256) 
+)
+    internal
+    returns(uint256)
 ```
 
 + token = collateralToken[_setToken]
@@ -1901,8 +1712,8 @@ function formatCollateralToken(uint256 amount, uint8 decimals) internal pure ret
 
 ### Methods carried over with minimal or no changes from ALM/CLM
 
-> **initialize**: 
-+ Adapted from ALM/CLM 
+> **initialize**:
++ Adapted from ALM/CLM
   + removed collateral and borrow asset addition logic
   + added setCollateralToken logic
 
@@ -1927,8 +1738,8 @@ function initialize(ISetToken _setToken, address _collateralToken)
     for(uint256 i = 0; i < modules.length; i++) {
         try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
     }
-    
-    // Set collateralToken 
+
+    // Set collateralToken
     setCollateralToken(_setToken, _collateralToken)
 }
 ```
@@ -1959,11 +1770,11 @@ function updateAnySetAllowed(bool _anySetAllowed) external onlyOwner {
 
 ```solidity
 function registerToModule(
-  ISetToken _setToken, 
+  ISetToken _setToken,
   IDebtIssuanceModule _debtIssuanceModule
-) 
-  external 
-  onlyManagerAndValidSet(_setToken) 
+)
+  external
+  onlyManagerAndValidSet(_setToken)
 {
     require(_setToken.isInitializedModule(address(_debtIssuanceModule)), "Issuance not initialized");
     _debtIssuanceModule.registerToIssuanceModule(_setToken);
