@@ -763,7 +763,7 @@ Assuming a SetToken supply of one, user wants to convert 100 units of a default 
 3. PerpModule calls *SetToken.invokeApprove(USDC, PerpProtocol, 100)*
 4. PerpModule calls *PerpProtocolAdapter.deposit(setToken, 100)*
 5. PerpProtocolAdapter calls PerpProtocol deposit method
-6. PerpProtocol transfers 100 USDC from SetToken to PerpProtocol as collateral
+6. PerpProtocol transfers 100 USDC from SetToken to PerpProtocol as collateral and updates SetToken USDC *defaultPositionUnit*
 7. User calls *PerpModule.lever*  with:
       ```
       baseToken: vUSDCAddress
@@ -777,10 +777,11 @@ Assuming a SetToken supply of one, user wants to convert 100 units of a default 
     + formats trade parameters as necessary for the target protocol
     + validates trade parameters
     + encodes call to PerpProtocol to execute trade and sends via SetToken
-    + validates outcome
+    + calculates SetProtocol fee as percentage of change in quote balance 
+    + withdraws fee from Perp vault to SetToken (which transfers to fee recipient)
 
-10. PerpModule calls *PerpProtocolAdapter.getPositionInfo* to get data from PerpProtocol and calculates new Set price from PerpProtocol’s spot price and vETH, collateral, debt positions
-11. PerpModule updates the SetToken’s *externalPositionUnit* for USDC as new Set price
+10. [Skipped] Virtual position unit setting
+11. [Skipped] External position unit setting
 
 
 ### User story: Close Perp position and withdraw USDC to SetToken
@@ -802,20 +803,21 @@ User wants to convert a long ETH Perp external position (which uses USDC as coll
 5. PerpProtocolAdapter
       + formats trade parameters as necessary for the target protocol
       + validates trade parameters
-      + calls PerpProtocol to execute trade and validates outcome
+      + calls PerpProtocol to execute trade 
+      + calculates SetProtocol fee as percentage of change in quote balance 
+      + withdraws fee from Perp vault to SetToken (which transfers to fee recipient)
 
-5. PerpModule calls *PerpProtocolAdapter.getPositionInfo* to get data from PerpProtocol and calculates new Set price from PerpProtocol’s spot price and vETH, collateral, debt positions
+5. [Skipped] Virtual position unit setting..
 
-6. PerpModule updates the SetToken’s *externalPositionUnit* for USDC as new Set price
+6. [Skipped] External position unit setting..
 
-7. User calls *PerpModule.getPositionInfo(setToken)* to get *collateralPositionSize* (USDC)
-8. PerpModule calls *PerpProtocolAdapter.getPositionInfo(setToken)*  to get data from PerpProtocol and returns collateralPositionSize to user
-9. User call *PerpModule.withdraw(setToken, usdcPositionSize)*
-10. PerpModule calls *PerpProtocolAdapter.withdraw(setToken, collateralPositionSize)*
+7. User calls *PerpModule.getAccountInfo(setToken)* to get *collateralBalance* (USDC)
+8. PerpModule calls *PerpProtocolAdapter.getAccountInfo(setToken)*  to get data from PerpProtocol and returns collateralBalance to user. User formats this as collateralPositionUnits.
+9. User call *PerpModule.withdraw(setToken, collateralPositionUnits)*
+10. PerpModule calls *PerpProtocolAdapter.withdraw(setToken, collateralPositionUnits)*
 11. PerpProtocolAdapter encodes call to PerpProtocol withdraw and sends via SetToken
 12. PerpProtocol calls *USDC.transfer(setToken, collateralPositionSize)* to transfer USDC to SetToken
-13. PerpModule updates SetToken’s position units:
-      + *USDC externalPositionUnit = ...*
+13. PerpModule updates SetToken’s USDC default position unit:
       + *USDC defaultPositionUnit = collateralPositionSize / setToken.totalSupply*
 
 ### User story: Levering
@@ -851,6 +853,8 @@ To lever up, we buy vETH, increasing our debt balance. Slippage is reflected in 
 	+ formats and validates trade params,
 	+ encodes trade call with slippage check to PerpProtocol to increase vETH position
 	+ sends via SetToken
+	+ calculates SetProtocol fee as percentage of change in quote balance 
+	+ withdraws fee from Perp vault to SetToken (which transfers to fee recipient)
 
 ### User story: Delevering
 
@@ -882,6 +886,8 @@ To delever, we sell vETH, paying off our debt balance. Depending on the implemen
 	+ formats and validates trade params
 	+ encodes trade call with slippage check to PerpProtocol to reduce vETH position
 	+ sends via SetToken
+	+ calculates SetProtocol fee as percentage of change in quote balance 
+	+ withdraws fee from Perp vault to SetToken (which transfers to fee recipient)
 
 ## Open Questions
 
