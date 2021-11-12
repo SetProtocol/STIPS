@@ -38,6 +38,8 @@ Pose any open questions you may still have about potential solutions here. We wa
 ## Feasibility Analysis
 ### The Solution
 Allow the issuer and redeemer to specify a max amount of tokens they are willing to pay on issuance and a redeemer a min amount of tokens they are willing to receive on redemption. Doing this ensures that any AMM pool transactions cannot be sandwich attacked nor can a lack of liquidity inadvertently affect the issuer or redeemer. For greater gas savings we could allow the user to specify components that they want to be checked since not all components will require an interaction with an AMM pool. This allows the module to also be easily usable with components that do not require a trade since the issuer or redeemer would simply not specify they be checked.
+
+Additionally, we will modify the view functions used to fetch the amount of tokens required for issuance and redemption to take into account any syncing that may happen during issuance/redemption. This will require modules that implement hooks to calculate the expected position unit changes of a issue/redeem transaction and return the position unit adjustments to the issuance module. The issuance module can then add these adjustments to the implied issuance token amounts from the position units to give a clearer picture to the issuer/redeemer of the expected token flows for the transaction. This will allow the issuer to set better token limits on issue/redeem in an easy manner by just applying a buffer to the returned token amounts.
 ## Timeline
 spec: 10/27
 implementation: 10/29
