@@ -38,13 +38,24 @@ In general, external perpetual protocols simplify the lever and delever flows fo
 |Max borrow - Retrieve the collateralFactorMantissa in Compound and maxLtv and liquidationThreshold in Aave|Max "borrow" - call [getImRatio()](https://github.com/perpetual-protocol/perp-lushan/blob/c6b6a3810bdb37534d6931b8be24c5de0bbd122c/contracts/ClearingHouseConfig.sol#L91-L96) and (1 - imRatio) to get the "maxLtv" and call [getMmRatio()](https://github.com/perpetual-protocol/perp-lushan/blob/c6b6a3810bdb37534d6931b8be24c5de0bbd122c/contracts/ClearingHouseConfig.sol#L91-L96) and (1 - mmRatio) to get the liquidation threshold |
 |Collateral value - Read the balance of collateral c or aToken and use Chainlink to price|Collateral value - call [getTotalAbsPositionValue](https://github.com/perpetual-protocol/perp-lushan/blob/main/contracts/AccountBalance.sol#L299)|
 |Debt value - Read the balance of variable debt on Aave or borrowBalanceOf on cToken|Debt value - call [getTotalDebtValue](https://github.com/perpetual-protocol/perp-lushan/blob/main/contracts/AccountBalance.sol#L198)|
+|Leverage ratio - Collateral / (Collateral - Debt value)|Leverage ratio - AccountBalance.getTotalAbsPositionValue / ClearingHouse.accountValue |
 
 ### Perp Module Interface
 This is the current iteration of the interface we are thinking of for trading on the perp module:
 ```solidity
-lever(ISetToken setToken, uint256 quoteUnits, uint256 quoteMinReceiveUnits)
+function lever(
+    ISetToken _setToken,
+    address _baseToken,
+    int256 _baseQuantityUnits,
+    uint256 _minReceiveQuantityUnits
+)
 
-delever(ISetToken setToken, uint256 quoteUnits, uint256 quoteMinReceiveUnits)
+function delever(
+    ISetToken _setToken,
+    address _baseToken,
+    int256 _baseQuantityUnits,
+    uint256 _minReceiveQuantityUnits
+)
 ```
 
 ## Open Questions
@@ -53,7 +64,7 @@ delever(ISetToken setToken, uint256 quoteUnits, uint256 quoteMinReceiveUnits)
 - [ ] Should we keep the ripcord / safety mechanism the same?
     - Yes. No good reason to change it and gas fees are much lower on L2 so incentive can be way lower
 - [ ] What functions are needed to derive the state from Perp?
-    - getTotalAbsPositionValue, getImRatio, getMmRatio, getTotalDebt
+    - getTotalAbsPositionValue, getImRatio, getMmRatio, accountValue
 - [ ] Can this be generalized to use FST and PERP?
 - [ ] Can we make an assumption that spot and perp prices are going to be very close?
 
@@ -104,7 +115,7 @@ Before more in depth design of the contract flows lets make sure that all the wo
 A keeper wants to rebalance the Perp token which last rebalanced a day ago so calls shouldRebalance on the strategy contract directly
 - The keeper calls `rebalance` on the PerpStrategyExtension
 - The exchange's max trade size is grabbed from storage
-- The account leverage / max leverage is grabbed from the Perp Module's helper functions. This is used to calculate the current leverage ratio
+- The account leverage (AccountBalance.getTotalAbsPositionValue / ClearingHouse.accountValue) and max leverage (getImRatio for levering, getMmRatio for delevering) is grabbed from Perp V2
 - Validate leverage ratio isn't above ripcord and that enough time has elapsed since lastTradeTimestamp (unless outside bounds)
 - Validate not in TWAP
 - Calculate new leverage ratio using Perp helpers
@@ -148,33 +159,99 @@ Before we spec out the contract(s) in depth we want to make sure that we are ali
 
 Reviewer: []
 ## Specification
-### [Contract Name]
+### PerpetualV2LeverageStrategyExtension
 #### Inheritance
-- List inherited contracts
+- BaseExtension
 #### Structs
+
+##### ContractSettings
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
 |address|manager|Address of the manager|
 |uint256|iterations|Number of times manager has called contract|  
-#### Constants
-| Type 	| Name 	| Description 	| Value 	|
-|------	|------	|-------------	|-------	|
-|uint256|ONE    | The number one| 1       	|
+
 #### Public Variables
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|uint256|hodlers|Number of holders of this token|
+|ContractSettings|strategy|Struct of contracts used in the strategy (SetToken, price oracles, leverage module etc)|
+|MethodologySettings|methodology|Struct containing methodology parameters|
+|ExecutionSettings|execution|Struct containing execution parameters|
+|ExchangeSettings|exchange|Struct containing exchange settings|
+|IncentiveSettings|incentive| Struct containing incentive parameters for ripcord|
+|uint256|twapLeverageRatio|Stored leverage ratio to keep track of target between TWAP rebalances|
+|uint256|globalLastTradeTimestamp|Stored last trade timestamp|
+
 #### Functions
 | Name  | Caller  | Description 	|
 |------	|------	|-------------	|
-|startRebalance|Manager|Set rebalance parameters|
-|rebalance|Trader|Rebalance SetToken|
+|engage|Operator|Lever up SetToken|
+|disengage|Operator|Delever SetToken|
+|rebalance|EOA|Rebalance SetToken|
+|iterateRebalance|EOA|Iterate rebalance on SetToken|
 |ripcord|EOA|Recenter leverage ratio|
+|setMethodologySettings|Operator|Set methodology settings|
+|setIncentiveSettings|Operator|Set incentive settings|
+|setExchangeSettings|Operator|Set exchange settings|
+|setExecutionSettings|Operator|Set execution settings|
+|shouldRebalance|Anyone|Check if Set is ready to be rebalanced|
 #### Modifiers
-> onlyManager(SetToken _setToken)
+```
+/**
+ * Throws if rebalance is currently in TWAP`
+ */
+modifier noRebalanceInProgress() {
+    require(twapLeverageRatio == 0, "Rebalance is currently in progress");
+    _;
+}
+```
 #### Functions
-> issue(SetToken _setToken, uint256 quantity) external
-- Pseudo code
+> rebalance() external onlyEOA
+- Create action info struct
+    - Fetch collateral price
+    - Fetch borrow price
+    - Fetch account value in PERP
+    - Fetch total absolute position value in PERP
+    - Calculate current leverage (total position value / account value)
+- Validate normal rebalance / non TWAP
+- Calculate new leverage ratio
+- Handle rebalance
+    - Calculate chunk total notional
+        - Calculate max borrow (imRatio for lever, mmRatio for delever)
+    - Lever or delever on PerpModule depending on leverage ratio
+- Update rebalance state
+- Emit event
+
+> iterateRebalance() external onlyEOA
+- Create action info struct
+    - Fetch collateral price
+    - Fetch borrow price
+    - Fetch account value in PERP
+    - Fetch total absolute position value in PERP
+    - Calculate current leverage (total position value / account value)
+- Validate normal rebalance / is TWAP
+- Check if advantageous TWAP and exit
+- Handle rebalance
+    - Calculate chunk total notional
+        - Calculate max borrow (imRatio for lever, mmRatio for delever)
+    - Lever or delever on PerpModule depending on leverage ratio
+- Update iterate state
+- Emit event
+
+> ripcord() external onlyEOA
+- Create action info struct
+    - Fetch collateral price
+    - Fetch borrow price
+    - Fetch account value in PERP
+    - Fetch total absolute position value in PERP
+    - Calculate current leverage (total position value / account value)
+- Validate Ripcord
+- Calculate chunk total notional
+    - Calculate max borrow (imRatio for lever, mmRatio for delever)
+- Delever
+- Update ripcord state
+- Send ETH reward to caller
+- Emit event
+
 ## Checkpoint 3
 Before we move onto the implementation phase we want to make sure that we are aligned on the spec. All contracts should be specced out, their state and external function signatures should be defined. For more complex contracts, internal function definition is preferred in order to align on proper abstractions. Reviewer should take care to make sure that all stake holders (product, app engineering) have their needs met in this stage.
 
