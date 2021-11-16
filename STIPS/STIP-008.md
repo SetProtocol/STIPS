@@ -33,7 +33,7 @@ The amount of `_setToken` issued and redeemed is fixed and the amount of assets 
 
 ## Open Questions
 Pose any open questions you may still have about potential solutions here. We want to be sure that they have been resolved before moving ahead with talk about the implementation. This section should be living and breathing through out this process.
-- [ ] Question
+- [ ] Should we generalize this further to allow add view functions to manager hooks that allow for better estimating of post-sync balances during issuance and redemption
     - *Answer*
 ## Feasibility Analysis
 ### The Solution
@@ -52,10 +52,73 @@ Before more in depth design of the contract flows lets make sure that all the wo
 
 ## Proposed Architecture Changes
 A diagram would be helpful here to see where new feature slot into the system. Additionally a brief description of any new contracts is helpful.
+
+**SlippageIssuanceModule** - Module that enables issuance and redemption for positions that incur some form of "slippage" upon issuance. Slippage occurs when positions aren't exactly replicable because internal or external protocol state must be updated during the transaction (i.e. executing Perp trade or accruing AAVE interest).
 ## Requirements
-These should be a distillation of the previous two sections taking into account the decided upon high-level implementation. Each flow should have high level requirements taking into account the needs of participants in the flow (users, managers, market makers, app devs, etc) 
+- Any solution should support issuance of Sets holding the following assets:
+    - Perpetuals
+    - Non-rebasing ERC20s (i.e. not aTokens)
+- Issuers should not be vulnerable to unexpected change in SetToken price such that they pay significantly more than they expect. Possible causes:
+    - Sandwich attack during Perpetual issuance
+    - Realization of interest payments on issuance leading to increase in Set value
+- Good UX for the issuers/redeemers such that they will not accidentally have transactions revert or make it difficult to approve the right amount of tokens
+## Interfaces
+In order to meet the above requirements we propose two main interfaces for issuance and redemption:
+```solidity
+    function issueWithSlippage(
+        ISetToken _setToken,
+        uint256 _setQuantity,
+        address[] memory _checkedComponents,
+        uint256[] memory _maxTokenAmountsIn,
+        address _to
+    )
+        external
+```
+The main additions to this interface from the typical interface are:
+- `_checkedComponents` - This is an array of components the user wants checked for slippage (does not need to be all components in the Set)
+- `_maxTokenAmountsIn` - Max amounts of the checked components a user is willing to pay, maps to index in `_checkedComponents`
+
+
+```solidity
+    function redeemWithSlippage(
+        ISetToken _setToken,
+        uint256 _setQuantity,
+        address[] memory _checkedComponents,
+        uint256[] memory _minTokenAmountsOut,
+        address _to
+    )
+        external
+```
+- `_checkedComponents` - This is an array of components the user wants checked for slippage (does not need to be all components in the Set)
+- `_minTokenAmountsOut` - Min amounts of the checked components a user is willing to receive, maps to index in `_checkedComponents`
+
+
 ## User Flows
-- Highlight *each* external flow enabled by this feature. It's helpful to use diagrams (add them to the `assets` folder). Examples can be very helpful, make sure to highlight *who* is initiating this flow, *when* and *why*. A reviewer should be able to pick out what requirements are being covered by this flow.
+### issueWithSlippage
+An issuer wants to issue a Set containing a Perp in order to get leveraged exposure to ETH
+1. Issuer calls getRequiredIssuanceUnits to get the amount of tokens necessary to collateralize 1 Set containing a USDC collateralized ETH Perp position
+2. Issuer (optionally) calculates a slippage buffer in case the liquidity profile of the ETH perp market changes (similar to Uniswap/Sushiswap etc trades) to create a max amount of USDC they are willing to collateralize the Set with (since the Perp position is USDC collateralized)
+3. Issuer approves the amount calculated in Step 2 to the SlippageIssuanceModule
+4. Issuer calls issue
+5. SlippageIssuanceModule calls hook on PerpModule
+6. PerpModule trades into required amount of base token collateral (note: this temporarily spikes the leverage ratio)
+7. Slippage is calculated and added to amount of perpetual collateral per Set to determine how much of the USDC token is required to collateralize the ETH perpetual position
+8. Required collateral amounts are checked against max amounts passed in by issuer, revert if greater than max
+8. Required perpetual collateral is transferred in to PerpIssuanceModule
+9. Collateral is deposited into Perpetual Protocol via PerpModule (note: this puts the leverage ratio back in line)
+10. Any other collateral is transferred in
+11. SetToken is minted
+### redeemWithSlippage
+The previous issuer wants to redeem the Set they minted in order to close down their leveraged ETH exposure
+1. Redeemer calls getRequiredRedemptionUnits to get the amount of tokens they expect to receive for burning their 1 Set 
+2. Redeemer calculates a slippage buffer in case the liquidity profile of the ETH perp market changes to create a min amount of USDC they are willing to receive for redeeming the Set
+3. Redeemer calls redeem
+4. PerpModule trades out of required amount of base token collateral (note: this temporarily lowers the leverage ratio)
+5. Slippage is calculated and removed from the amount of perpetual collateral per Set to determine how much of the USDC token is returned to the redeemer (redeemer gets value of position net of slippage)
+6. SetToken is burned
+7. Calulated returned collateral amounts are checked against min amounts passed in by issuer, revert if less than min
+8. Collateral is withdrawn from Perpetual protocol
+9. Collateral is transferred back to redeemer
 ## Checkpoint 2
 Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
 
@@ -65,38 +128,65 @@ Reviewer: []
 ## Specification
 ### [Contract Name]
 #### Inheritance
-- List inherited contracts
-#### Structs
-| Type 	| Name 	| Description 	|
-|------	|------	|-------------	|
-|address|manager|Address of the manager|
-|uint256|iterations|Number of times manager has called contract|  
-#### Constants
-| Type 	| Name 	| Description 	| Value 	|
-|------	|------	|-------------	|-------	|
-|uint256|ONE    | The number one| 1       	|
-#### Public Variables
-| Type 	| Name 	| Description 	|
-|------	|------	|-------------	|
-|uint256|hodlers|Number of holders of this token|
+- DebtIssuanceModule
+
 #### Functions
 | Name  | Caller  | Description 	|
 |------	|------	|-------------	|
-|startRebalance|Manager|Set rebalance parameters|
-|rebalance|Trader|Rebalance SetToken|
-|ripcord|EOA|Recenter leverage ratio|
-#### Modifiers
-> onlyManager(SetToken _setToken)
+|issueWithSlippage|Anyone|Issue a set with limits on amount of collateral that can be spent to collateralize|
+|redeemWithSlippage|Anyone|Redeem a set with minimum on amount of collateral expected to be returned|
+|getRequiredComponentIssuanceUnits|Anyone|Gets expected amount of tokens for issuance accounting for position changes during issuance|
+|getRequiredComponentRedemptionUnits|Anyone|Gets expected amount of tokens for redemptions accounting for position changes during redemption|
 #### Functions
-> issue(SetToken _setToken, uint256 quantity) external
-- Pseudo code
+> issueWithSlippage(ISetToken _setToken, uint256 _setQuantity, address[] memory _checkedComponents, uint256[] memory _maxTokenAmountsIn, address _to) external
+- Validate setQuantity > 0 and `_checkedComponents` has unique entries
+- Call manager hook contract
+- Cycle through and call module pre issuance hooks
+- Calculate any issuance fees, manager and protocol
+- Calculate the required issuance units
+- Validate token transfer limits, cycle through `_checkedComponents` array and check that corresponding `_maxTokenAmountsIn` is greater than required transfer amount for that component
+- Resolve equity positions (transfer in tokens to Set and send out to any external positions)
+- Resolve debt positions (add to Set debt and transfer new debt to user)
+- Mint extra SetTokens for fees to manager and protocol (if necessary)
+- Mint SetToken to `_to` address
+
+> redeemWithSlippage(ISetToken _setToken, uint256 _setQuantity, address[] memory _checkedComponents, uint256[] memory _minTokenAmountsOut, address _to) external
+- Validate setQuantity > 0 and `_checkedComponents` has unique entries
+- Cycle through and call module pre issuance hooks
+- Burn `_setQuantity` amount of SetToken from `msg.sender`
+- Calculate any issuance fees, manager and protocol
+- Calculate the required issuance units
+- Validate token transfer limits, cycle through `_checkedComponents` array and check that corresponding `_minTokenAmountsOut` is less than required transfer amount for that component
+- Resolve debt positions (transfer in debt position from `msg.sender` and use to pay back debt in external protocol)
+- Resolve equity positions (withdraw any tokens from external protocols and return equity to `_to` address)
+- (Re)mint extra SetTokens for fees to manager and protocol (if necessary)
+
+> getRequiredComponentIssuanceUnits(ISetToken _setToken, uint256 _quantity) external view
+- Calculate the total amount of Sets to issue including fees, `totalQuantity`
+- Cycle through each registered module issuance hook doing the following
+    - Call `getIssuanceAdjustments` on each module
+    - Keep a running sum of each component's equity and debt adjustments
+- Calculate and return the amount of tokens required for issuance
+    - Get the equity and debt units for each component in the Set, sum any external equity positions to Default positions
+    - Add adjustments calculated in previous step to equity and debt units calculated in this step
+    - Multiply resulting units by `totalQuantity`
+
+> getRequiredComponentRedemptionUnits(ISetToken _setToken, uint256 _quantity) external view
+- Calculate the total amount of Sets to issue including fees, `totalQuantity`
+- Cycle through each registered module issuance hook doing the following
+    - Call `getRedemptionAdjustments` on each module
+    - Keep a running sum of each component's equity and debt adjustments
+- Calculate and return the amount of tokens required for issuance
+    - Get the equity and debt units for each component in the Set, sum any external equity positions to Default positions
+    - Add adjustments calculated in previous step to equity and debt units calculated in this step
+    - Multiply resulting units by `totalQuantity`
+
 ## Checkpoint 3
-Before we move onto the implementation phase we want to make sure that we are aligned on the spec. All contracts should be specced out, their state and external function signatures should be defined. For more complex contracts, internal function definition is preferred in order to align on proper abstractions. Reviewer should take care to make sure that all stake holders (product, app engineering) have their needs met in this stage.
 
 **Reviewer**:
 
 ## Implementation
-[Link to implementation PR]()
+[Link to implementation PR](https://github.com/SetProtocol/set-protocol-v2/pull/162)
 ## Documentation
 [Link to Documentation on feature]()
 ## Deployment
