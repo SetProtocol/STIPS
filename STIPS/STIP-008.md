@@ -95,6 +95,8 @@ The main additions to this interface from the typical interface are:
 
 ## User Flows
 ### issueWithSlippage
+![issueWithSlippage](../assets/stip-008/issueWithSlippage.png "")
+
 An issuer wants to issue a Set containing a Perp in order to get leveraged exposure to ETH
 1. Issuer calls getRequiredIssuanceUnits to get the amount of tokens necessary to collateralize 1 Set containing a USDC collateralized ETH Perp position
 2. Issuer (optionally) calculates a slippage buffer in case the liquidity profile of the ETH perp market changes (similar to Uniswap/Sushiswap etc trades) to create a max amount of USDC they are willing to collateralize the Set with (since the Perp position is USDC collateralized)
@@ -104,21 +106,22 @@ An issuer wants to issue a Set containing a Perp in order to get leveraged expos
 6. PerpModule trades into required amount of base token collateral (note: this temporarily spikes the leverage ratio)
 7. Slippage is calculated and added to amount of perpetual collateral per Set to determine how much of the USDC token is required to collateralize the ETH perpetual position
 8. Required collateral amounts are checked against max amounts passed in by issuer, revert if greater than max
-8. Required perpetual collateral is transferred in to PerpIssuanceModule
-9. Collateral is deposited into Perpetual Protocol via PerpModule (note: this puts the leverage ratio back in line)
-10. Any other collateral is transferred in
+9. Required perpetual collateral (plus any other collateral) is transferred in to PerpIssuanceModule
+10. Collateral for ETH perp position is deposited into Perpetual Protocol via PerpModule (note: this puts the leverage ratio back in line)
 11. SetToken is minted
 ### redeemWithSlippage
+![redeemWithSlippage](../assets/stip-008/redeemWithSlippage.png "")
 The previous issuer wants to redeem the Set they minted in order to close down their leveraged ETH exposure
 1. Redeemer calls getRequiredRedemptionUnits to get the amount of tokens they expect to receive for burning their 1 Set 
 2. Redeemer calculates a slippage buffer in case the liquidity profile of the ETH perp market changes to create a min amount of USDC they are willing to receive for redeeming the Set
 3. Redeemer calls redeem
-4. PerpModule trades out of required amount of base token collateral (note: this temporarily lowers the leverage ratio)
-5. Slippage is calculated and removed from the amount of perpetual collateral per Set to determine how much of the USDC token is returned to the redeemer (redeemer gets value of position net of slippage)
-6. SetToken is burned
-7. Calulated returned collateral amounts are checked against min amounts passed in by issuer, revert if less than min
-8. Collateral is withdrawn from Perpetual protocol
-9. Collateral is transferred back to redeemer
+4. SlippageIssuanceModule calls hook on PerpModule
+5. PerpModule trades out of required amount of base token collateral (note: this temporarily lowers the leverage ratio)
+6. Slippage is calculated and removed from the amount of perpetual collateral per Set to determine how much of the USDC token is returned to the redeemer (redeemer gets value of position net of slippage)
+7. SetToken is burned
+8. Calulated returned collateral amounts are checked against min amounts passed in by issuer, revert if less than min
+9. Collateral is withdrawn from Perpetual protocol
+10. Collateral is transferred back to redeemer
 ## Checkpoint 2
 Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
 
@@ -126,7 +129,7 @@ Before we spec out the contract(s) in depth we want to make sure that we are ali
 
 Reviewer: []
 ## Specification
-### [Contract Name]
+### SlippageIssuanceModule
 #### Inheritance
 - DebtIssuanceModule
 
@@ -180,6 +183,18 @@ Reviewer: []
     - Get the equity and debt units for each component in the Set, sum any external equity positions to Default positions
     - Add adjustments calculated in previous step to equity and debt units calculated in this step
     - Multiply resulting units by `totalQuantity`
+
+
+### IModuleIssuanceHookV2
+#### Inheritance
+- IModuleIssuanceHook (inheritance not implemented but in essence it is)
+
+#### Functions
+> function getIssuanceAdjustments(ISetToken _setToken, uint256 _setTokenQuantity) external view returns (int256[] memory, int256[] memory)
+- Each implmentation will be different however it should return two arrays: 1) adjustment for equity positions (Default + External) and 2) adjustment for debt positions. There is an implicit third argument, the `components` array, adjustments for a given component should be inserted in the index of that component in the components array. If there is no adjustment to be made than 0 should be inserted. An adjustment is defined as the difference between what one expects the *positionUnits* to be after issuance vs what they are currently stored as on the SetToken. For example, if there is a USDC position that has an external equity position stored as 100 USDC and after issuance it would be updated to 102 USDC then the USDC slot in the `components` array would be 2.
+
+> function getRedemptionAdjustments(ISetToken _setToken, uint256 _setTokenQuantity) external view returns (int256[] memory, int256[] memory)
+- Each implmentation will be different however it should return two arrays: 1) adjustment for equity positions (Default + External) and 2) adjustment for debt positions. There is an implicit third argument, the `components` array, adjustments for a given component should be inserted in the index of that component in the components array. If there is no adjustment to be made than 0 should be inserted. An adjustment is defined as the difference between what one expects the *positionUnits* to be after redemption vs what they are currently stored as on the SetToken. For example, if there is a USDC position that has an external equity position stored as 100 USDC and after issuance it would be updated to 98 USDC then the USDC slot in the `components` array would be -2.
 
 ## Checkpoint 3
 
