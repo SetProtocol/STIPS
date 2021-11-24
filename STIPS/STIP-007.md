@@ -41,21 +41,14 @@ In general, external perpetual protocols simplify the lever and delever flows fo
 |Leverage ratio - Collateral / (Collateral - Debt value)|Leverage ratio - AccountBalance.getTotalAbsPositionValue / ClearingHouse.accountValue |
 
 ### Perp Module Interface
-This is the current iteration of the interface we are thinking of for trading on the perp module:
+This is the current interface for the perp module:
 ```solidity
-function lever(
+function trade(
     ISetToken _setToken,
     address _baseToken,
     int256 _baseQuantityUnits,
-    uint256 _minReceiveQuantityUnits
-)
-
-function delever(
-    ISetToken _setToken,
-    address _baseToken,
-    int256 _baseQuantityUnits,
-    uint256 _minReceiveQuantityUnits
-)
+    uint256 _receiveQuoteQuantityUnits
+) external;
 ```
 
 ## Open Questions
@@ -65,7 +58,11 @@ function delever(
     - Yes. No good reason to change it and gas fees are much lower on L2 so incentive can be way lower
 - [ ] What functions are needed to derive the state from Perp?
     - getTotalAbsPositionValue, getImRatio, getMmRatio, accountValue
+- [ ] Do we need to take into account max borrow if max leverage is 10x?
+    - No, we can remove this logic that was previously in ALM and CLM
+    - getTotalAbsPositionValue, getImRatio, getMmRatio, accountValue
 - [ ] Can this be generalized to use FST and PERP?
+    - No
 - [ ] Can we make an assumption that spot and perp prices are going to be very close?
 
 ## Feasibility Analysis
@@ -76,6 +73,7 @@ function delever(
 - No need for a viewer contract
 - Use Chainlink oracles to price slippage and determine trade size. We need to assume that perp and spot prices will be within a reasonable %
 - Retrieve leverage and max borrow calculations from Perp directly vs using Chainlink oracles on our own
+- Allow negative leverage ratios for short positions against USDC
 
 Uses the existing strategy extension structure. We can always create new extension contracts and upgrade.
 
@@ -100,8 +98,8 @@ Before more in depth design of the contract flows lets make sure that all the wo
 - Use Chainlink to retrieve oracle prices to price slippage
 - Use PerpModule view function instead to calculate account leverage 
 - Updates data structures to reflect new contracts
-- Update calculateMaxBorrow
-- Update calculateCurrentLeverageRatio
+- Remove calculateMaxBorrow
+- Update all variables to allow negative numbers
 
 ![flow diagram](../assets/perpetualLeverageStrategy.png)  
 
@@ -115,14 +113,13 @@ Before more in depth design of the contract flows lets make sure that all the wo
 A keeper wants to rebalance the Perp token which last rebalanced a day ago so calls shouldRebalance on the strategy contract directly
 - The keeper calls `rebalance` on the PerpStrategyExtension
 - The exchange's max trade size is grabbed from storage
-- The account leverage (AccountBalance.getTotalAbsPositionValue / ClearingHouse.accountValue) and max leverage (getImRatio for levering, getMmRatio for delevering) is grabbed from Perp V2
-- Validate leverage ratio isn't above ripcord and that enough time has elapsed since lastTradeTimestamp (unless outside bounds)
+- The balance of the baseToken and quoteToken (USDC) are grabbed from Perp V2
+- Validate absolute value of leverage ratio isn't above ripcord and that enough time has elapsed since lastTradeTimestamp (unless outside bounds)
 - Validate not in TWAP
-- Calculate new leverage ratio using Perp helpers
-- Calculate the total rebalance size and the chunk rebalance size, the chunk rebalance size is less than total rebalance size
-- Use Chainlink oracles
-- Read max leverage parameter from perp exchange and ensure that we are below it
-- Create calldata for invoking trade on PerpModule
+- Calculate new leverage ratio
+- Calculate the total rebalance size and the chunk rebalance size (negative for short tokens), the chunk rebalance size is less than total rebalance size
+- Use Chainlink oracles to calculate slippage in quoteToken (USDC)
+- Create calldata for invoking trade on PerpModule. Pass in baseToken, minQuoteTokenReceived, positionUnits traded (negative for shorts)
 - Log the last trade timestamp
 - Set the twapLeverageRatio so that we don't have to recalculate the target leverage ratio again for this TWAP
 
@@ -130,10 +127,10 @@ A keeper wants to rebalance the Perp token which last rebalanced a day ago so ca
 1. A keeper wants to rebalance the token which kicked off a TWAP rebalance one block ago so calls shouldRebalance which tells it to iterate
 2. The keeper calls `iterateRebalance` 
 3. The max trade size and last trade timestamp are grabbed from storage
-4. Validate leverage ratio isn't above ripcord and that enough time has elapsed since lastTradeTimestamp 
-5. Validate leverage ratio isn't above ripcord and that enough time has elapsed since last lastTradeTimestamp 
+4. Validate abs of leverage ratio isn't above ripcord and that enough time has elapsed since lastTradeTimestamp 
+5. Validate abs of leverage ratio isn't above ripcord and that enough time has elapsed since last lastTradeTimestamp 
 6. Validate TWAP is underway
-7. Calculate new leverage ratio using Perp helpers
+7. Calculate new leverage ratio
 8. Check that prices haven't moved making continuing rebalance unnecessary
 9. Calculate the total rebalance size and the chunk rebalance size, the chunk rebalance size equals total rebalance size
 10. Create calldata for invoking lever/delever
@@ -145,9 +142,9 @@ A keeper wants to rebalance the Perp token which last rebalanced a day ago so ca
 2. The keeper calls `ripcord` 
 3. The incentivized max trade size and last trade timestamp are grabbed from storage
 4. The current leverage ratio is calculated and all params are gathered for the rebalance including incentivized trade size
-5. Validate that leverage ratio outside bounds and that incentivized cool down period has elapsed from lastTradeTimestamp
+5. Validate that abs leverage ratio outside bounds and that incentivized cool down period has elapsed from lastTradeTimestamp
 6. Calculate the notional amount of the chunk rebalance size
-7. Create calldata for invoking delever on CLM
+7. Create calldata for trading
 8. Log last trade timestamp
 9. Delete twapLeverageRatio
 10. Transfer ether to keeper
@@ -167,8 +164,13 @@ Reviewer: []
 ##### ContractSettings
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|address|manager|Address of the manager|
-|uint256|iterations|Number of times manager has called contract|  
+|ISetToken|setToken|Instance of leverage token|
+|IPerpV2LeverageModule|perpV2LeverageModule|Instance of Perp V2 leverage module|
+|IAccountBalance|perpV2AccountBalance|Instance of Perp V2 AccountBalance contract used to fetch position balances|
+|IChainlinkAggregatorV3|basePriceOracle|Chainlink oracle feed that returns prices in 8 decimals for collateral asset|
+|IChainlinkAggregatorV3|quotePriceOracle|Chainlink oracle feed that returns prices in 8 decimals for collateral asset|
+|address|virtualBaseAddress|Address of virtual base asset (e.g. vETH, vWBTC etc)|
+|address|virtualQuoteAddress|Address of virtual USDC quote asset. The Perp V2 system uses USDC for all markets|
 
 #### Public Variables
 | Type 	| Name 	| Description 	|
@@ -207,46 +209,46 @@ modifier noRebalanceInProgress() {
 #### Functions
 > rebalance() external onlyEOA
 - Create action info struct
-    - Fetch collateral price
-    - Fetch borrow price
-    - Fetch account value in PERP
-    - Fetch total absolute position value in PERP
-    - Calculate current leverage (total position value / account value)
+    - Fetch base token price
+    - Fetch quote token price
+    - Fetch base token value in PERP
+    - Fetch quote token value in PERP
+    - Calculate current leverage
 - Validate normal rebalance / non TWAP
 - Calculate new leverage ratio
 - Handle rebalance
     - Calculate chunk total notional
-        - Calculate max borrow (imRatio for lever, mmRatio for delever)
+        - Calculate max quote token (imRatio for lever, mmRatio for delever)
     - Lever or delever on PerpModule depending on leverage ratio
 - Update rebalance state
 - Emit event
 
 > iterateRebalance() external onlyEOA
 - Create action info struct
-    - Fetch collateral price
-    - Fetch borrow price
-    - Fetch account value in PERP
-    - Fetch total absolute position value in PERP
-    - Calculate current leverage (total position value / account value)
+    - Fetch base token price
+    - Fetch quote token price
+    - Fetch base token value in PERP
+    - Fetch quote token value in PERP
+    - Calculate current leverage
 - Validate normal rebalance / is TWAP
 - Check if advantageous TWAP and exit
 - Handle rebalance
     - Calculate chunk total notional
-        - Calculate max borrow (imRatio for lever, mmRatio for delever)
+        - Calculate max quote token (imRatio for lever, mmRatio for delever)
     - Lever or delever on PerpModule depending on leverage ratio
 - Update iterate state
 - Emit event
 
 > ripcord() external onlyEOA
 - Create action info struct
-    - Fetch collateral price
-    - Fetch borrow price
-    - Fetch account value in PERP
-    - Fetch total absolute position value in PERP
-    - Calculate current leverage (total position value / account value)
+    - Fetch base token price
+    - Fetch quote token price
+    - Fetch base token value in PERP
+    - Fetch quote token value in PERP
+    - Calculate current leverage
 - Validate Ripcord
 - Calculate chunk total notional
-    - Calculate max borrow (imRatio for lever, mmRatio for delever)
+    - Calculate max quote token (imRatio for lever, mmRatio for delever)
 - Delever
 - Update ripcord state
 - Send ETH reward to caller
