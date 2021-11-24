@@ -11,7 +11,7 @@ We’re interested in perpetual futures protocols as a vehicle for designing:
 * FLI products for a wider range of base tokens
 * FLI products with larger leverage multiples (ex: BTC-FLI3X)
 * Inverse FLI products
-* Basis trading products, e.g for products that buy assets in the spot market and sell futures contracts for them, capturing the difference in price between these as revenue.
+* Basis trading products, e.g for products that capture futures markets funding flows while remaining market neutral with respect to the underlying asset's price action
 
 ## Background
 
@@ -1257,14 +1257,18 @@ function moduleIssueHook(
 + usdcAmountIn = 0
 + vBasePositions = getPositionInfoNotional(_setToken)
 
-+ Calculate account leverage using AMM spot price
-  + for vBase of vBasePositions
-    + spotPrice = getAMMSpotPrice(vBase)
-    + vBasePositionAbsoluteValue += abs(vBase.baseBalance * spotPrice)
-    + vBasePositionNetValue += vBase.baseBalance * spotPrice)
++ Read account balances for collateral, owedRealizedPnl, pendingFunding and netQuoteBalance
+  + accountInfo = getAccountInfo(_setToken)
 
-  + denominator = vBasePositionNetValue + positionInfo.quoteBalance + AccountInfo.collateralBalance;
-  + accountLeverage = vBasePositionAbsoluteValue / denominator
++ Calculate baseline amount of USDC to transfer as the value per set excluding *sum(vAssetPosition values)* for set token quantity to issue
+  ```solidity
+  int256 usdcAmountIn = accountInfo.collateralBalance
+    .add(accountInfo.owedRealizedPnl)
+    .add(accountInfo.pendingFundingPayments)
+    .add(accountInfo.netQuoteBalance)
+    .preciseDiv(_setToken.totalSupply().toInt256())
+    .preciseMul(_setTokenQuantity.toInt256());
+  ```
 
 for vBase, index of vBasePositions:
 
@@ -1273,7 +1277,7 @@ for vBase, index of vBasePositions:
 
 + Calculate ideal cost of trade
   + vBasePositionUnit = positionInfo.baseBalance / _setToken.totalSupply
-  + vBaseTradeAmount = abs(vBasePositionUnit * _setTokenQuantity)
+  + vBaseTradeAmount = vBasePositionUnit * _setTokenQuantity
   + spotPrice = getAMMSpotPrice(vBase)
   + idealDeltaQuote = vBaseTradeAmount * spotPrice // without slippage or fees
 
@@ -1286,7 +1290,7 @@ for vBase, index of vBasePositions:
     baseToken: vBase
     isBaseToQuote: false	// long
     isExactInput: false	// need exact vQuote minted
-    amount: vBaseTradeAmount
+    amount: vBaseTradeAmount.abs()
     sqrtPriceLimitX96: 0	// slippage protection
   }
   ```
@@ -1298,7 +1302,7 @@ for vBase, index of vBasePositions:
     baseToken: vBase
     isBaseToQuote: true	// short
     isExactInput: true	// need exact vQuote minted
-    amount: vBaseTradeAmount
+    amount: vBaseTradeAmount.abs()
     sqrtPriceLimitX96: 0	// slippage protection
   }
   ```
@@ -1311,12 +1315,10 @@ for vBase, index of vBasePositions:
     + slippageCost = deltaQuote - idealDeltaQuote
 
   + *If short*
-    + slippageCost = idealDeltaQuote - deltaQuote
+    + slippageCost = idealDeltaQuote.abs() - deltaQuote
 
 + Calculate addtional usdcAmountIn and add to running total.
-  + owedRealizedPnLPositionUnit = (positionInfo.carriedOwedRealizedPnL + positionInfo.pendingFunding) / setToken.totalSupply
-  + owedRealizedPnLDiscount = owedRealizedPnLPositionUnit * _setTokenQuantity
-  + usdcAmountIn += (idealDeltaQuote / accountLeverage) + slippageCost + owedRealizedPnLDiscount
+  + usdcAmountIn += idealDeltaQuote + slippageCost
 
 Set USDC externalPositionUnit such that DIM can use it for transfer calculation.
 + newUnit = usdcAmountIn / _setTokenQuantity
