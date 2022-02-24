@@ -25,7 +25,21 @@ Pose any open questions you may still have about potential solutions here. We wa
 - [ ] How do we validate that trades for *x* asset are actually for *x* asset when the trade is encoded in a bunch of bytedata?
     - *Answer*
 ## Feasibility Analysis
-Provide potential solution(s) including the pros and cons of those solutions and who are the different stakeholders in each solution. A recommended solution should be chosen here.
+**Single-use vs. Mutli-use Manager Contracts**
+
+Single-use manager contracts would be deployed once per Set Token, while a multi-use manager contract would be deployed once overall and could subsequently be used by all Set Tokens. Single-use manager contracts maintain separation between Set Tokens at the contract level but require individual deployments for each Set Token. A multi-use manager contract requires only one deployment but has functionality across many Set Tokens, which may open up attack vectors.
+
+**Modular vs. Monolithic Manager Contracts**
+
+With modular manager contracts, operators call extension contracts which invoke the manager with arbitrary logic. With monolithic manager contracts, operators call the manager contract directly with logic defined on deployment. The modular manager contracts maintain more flexiblity but require extensions to be deployed and enabled. The monolithic manager contract requires migration for upgradeability but does not need extensions for functionality.
+
+**Individual vs. Global Extensions**
+
+With individual extensions, a new extension contract must be deployed and enabled to provide some functionality to the manager. With global extensions, a collection of extension contracts would be deployed by Set Protocol and made available to managers by simply enabling them. Individual extensions offer more flexibility to managers but require individual contract deployments from managers. Global extensions offer less flexibility but do not require managers to make contract deployments.
+
+**Recommended Solution**
+
+The recommended solution deploys single-use, modular manager contracts with a collection of multi-use, global extensions providing basic functionality. The single-use manager contracts maintain the separation of Set Tokens from each other at the contract level. The modularity of the manager contracts allows for functionaity to be flexible and extensible. The collection of multi-use extensions gives managers access to basic functionality with only a state change and no contract deployment. Manager's will still have the option of deploying individual extensions for more complicated functionality.
 ## Timeline
 A proposed timeline for completion
 ## Checkpoint 1
