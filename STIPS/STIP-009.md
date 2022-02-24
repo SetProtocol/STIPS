@@ -1,27 +1,28 @@
 # STIP-009: Self Service Manager Contracts
 *Using template v0.1*
 ## Abstract
-Should be a brief description of the problem, and a small explainer of why it's a problem. There should be no discussion of potential solutions in the Abstract. 
+In order to offer self-service deployment and management of Sets we need to create a standard set of manager contracts that is able to effectively delegate responsibilities to certain addresses and limit the assets that delegated addresses can add to positions.
 ## Motivation
-This section should clearly answer the 4 big questions:  
-- What is this feature?
-- Why is this feature necessary
-    - Ideally a lot of this is captured in a good PRD
-- Who is this feature for?
-    - Managers, issuers, arbers, app devs
-- When is this feature going to be used? (At any time? Or only at certain times?)
-- How is this feature intended to be used?
-    - This may also include potential products/use cases this feature enables
+This feature will allow us to provide a standardized experience to SetToken owners that want to use the TokenSets UI to manage their Set. Currently, TokenSets supports only EOA managed Sets while the Sets with the largest TVL are generally managed by smart contracts (in order to restrict the manager's ability to rug users), here we seek to move everyone onto manager contracts. The manager contracts will facilitate better delegation abilities via the addition of operators (not to be confused with the operator role in previous manager contracts which will now be known as owners) which can execute trades, wraps, claims, etc. Additionally, the owner role will also be able to enforce asset whitelists on their delegated operators in order to make sure they are not able to trade into an asset they are not supposed to.
 
-If there are multiple user stories associated with this feature it may make sense to ask all of these questions in the context of each user story. Feel free to sub-divide this section however necessary.
+Additional functionality will be built to facilitate the deployment of new Sets/manager contracts as well as the migration of old Sets to the new manager system. The goal is to minimize the amount of transactions necessary to deploy the Set/Manager as well initialize the Set's modules.
+
+All of this should add up to a better experience for the owner to create and manage their own Set while simplifying and standardizing flows on TokenSets. 
+
 ## Background Information
-This section should contain any relevant info required for understanding the problem at hand. This may include any of the following:
-- Previous work done on the topic
-- Discussion of any relevant parts of the Set system
-- Documentation on any external protocols to consider when designing the solution. Links are great but providing relevant interfaces AND a brief description of how the protocol works is a big plus, highlighting any nuances (ie in AAVE interest accrues by creating more aTokens vs Compound accrues by updating cToken to underlying exchange rate)
+At the moment there are two ways to manage Sets,(1) directly via an EOA or multi-sig, or (2) via manager contract(s). EOAs/multi-sigs provide the greatest amount of flexibility because you are interacting directly with the system however they do not allow for advanced permissioning or further restrictions on the rebalancing of the Set, something a buyer of a Set may want in order to guarantee they will not be rugged by the manager. Currently there are no "standard" manager contracts built to interact with Sets and supported by the TokenSets UI, however there are a mixture of previous smart contracts with various different features:
+
+[ICManager](https://github.com/IndexCoop/index-coop-smart-contracts/blob/master/contracts/manager/ICManager.sol) - This was the monolithic, first iteration of a manager contract that contains `operator` and `methodologist` roles. It is not extensible via other contracts but did contain a function that allowed the `operator` to pass arbitrary bytedata to a target contract address (to call modules). This contract wasn't desirable due to it being unable to be conveniently upgraded as well as its poor UX for managers who would look to add new functionality (having to submit arbitrarty bytestrings instead of having clear interfaces).
+
+[BaseManager](https://github.com/IndexCoop/index-coop-smart-contracts/blob/master/contracts/manager/BaseManager.sol) - This next generation manager contract system was a more modular approach where extensions could be added to a BaseManager contract to add new functionality. This contract maintained the idea of an `operator` and `methodologist`, giving the `operator` the ability to add new functionality. Extensions became the only addresses permissioned to call an `interactManager` function on the manager which forwarded arbitrary bytedata to a target address (generally a module). This gave `operator`s much of the same powers as in the `ICManager` but the ability to add clean interfaces to interact with as well as be able to encode strategies to govern SetTokens within one of their extensions to allow for more decentralized execution of rebalances.
+
+[BaseManagerV2](https://github.com/IndexCoop/index-coop-smart-contracts/blob/master/contracts/manager/BaseManagerV2.sol) - This manager contract is very similar to `BaseManager` it just gave `methodologists` greater ability to counteract `operators` ablility to add and remove privileged functionalities from the manager in case of an adversarial relationship between the `operator` and `methodologist`.
+
 ## Open Questions
 Pose any open questions you may still have about potential solutions here. We want to be sure that they have been resolved before moving ahead with talk about the implementation. This section should be living and breathing through out this process.
-- [ ] Question
+- [ ] When accruing streaming fees where do we send the fees to? The manager?
+    - *Answer*
+- [ ] How do we validate that trades for *x* asset are actually for *x* asset when the trade is encoded in a bunch of bytedata?
     - *Answer*
 ## Feasibility Analysis
 Provide potential solution(s) including the pros and cons of those solutions and who are the different stakeholders in each solution. A recommended solution should be chosen here.
