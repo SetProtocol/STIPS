@@ -74,7 +74,7 @@ The recommended solution deploys single-use, modular manager contracts from a ma
 
 ![Proposed Architecture Changes](../assets/stip-009/image1.png "")
 
-**ManagerFactory**: Factory smart contract which provides asset managers the ability to `create` new Set Tokens with a BaseManagerV3 manager, `migrate` existing Set Tokens to a BaseManagerV3 manager, and `initialize` modules and enable extensions.
+**ManagerFactory**: Factory smart contract which provides asset managers (`deployer`) the ability to `create` new Set Tokens with a BaseManagerV3 manager, `migrate` existing Set Tokens to a BaseManagerV3 manager, and `initialize` modules and enable extensions.
 
 **BaseManagerV3**: Manager smart contract which provides asset managers three permissioned roles (`owner`, `methodologist`, `operator`) and asset whitelist functionality. The `owner` grants permissions to `operator`(s) to interact with extensions. The `owner` can restrict the `operator`(s) permissions with an asset whitelist.
 
@@ -88,10 +88,10 @@ The recommended solution deploys single-use, modular manager contracts from a ma
 
 **ManagerFactory**
 
-- Allow `owner` to create new set tokens with a manager smart contract
-- Allow `owner` to migrate existing set tokens to a manager smart contract
-- Allow `owner` to enable extensions and initialize corresponding modules
-- Allow `owner` to create manager smart contract and initialize and parameterize all modules and extensions in two transactions
+- Allow `deployer` to create new set tokens with a manager smart contract
+- Allow `deployer` to migrate existing set tokens to a manager smart contract
+- Allow `deployer` to enable extensions and initialize corresponding modules
+- Allow `deployer` to create manager smart contract and initialize and parameterize all modules and extensions in two transactions
 
 **BaseManagerV3**
 
@@ -129,9 +129,9 @@ The recommended solution deploys single-use, modular manager contracts from a ma
 
 ![ManagerFactory create](../assets/stip-009/image2.png "")
 
-An `owner` wants to create a new Set Token with a BaseManagerV3 smart contract manager.
+An `deployer` wants to create a new Set Token with a BaseManagerV3 smart contract manager.
 
-1. The `owner` calls create() passing in parameters to create a Set Token, parameters for the permissioning on BaseManagerV3, and the desired extensions. Specifically,
+1. The `deployer` calls create() passing in parameters to create a Set Token, parameters for the permissioning on BaseManagerV3, and the desired extensions. Specifically,
 
     - components: List of addresses of components for initial positions
     - units: List of units for initial positions
@@ -146,16 +146,15 @@ An `owner` wants to create a new Set Token with a BaseManagerV3 smart contract m
 
 2. A Set Token is deployed using SetTokenCreator
 3. A BaseManagerV3 is deployed with the ManagerFactory as the temporary `owner` until after initialization
-4. The `owner` and `msg.sender` for the Set Token are stored on the Factory and BaseManagerV3
-5. The Set Token and Manager are put in pending state on the Factory
+4. The `deployer`, `owner`, and BaseManagerV3 are stored on the Factory in pending state
 
 ### ManagerFactory.migrate()
 
 ![ManagerFactory migrate](../assets/stip-009/image3.png "")
 
-An `owner` wants to migrate an existing Set Token to a BaseManagerV3 smart contract manager.
+An `deployer` wants to migrate an existing Set Token to a BaseManagerV3 smart contract manager.
 
-1. The `owner` calls migrate() passing in the Set Token address, parameters for the permissioning on BaseManagerV3, and the desired extensions. Specifically,
+1. The `deployer` calls migrate() passing in the Set Token address, parameters for the permissioning on BaseManagerV3, and the desired extensions. Specifically,
 
     - owner: The address of the `owner`
     - methodologist: The address of the `methodologist`
@@ -164,19 +163,18 @@ An `owner` wants to migrate an existing Set Token to a BaseManagerV3 smart contr
     - extensions: List of addresses of global extensions to be enabled
 
 2. A BaseManagerV3 is deployed with the ManagerFactory as the temporary `owner` until after initialization
-3. The `owner` and `msg.sender` for the Set Token are stored on the Factory and BaseManagerV3
-4. The Set Token and Manager are put in pending state on the Factory
+3. The `deployer`, `owner`, and BaseManagerV3 are stored on the Factory in pending state
 
 ### ManagerFactory.initialize()
 
 ![ManagerFactory initialize](../assets/stip-009/image4.png "")
 
-An `owner` wants to enable all extensions and initialize all corresponding modules.
+The `deployer` wants to enable all extensions, initialize all corresponding modules, and transfer the manager `owner` role.
 
-1. The `owner` calls initialize() passing in the parameters for initializing modules and extensions
+1. The `deployer` calls initialize() passing in the parameters for initializing modules and extensions
 2. All modules are initialized via the extensions
-3. The Set Token and Manager are put in initialized state on the ManagerFactory
-4. The `owner` role is transfered from the Factory to the input `owner`
+3. The `owner` role on the BaseManagerV3 is transfered from the Factory to the input `owner`
+4. The Factory deletes in `InitializeParams` for the set token, removing it from pending state
 
 ### StreamingFeeExtension
 
@@ -195,40 +193,52 @@ An `owner` and `methodologist` want to split streaming fees with the option for 
 
 
 ## Checkpoint 2
+
 Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
 
 **Reviewer**:
 
 Reviewer: []
+
 ## Specification
-### [Contract Name]
-#### Inheritance
-- List inherited contracts
+
+### ManagerFactory
+
 #### Structs
+
+##### InitializationParams
+
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|address|manager|Address of the manager|
-|uint256|iterations|Number of times manager has called contract|  
-#### Constants
-| Type 	| Name 	| Description 	| Value 	|
-|------	|------	|-------------	|-------	|
-|uint256|ONE    | The number one| 1       	|
+|address|deployer|Address of the deployer|
+|address|owner|Address of the owner|
+|address|manager|Address of the BaseManagerV3|
+|bool|isPending|Bool if manager in pending state|  
+
 #### Public Variables
+
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|uint256|hodlers|Number of holders of this token|
+|address|factory|Address of Set Token factory
+|
 #### Functions
+
 | Name  | Caller  | Description 	|
 |------	|------	|-------------	|
-|startRebalance|Manager|Set rebalance parameters|
-|rebalance|Trader|Rebalance SetToken|
-|ripcord|EOA|Recenter leverage ratio|
-#### Modifiers
-> onlyManager(SetToken _setToken)
-#### Functions
-> issue(SetToken _setToken, uint256 quantity) external
-- Pseudo code
+|create|deployer|Create new Set Token with a BaseManagerV3 manager|
+|migrate|deployer|Migrate existing Set Token to a BaseManagerV3 manager|
+|initialize|deployer|Initialize modules and extensions|
+
+### BaseManagerV3
+
+### BasicIssuanceExtension
+
+### StreamingFeeSplitExtension
+
+### TradeExtension
+
 ## Checkpoint 3
+
 Before we move onto the implementation phase we want to make sure that we are aligned on the spec. All contracts should be specced out, their state and external function signatures should be defined. For more complex contracts, internal function definition is preferred in order to align on proper abstractions. Reviewer should take care to make sure that all stake holders (product, app engineering) have their needs met in this stage.
 
 **Reviewer**:
