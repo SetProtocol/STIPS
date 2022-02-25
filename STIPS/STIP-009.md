@@ -176,20 +176,15 @@ The `deployer` wants to enable all extensions, initialize all corresponding modu
 3. The `owner` role on the BaseManagerV3 is transfered from the Factory to the input `owner`
 4. The Factory deletes in `InitializeParams` for the set token, removing it from pending state
 
-### StreamingFeeExtension
+### StreamingFeeExtension.accrueFeeAndDistribute()
 
 ![StreamingFeeExtension](../assets/stip-009/image5.png "")
 
-An `owner` and `methodologist` want to split streaming fees with the option for the `owner` to update the parameters of the split.
+An interested party wants to accrue streaming fees and distribute them to the `owner` and `methodologist`.
 
-1. The `owner` calls initialize() passing in the parameters for the streaming fee split with the `methodologist`
-2. The `owner` can update the streaming fee percentage
-3. The `owner` can update the streaming fee split
-4. Anyone can
-
-    4a. accrue the streaming fee to the manager
-
-    4b. distribute the streaming fee to the `owner` and `methodologist`
+1. The interested party calls accrueFeeAndDistribute() on the StreamingFeeExtension
+2. Fees are accrued to the BaseManagerV3
+3. Fees are distributed to the `owner` and `methodologist`
 
 
 ## Checkpoint 2
@@ -220,7 +215,7 @@ Reviewer: []
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
 |address|factory|Address of Set Token factory
-|
+
 #### Functions
 
 | Name  | Caller  | Description 	|
