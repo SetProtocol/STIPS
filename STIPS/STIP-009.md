@@ -24,6 +24,15 @@ Pose any open questions you may still have about potential solutions here. We wa
     - *Answer*
 - [ ] How do we validate that trades for *x* asset are actually for *x* asset when the trade is encoded in a bunch of bytedata?
     - *Answer*
+- [ ] What data needs to be held on every extension? What data needs to be passed in for initialization on each extension?
+    - *Initialization and Data Needs:*
+        - *SetToken address*
+        - *Manager contract address*
+- [ ] Do we need an initialization flow similar to SetTokens/modules?
+    - *Answer*
+- [ ] During migration when does the EOA manager update the manager address to the deployed manager?
+    - *Current thoughts are that extension initialization and module initialization happen in same step. However the manager would need to be the manager contract at that point for it to not fail. Given that the initialization step is being called by the factory we would need to update the manager on the SetToken before initialization*
+
 ## Feasibility Analysis
 **Single-use vs. Mutli-use Manager Contracts**
 
