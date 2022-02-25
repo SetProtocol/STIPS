@@ -88,27 +88,28 @@ The recommended solution deploys single-use, modular manager contracts from a ma
 
 **ManagerFactory**
 
-- Allow owners to create new set tokens with a manager smart contract
-- Allow owners to migrate existing set tokens to a manager smart contract
-- Allow owners to create manager smart contract and initialize and parameterize all modules and extensions in two transactions
+- Allow `owner` to create new set tokens with a manager smart contract
+- Allow `owner` to migrate existing set tokens to a manager smart contract
+- Allow `owner` to enable extensions and initialize corresponding modules
+- Allow `owner` to create manager smart contract and initialize and parameterize all modules and extensions in two transactions
 
 **BaseManagerV3**
 
-- Allow owners to add and remove global operator permissions on extensions
-- Allow owners to limit operator functionality on extensions with an asset whitelist
-- Allow owners to update asset whitelist
-- Allow owners to perform Set Token admin functions such as `addModule`, `removeModule`, and `setManager`
+- Allow `owner` to add and remove global `operator` permissions on extensions
+- Allow `owner` to limit `operator` functionality on extensions with an asset whitelist
+- Allow `owner` to update asset whitelist
+- Allow `owner` to perform Set Token admin functions such as `addModule`, `removeModule`, and `setManager`
 
 **BasicIssuanceExtension**
 
-- Allow owners to enable functionality of BasicIssuanceModule with only a state change and no contract deployment
-- Allow the manager to initialize the BasicIssuanceModule
+- Allow `owner` to enable functionality of BasicIssuanceModule with only a state change and no contract deployment
+- Allow `operator`(s) to initialize the BasicIssuanceModule
 - Allow users to `issue` and `redeem` the Set Token
 
 **StreamingFeeExtension**
 
-- Allow owners to enable functionality of StreamingFeeModule with only a state change and no contract deployment
-- Allow the manager to initialize the StreamingFeeModule
+- Allow `owner` to enable functionality of StreamingFeeModule with only a state change and no contract deployment
+- Allow `operator`(s) to initialize the StreamingFeeModule
 - Allow `owner` and `methodologist` to split streaming fees
 - Allow `owner` to update the streaming fee
 - Allow `owner` to update the streaming fee split
@@ -116,9 +117,10 @@ The recommended solution deploys single-use, modular manager contracts from a ma
 
 **TradeExtension**
 
-- Allow owners to enable functionality of TradeModule with only a state change and no contract deployment
-- Allow the manager to initialize the TradeModule
+- Allow `owner` to enable functionality of TradeModule with only a state change and no contract deployment
+- Allow `operator`(s) to initialize the TradeModule
 - Allow privileged `operator`(s) to perform trades on a DEX
+- Allow `owner` to restrict assets the privileged `operator`(s) can trade into with an asset whitelist
 
 ## User Flows
 
