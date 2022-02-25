@@ -53,11 +53,37 @@ Before more in depth design of the contract flows lets make sure that all the wo
 **Reviewer**: LGTM @bweick
 
 ## Proposed Architecture Changes
-A diagram would be helpful here to see where new feature slot into the system. Additionally a brief description of any new contracts is helpful.
+![](../assets/stip-009/image1.png "")
+
+ManagerFactory: Factory smart contract which enables the creation of new Set Tokens with a BaseManagerV3 manager, the migration of existing Set Tokens to a BaseManagerV3 manager, and the initialization of modules and extensions.
+
+BaseManagerV3: Manager smart contract which supports three roles (`owner`, `methodologist`, `operator`) and an asset whitelist which can be set by the `owner` to restrict the `operator`'s interactions with extensions. 
+
+BasicIssuanceExtension: Global extension which provides manager smart contracts with an interface to the BasicIssuanceModule (`issue`, `redeem`).
+
+StreamingFeeExtension: Global extension which provides manager smart contracts with an interface to the StreamingFeeModule (`accrueFeesAndDistribute`, `updateStreamingFee`, `updateFeeRecipient`, `updateFeeSplit`).
+
+TradeExtension: Global extension which provides manager smart contracts with an interface to the TradeModule (`trade`).
+
 ## Requirements
 These should be a distillation of the previous two sections taking into account the decided upon high-level implementation. Each flow should have high level requirements taking into account the needs of participants in the flow (users, managers, market makers, app devs, etc) 
 ## User Flows
+
+### ManagerFactory.create()
+
+An owner wants to create a new Set Token with a BaseManagerV3 smart contract manager.
+1.
+
+### ManagerFactory.migrate()
+
+An owner wants to migrate an existing Set Token to a BaseManagerV3 smart contract manager.
+
+### ManagerFactory.initialize()
+
+An owner wants to enable all extensions and initialize all corresponding modules.
+
 - Highlight *each* external flow enabled by this feature. It's helpful to use diagrams (add them to the `assets` folder). Examples can be very helpful, make sure to highlight *who* is initiating this flow, *when* and *why*. A reviewer should be able to pick out what requirements are being covered by this flow.
+
 ## Checkpoint 2
 Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
 
