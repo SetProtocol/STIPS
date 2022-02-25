@@ -201,7 +201,7 @@ Reviewer: []
 
 #### Structs
 
-##### InitializationParams
+##### InitializeParams
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
@@ -214,7 +214,9 @@ Reviewer: []
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|address|factory|Address of Set Token factory
+|address|factory|Address of Set Token factory|
+|mapping(address=>InitializeParams)|initialize|Mapping from Set Token to initialization parameters|
+
 
 #### Functions
 
@@ -226,9 +228,70 @@ Reviewer: []
 
 ### BaseManagerV3
 
+#### Public Variables
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|ISetToken|setToken|Instance of SetToken|
+|mapping(address => bool)|isExtension|Mapping to check if extension is needed|
+|address|owner|Address of owner|
+|address|methodologist|Address of methodologist|
+|address[]|operator|Address of operator(s)|
+
+#### Private Variables
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|address[]|extensions|Array of enabled extensions|
+
+#### Functions
+
+| Name  | Caller  | Description 	|
+|------	|------	|-------------	|
+|setManager|owner|Update the manager of the Set Token|
+|addExtension|owner|Add extension to the manager|
+|removeExtension|owner|Remove extension from the manager|
+|interactManager|extension|Interact with a module registered on the Set Token|
+|addModule|owner|Add module to Set Token|
+|removeModule|owner|Remove module from Set Token|
+|setOwner|owner|Update the owner address|
+|setMethodologist|owner|Update the methodologist address|
+|addOperator|owner|Add an operator|
+|removeOperator|owner|Remove an operator|
+
 ### BasicIssuanceExtension
 
 ### StreamingFeeSplitExtension
+
+#### Structs
+
+##### FeeParams
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|IStreamingFeeModule|streamingFeeModule|Streaming Fee Module for Set Token|
+|IIssuanceModule|issuanceModule|Issuance Module for Set Token|
+|uint256|operatorFeeSplit|Percent of fees in precise units (10^16 = 1%) sent to operator, rest to methodologist|
+|address|operatorFeeRecipient|Address that receives the operator's fees| 
+|address|manager|Address of the BaseManagerV3| 
+
+#### Public Variables
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|mapping(address=>InitializeParams)|initialize|Mapping from Set Token to fee parameters|
+
+#### Functions
+
+| Name  | Caller  | Description     |
+|------	|------	|-------------	|
+|accrueFeesAndDistribute|public|Accrue fees and distribute to owner and methodologist|
+|updateStreamingFee|owner|Migrate existing Set Token to a BaseManagerV3 manager|
+|updateIssueFee|owner|Update issue fee on IssuanceModule|
+|updateRedeemFee|owner|Update redeem fee on IssuanceModule|
+|updateFeeRecipient|owner|Update fee recipient on both streaming fee and issuance modules|
+|updateFeeSplit|owner|Update fee split between operator and methodologist
+|updateOperatorFeeRecipient|owner|Update the address that receives the operator's fees|
 
 ### TradeExtension
 
