@@ -215,7 +215,7 @@ Reviewer: []
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
 |address|factory|Address of Set Token factory|
-|mapping(address=>InitializeParams)|initialize|Mapping from Set Token to initialization parameters|
+|mapping(address => InitializeParams)|initialize|Mapping from Set Token to initialization parameters|
 
 
 #### Functions
@@ -261,6 +261,21 @@ Reviewer: []
 
 ### BasicIssuanceExtension
 
+#### Structs
+
+##### IssuanceParams
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|IIssuanceModule|issuanceModule|Issuance Module for Set Token|
+|address|manager|Address of the BaseManagerV3|
+
+#### Public Variables
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|mapping(address=>IssuanceParams)|setIssuanceParams|Mapping from Set Token to issuance parameters|
+
 ### StreamingFeeSplitExtension
 
 #### Structs
@@ -272,14 +287,14 @@ Reviewer: []
 |IStreamingFeeModule|streamingFeeModule|Streaming Fee Module for Set Token|
 |IIssuanceModule|issuanceModule|Issuance Module for Set Token|
 |uint256|operatorFeeSplit|Percent of fees in precise units (10^16 = 1%) sent to operator, rest to methodologist|
-|address|operatorFeeRecipient|Address that receives the operator's fees| 
-|address|manager|Address of the BaseManagerV3| 
+|address|operatorFeeRecipient|Address that receives the operator's fees|
+|address|manager|Address of the BaseManagerV3|
 
 #### Public Variables
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|mapping(address=>InitializeParams)|initialize|Mapping from Set Token to fee parameters|
+|mapping(address=>FeeParams)|setFeeParams|Mapping from Set Token to fee parameters|
 
 #### Functions
 
@@ -294,6 +309,27 @@ Reviewer: []
 |updateOperatorFeeRecipient|owner|Update the address that receives the operator's fees|
 
 ### TradeExtension
+
+#### Structs
+
+##### TradeParams
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|ITradeModule|tradeModule|Trade Module for Set Token|
+|address|manager|Address of the BaseManagerV3|
+
+#### Public Variables
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|mapping(address=>TradeParams)|setTradeParams|Mapping from Set Token to trade parameters|
+
+#### Functions
+
+| Name  | Caller  | Description     |
+|------	|------	|-------------	|
+|trade|operator|Trade between whitelisted assets on a DEX|
 
 ## Checkpoint 3
 
