@@ -1,8 +1,13 @@
 # STIP-009: Self Service Manager Contracts
+
 *Using template v0.1*
+
 ## Abstract
+
 In order to offer self-service deployment and management of Sets we need to create a standard set of manager contracts that is able to effectively delegate responsibilities to certain addresses and limit the assets that delegated addresses can add to positions.
+
 ## Motivation
+
 This feature will allow us to provide a standardized experience to SetToken owners that want to use the TokenSets UI to manage their Set. Currently, TokenSets supports only EOA managed Sets while the Sets with the largest TVL are generally managed by smart contracts (in order to restrict the manager's ability to rug users), here we seek to move everyone onto manager contracts. The manager contracts will facilitate better delegation abilities via the addition of operators (not to be confused with the operator role in previous manager contracts which will now be known as owners) which can execute trades, wraps, claims, etc. Additionally, the owner role will also be able to enforce asset whitelists on their delegated operators in order to make sure they are not able to trade into an asset they are not supposed to.
 
 Additional functionality will be built to facilitate the deployment of new Sets/manager contracts as well as the migration of old Sets to the new manager system. The goal is to minimize the amount of transactions necessary to deploy the Set/Manager as well initialize the Set's modules.
@@ -10,6 +15,7 @@ Additional functionality will be built to facilitate the deployment of new Sets/
 All of this should add up to a better experience for the owner to create and manage their own Set while simplifying and standardizing flows on TokenSets. 
 
 ## Background Information
+
 At the moment there are two ways to manage Sets,(1) directly via an EOA or multi-sig, or (2) via manager contract(s). EOAs/multi-sigs provide the greatest amount of flexibility because you are interacting directly with the system however they do not allow for advanced permissioning or further restrictions on the rebalancing of the Set, something a buyer of a Set may want in order to guarantee they will not be rugged by the manager. Currently there are no "standard" manager contracts built to interact with Sets and supported by the TokenSets UI, however there are a mixture of previous smart contracts with various different features:
 
 [ICManager](https://github.com/IndexCoop/index-coop-smart-contracts/blob/master/contracts/manager/ICManager.sol) - This was the monolithic, first iteration of a manager contract that contains `operator` and `methodologist` roles. It is not extensible via other contracts but did contain a function that allowed the `operator` to pass arbitrary bytedata to a target contract address (to call modules). This contract wasn't desirable due to it being unable to be conveniently upgraded as well as its poor UX for managers who would look to add new functionality (having to submit arbitrarty bytestrings instead of having clear interfaces).
@@ -34,30 +40,33 @@ Pose any open questions you may still have about potential solutions here. We wa
     - *Current thoughts are that extension initialization and module initialization happen in same step. However the manager would need to be the manager contract at that point for it to not fail. Given that the initialization step is being called by the factory we would need to update the manager on the SetToken before initialization*
 
 ## Feasibility Analysis
-**Single-use vs. Mutli-use Manager Contracts**
+
+### Single-use vs. Mutli-use Manager Contracts
 
 Single-use manager contracts would be deployed once per Set Token by a manager factory contract, while a multi-use manager contract would be deployed once overall and could subsequently be used by all Set Tokens. Single-use manager contracts maintain separation between Set Tokens at the contract level but require individual deployments for each Set Token. A multi-use manager contract requires only one deployment but has functionality across many Set Tokens, which may open up attack vectors.
 
-**Modular vs. Monolithic Manager Contracts**
+### Modular vs. Monolithic Manager Contracts
 
 With modular manager contracts, operators call extension contracts which invoke the manager with arbitrary logic. With monolithic manager contracts, operators call the manager contract directly with logic defined on deployment. The modular manager contracts maintain more flexiblity but require extensions to be deployed and enabled. The monolithic manager contract requires migration for upgradeability but does not need extensions for functionality.
 
-**Individual vs. Global Extensions**
+### Individual vs. Global Extensions
 
 With individual extensions, a new extension contract must be deployed and enabled to provide some functionality to the manager. With global extensions, a collection of extension contracts would be deployed by Set Protocol and made available to managers by simply enabling them. Individual extensions offer more flexibility to managers but require individual contract deployments from managers. Global extensions offer less flexibility but do not require managers to make contract deployments.
 
-**Recommended Solution**
+### Recommended Solution
 
 The recommended solution deploys single-use, modular manager contracts from a manager factory contract along with a collection of multi-use, global extensions providing basic functionality. These manager contracts will hold the `owner`, `methodologist`, and `operator` roles and an asset whitelist which will be used by extensions. The single-use manager contracts maintain the separation of Set Tokens from each other at the contract level. The modularity of the manager contracts allows for functionaity to be flexible and extensible. The collection of multi-use extensions gives managers access to basic functionality with only a state change and no contract deployment. Manager's will still have the option of deploying individual extensions for more complicated functionality.
+
 ## Timeline
+
 |  Action               |  End Date  |
 |---                    |---         |
 | Technical Spec        |   2/25     |
 | Implementation        |   3/2      |
 | Auditors              |   3/11     |
 | Launch                |   3/18     |
+
 ## Checkpoint 1
-Before more in depth design of the contract flows lets make sure that all the work done to this point has been exhaustive. It should be clear what we're doing, why, and for who. All necessary information on external protocols should be gathered and potential solutions considered. At this point we should be in alignment with product on the non-technical requirements for this feature. It is up to the reviewer to determine whether we move onto the next step.
 
 **Reviewer**: LGTM @bweick
 
@@ -65,15 +74,15 @@ Before more in depth design of the contract flows lets make sure that all the wo
 
 ![Proposed Architecture Changes](../assets/stip-009/image1.png "")
 
-**ManagerFactory**: Factory smart contract which enables the creation of new Set Tokens with a BaseManagerV3 manager, the migration of existing Set Tokens to a BaseManagerV3 manager, and the initialization of modules and extensions.
+**ManagerFactory**: Factory smart contract which provides asset managers the ability to `create` new Set Tokens with a BaseManagerV3 manager, `migrate` existing Set Tokens to a BaseManagerV3 manager, and `initialize` modules and enable extensions.
 
-**BaseManagerV3**: Manager smart contract which supports three roles (`owner`, `methodologist`, `operator`) and an asset whitelist which can be set by the `owner` to restrict the `operator`'s interactions with extensions.
+**BaseManagerV3**: Manager smart contract which provides asset managers three permissioned roles (`owner`, `methodologist`, `operator`) and asset whitelist functionality. The `owner` grants permissions to `operator`(s) to interact with specific extensions. The `owner` can restrict the `operator`(s) permissions with an asset whitelist.
 
-**BasicIssuanceExtension**: Global extension which provides manager smart contracts with an interface to the BasicIssuanceModule (`issue`, `redeem`).
+**BasicIssuanceExtension**: Global extension which provides users with the ability to `issue` and `redeem` Set Tokens with a smart contract manager.
 
-**StreamingFeeExtension**: Global extension which provides manager smart contracts with an interface to the StreamingFeeModule (`accrueFeesAndDistribute`, `updateStreamingFee`, `updateFeeRecipient`, `updateFeeSplit`).
+**StreamingFeeExtension**: Global extension which provides the `owner` and `methodologist` the ability to accrue and split streaming fees at an mutable percentage.
 
-**TradeExtension**: Global extension which provides manager smart contracts with an interface to the TradeModule (`trade`).
+**TradeExtension**: Global extension which provides privileged `operator`(s) the ability to `trade` on a DEX and the `owner` the ability to restrict `operator`(s) permissions with an asset whitelist.
 
 ## Requirements
 
@@ -156,6 +165,8 @@ An owner wants to migrate an existing Set Token to a BaseManagerV3 smart contrac
 
 ### ManagerFactory.initialize()
 
+![ManagerFactory initialize](../assets/stip-009/image4.png "")
+
 An owner wants to enable all extensions and initialize all corresponding modules.
 
 1. The `owner` calls initialize() passing in the parameters for initializing modules and extensions
@@ -168,7 +179,11 @@ An owner wants to enable all extensions and initialize all corresponding modules
 
 An owner and methodologist want to split streaming fees with the option to update the parameters of the split. 
 
-1. The `owner` calls initialize() passing in the parameters for initializing the StreamingFeeModule and StreamingFeeExtension
+1. The `owner` calls initialize() passing in the parameters for the streaming fee split with the `methodologist`
+2. The `owner` can update the streaming fee percentage
+3. The `owner` can update the streaming fee split
+4. Anyone can accrue the streaming fee and distribute
+
 
 ## Checkpoint 2
 Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
@@ -181,21 +196,21 @@ Reviewer: []
 #### Inheritance
 - List inherited contracts
 #### Structs
-| Type  | Name  | Description   |
-|------ |------ |-------------  |
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
 |address|manager|Address of the manager|
 |uint256|iterations|Number of times manager has called contract|  
 #### Constants
-| Type  | Name  | Description   | Value     |
-|------ |------ |-------------  |-------    |
-|uint256|ONE    | The number one| 1         |
+| Type 	| Name 	| Description 	| Value 	|
+|------	|------	|-------------	|-------	|
+|uint256|ONE    | The number one| 1       	|
 #### Public Variables
-| Type  | Name  | Description   |
-|------ |------ |-------------  |
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
 |uint256|hodlers|Number of holders of this token|
 #### Functions
-| Name  | Caller  | Description     |
-|------ |------ |-------------  |
+| Name  | Caller  | Description 	|
+|------	|------	|-------------	|
 |startRebalance|Manager|Set rebalance parameters|
 |rebalance|Trader|Rebalance SetToken|
 |ripcord|EOA|Recenter leverage ratio|
