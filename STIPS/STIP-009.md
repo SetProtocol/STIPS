@@ -55,34 +55,90 @@ Before more in depth design of the contract flows lets make sure that all the wo
 ## Proposed Architecture Changes
 ![](../assets/stip-009/image1.png "")
 
-ManagerFactory: Factory smart contract which enables the creation of new Set Tokens with a BaseManagerV3 manager, the migration of existing Set Tokens to a BaseManagerV3 manager, and the initialization of modules and extensions.
+**ManagerFactory**: Factory smart contract which enables the creation of new Set Tokens with a BaseManagerV3 manager, the migration of existing Set Tokens to a BaseManagerV3 manager, and the initialization of modules and extensions.
 
-BaseManagerV3: Manager smart contract which supports three roles (`owner`, `methodologist`, `operator`) and an asset whitelist which can be set by the `owner` to restrict the `operator`'s interactions with extensions. 
+**BaseManagerV3**: Manager smart contract which supports three roles (`owner`, `methodologist`, `operator`) and an asset whitelist which can be set by the `owner` to restrict the `operator`'s interactions with extensions. 
 
-BasicIssuanceExtension: Global extension which provides manager smart contracts with an interface to the BasicIssuanceModule (`issue`, `redeem`).
+**BasicIssuanceExtension**: Global extension which provides manager smart contracts with an interface to the BasicIssuanceModule (`issue`, `redeem`).
 
-StreamingFeeExtension: Global extension which provides manager smart contracts with an interface to the StreamingFeeModule (`accrueFeesAndDistribute`, `updateStreamingFee`, `updateFeeRecipient`, `updateFeeSplit`).
+**StreamingFeeExtension**: Global extension which provides manager smart contracts with an interface to the StreamingFeeModule (`accrueFeesAndDistribute`, `updateStreamingFee`, `updateFeeRecipient`, `updateFeeSplit`).
 
-TradeExtension: Global extension which provides manager smart contracts with an interface to the TradeModule (`trade`).
+**TradeExtension**: Global extension which provides manager smart contracts with an interface to the TradeModule (`trade`).
 
 ## Requirements
-These should be a distillation of the previous two sections taking into account the decided upon high-level implementation. Each flow should have high level requirements taking into account the needs of participants in the flow (users, managers, market makers, app devs, etc) 
+
+**ManagerFactory**
+
+- Allow owners to create new set tokens with a manager smart contract
+- Allow owners to migrate existing set tokens to a manager smart contract
+- Allow owners to create manager smart contract and initialize and parameterize all modules and extensions in two transactions
+
+**BaseManagerV3**
+
+- Allow owners to permission specific functionality (extensions) to different operators
+- Allow owners to update permissions on specific functionality (extensions) for different operators
+- Allow owners to limit operator functionality using extensions with an asset whitelist
+- Allow owners to update asset whitelist
+
+**BasicIssuanceExtension**
+
+- Allow owners to enable functionality of BasicIssuanceModule with only a state change and no contract deployment
+
+**StreamingFeeExtension**
+
+- Allow owners to enable functionality of StreamingFeeModule with only a state change and no contract deployment
+
+**TradeExtension**
+
+- Allow owners to enable functionality of TradeModule with only a state change and no contract deployment
+
 ## User Flows
 
 ### ManagerFactory.create()
 
 An owner wants to create a new Set Token with a BaseManagerV3 smart contract manager.
-1.
+
+1. The `owner` calls create() passing in parameters to create a Set Token, parameters for the permissioning on BaseManagerV3, and the desired extensions. Specifically,
+
+    - components: List of addresses of components for initial positions
+    - units: List of units for initial positions
+    - name: Name of SetToken
+    - symbol: Symbol of SetToken
+    - owner: The address of the `owner`
+    - methodologist: The address of the `methodologist`
+    - operators: List of addresses of the `operator`s
+    - assets: List of addresses of assets for initial asset whitelist
+    - extensions: List of addresses of global extensions to be enabled
+
+2. A Set Token is deployed using SetTokenCreator
+3. A BaseManagerV3 is deployed
+4. Initialization parameters for the Set Token are stored on the Factory
+5. The Set Token and Manager are put in pending state
 
 ### ManagerFactory.migrate()
 
 An owner wants to migrate an existing Set Token to a BaseManagerV3 smart contract manager.
 
+1. The `owner` calls migrate() passing in the Set Token address, parameters for the permissioning on BaseManagerV3, and the desired extensions. Specifically,
+
+    - owner: The address of the `owner`
+    - methodologist: The address of the `methodologist`
+    - operators: List of addresses of the `operator`s
+    - assets: List of addresses of assets for initial asset whitelist
+    - extensions: List of addresses of global extensions to be enabled
+
+2. A BaseManagerV3 is deployed
+3. Initialization parameters for the Set Token are stored on the Factory
+4. The Set Token and Manager are put in pending state
+
 ### ManagerFactory.initialize()
 
 An owner wants to enable all extensions and initialize all corresponding modules.
 
-- Highlight *each* external flow enabled by this feature. It's helpful to use diagrams (add them to the `assets` folder). Examples can be very helpful, make sure to highlight *who* is initiating this flow, *when* and *why*. A reviewer should be able to pick out what requirements are being covered by this flow.
+1. The `owner` calls initialize() passing in the parameters for initializing modules and extensions
+2. All modules are initialized
+3. All extensions are enabled
+4. The Set Token and Manager are put in initialized state
 
 ## Checkpoint 2
 Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
