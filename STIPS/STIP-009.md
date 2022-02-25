@@ -62,11 +62,12 @@ Before more in depth design of the contract flows lets make sure that all the wo
 **Reviewer**: LGTM @bweick
 
 ## Proposed Architecture Changes
-![](../assets/stip-009/image1.png "")
+
+![Proposed Architecture Changes](../assets/stip-009/image1.png "")
 
 **ManagerFactory**: Factory smart contract which enables the creation of new Set Tokens with a BaseManagerV3 manager, the migration of existing Set Tokens to a BaseManagerV3 manager, and the initialization of modules and extensions.
 
-**BaseManagerV3**: Manager smart contract which supports three roles (`owner`, `methodologist`, `operator`) and an asset whitelist which can be set by the `owner` to restrict the `operator`'s interactions with extensions. 
+**BaseManagerV3**: Manager smart contract which supports three roles (`owner`, `methodologist`, `operator`) and an asset whitelist which can be set by the `owner` to restrict the `operator`'s interactions with extensions.
 
 **BasicIssuanceExtension**: Global extension which provides manager smart contracts with an interface to the BasicIssuanceModule (`issue`, `redeem`).
 
@@ -84,26 +85,37 @@ Before more in depth design of the contract flows lets make sure that all the wo
 
 **BaseManagerV3**
 
-- Allow owners to permission specific functionality (extensions) to different operators
-- Allow owners to update permissions on specific functionality (extensions) for different operators
-- Allow owners to limit operator functionality using extensions with an asset whitelist
+- Allow owners to add and remove global operator permissions on extensions
+- Allow owners to limit operator functionality on extensions with an asset whitelist
 - Allow owners to update asset whitelist
+- Allow owners to perform Set Token admin functions such as `addModule`, `removeModule`, and `setManager`
 
 **BasicIssuanceExtension**
 
 - Allow owners to enable functionality of BasicIssuanceModule with only a state change and no contract deployment
+- Allow the manager to initialize the BasicIssuanceModule
+- Allow users to `issue` and `redeem` the Set Token
 
 **StreamingFeeExtension**
 
 - Allow owners to enable functionality of StreamingFeeModule with only a state change and no contract deployment
+- Allow the manager to initialize the StreamingFeeModule
+- Allow `owner` and `methodologist` to split streaming fees
+- Allow `owner` to update the streaming fee
+- Allow `owner` to update the streaming fee split
+- Allow `owner` to update the streaming fee recipient
 
 **TradeExtension**
 
 - Allow owners to enable functionality of TradeModule with only a state change and no contract deployment
+- Allow the manager to initialize the TradeModule
+- Allow privileged `operator`(s) to perform trades on a DEX
 
 ## User Flows
 
 ### ManagerFactory.create()
+
+![ManagerFactory create](../assets/stip-009/image2.png "")
 
 An owner wants to create a new Set Token with a BaseManagerV3 smart contract manager.
 
@@ -115,16 +127,18 @@ An owner wants to create a new Set Token with a BaseManagerV3 smart contract man
     - symbol: Symbol of SetToken
     - owner: The address of the `owner`
     - methodologist: The address of the `methodologist`
-    - operators: List of addresses of the `operator`s
+    - operators: List of addresses of the `operator`(s)
     - assets: List of addresses of assets for initial asset whitelist
     - extensions: List of addresses of global extensions to be enabled
 
 2. A Set Token is deployed using SetTokenCreator
-3. A BaseManagerV3 is deployed
+3. A BaseManagerV3 is deployed with the ManagerFactory as the temporary `owner` until after initialization
 4. Initialization parameters for the Set Token are stored on the Factory
-5. The Set Token and Manager are put in pending state
+5. The Set Token and Manager are put in pending state on the Factory
 
 ### ManagerFactory.migrate()
+
+![ManagerFactory migrate](../assets/stip-009/image3.png "")
 
 An owner wants to migrate an existing Set Token to a BaseManagerV3 smart contract manager.
 
@@ -132,22 +146,29 @@ An owner wants to migrate an existing Set Token to a BaseManagerV3 smart contrac
 
     - owner: The address of the `owner`
     - methodologist: The address of the `methodologist`
-    - operators: List of addresses of the `operator`s
+    - operators: List of addresses of the `operator`(s)
     - assets: List of addresses of assets for initial asset whitelist
     - extensions: List of addresses of global extensions to be enabled
 
-2. A BaseManagerV3 is deployed
+2. A BaseManagerV3 is deployed with the ManagerFactory as the temporary `owner` until after initialization
 3. Initialization parameters for the Set Token are stored on the Factory
-4. The Set Token and Manager are put in pending state
+4. The Set Token and Manager are put in pending state on the Factory
 
 ### ManagerFactory.initialize()
 
 An owner wants to enable all extensions and initialize all corresponding modules.
 
 1. The `owner` calls initialize() passing in the parameters for initializing modules and extensions
-2. All modules are initialized
-3. All extensions are enabled
-4. The Set Token and Manager are put in initialized state
+2. All extensions are enabled
+3. All modules are initialized via the extensions
+4. The Set Token and Manager are put in initialized state on the ManagerFactory
+5. The `owner` role is transfered from the Factory to the input `owner`
+
+### StreamingFeeExtension
+
+An owner and methodologist want to split streaming fees with the option to update the parameters of the split. 
+
+1. The `owner` calls initialize() passing in the parameters for initializing the StreamingFeeModule and StreamingFeeExtension
 
 ## Checkpoint 2
 Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
@@ -160,21 +181,21 @@ Reviewer: []
 #### Inheritance
 - List inherited contracts
 #### Structs
-| Type 	| Name 	| Description 	|
-|------	|------	|-------------	|
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
 |address|manager|Address of the manager|
 |uint256|iterations|Number of times manager has called contract|  
 #### Constants
-| Type 	| Name 	| Description 	| Value 	|
-|------	|------	|-------------	|-------	|
-|uint256|ONE    | The number one| 1       	|
+| Type  | Name  | Description   | Value     |
+|------ |------ |-------------  |-------    |
+|uint256|ONE    | The number one| 1         |
 #### Public Variables
-| Type 	| Name 	| Description 	|
-|------	|------	|-------------	|
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
 |uint256|hodlers|Number of holders of this token|
 #### Functions
-| Name  | Caller  | Description 	|
-|------	|------	|-------------	|
+| Name  | Caller  | Description     |
+|------ |------ |-------------  |
 |startRebalance|Manager|Set rebalance parameters|
 |rebalance|Trader|Rebalance SetToken|
 |ripcord|EOA|Recenter leverage ratio|
