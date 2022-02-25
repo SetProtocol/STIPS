@@ -76,11 +76,11 @@ The recommended solution deploys single-use, modular manager contracts from a ma
 
 **ManagerFactory**: Factory smart contract which provides asset managers the ability to `create` new Set Tokens with a BaseManagerV3 manager, `migrate` existing Set Tokens to a BaseManagerV3 manager, and `initialize` modules and enable extensions.
 
-**BaseManagerV3**: Manager smart contract which provides asset managers three permissioned roles (`owner`, `methodologist`, `operator`) and asset whitelist functionality. The `owner` grants permissions to `operator`(s) to interact with specific extensions. The `owner` can restrict the `operator`(s) permissions with an asset whitelist.
+**BaseManagerV3**: Manager smart contract which provides asset managers three permissioned roles (`owner`, `methodologist`, `operator`) and asset whitelist functionality. The `owner` grants permissions to `operator`(s) to interact with extensions. The `owner` can restrict the `operator`(s) permissions with an asset whitelist.
 
 **BasicIssuanceExtension**: Global extension which provides users with the ability to `issue` and `redeem` Set Tokens with a smart contract manager.
 
-**StreamingFeeExtension**: Global extension which provides the `owner` and `methodologist` the ability to accrue and split streaming fees at an mutable percentage.
+**StreamingFeeSplitExtension**: Global extension which provides the `owner` and `methodologist` the ability to accrue and split streaming fees at an mutable percentage.
 
 **TradeExtension**: Global extension which provides privileged `operator`(s) the ability to `trade` on a DEX and the `owner` the ability to restrict `operator`(s) permissions with an asset whitelist.
 
@@ -96,20 +96,21 @@ The recommended solution deploys single-use, modular manager contracts from a ma
 **BaseManagerV3**
 
 - Allow `owner` to add and remove global `operator` permissions on extensions
-- Allow `owner` to limit `operator` functionality on extensions with an asset whitelist
+- Allow `owner` to limit `operator`(s) functionality on extensions with an asset whitelist
 - Allow `owner` to update asset whitelist
 - Allow `owner` to perform Set Token admin functions such as `addModule`, `removeModule`, and `setManager`
 
 **BasicIssuanceExtension**
 
 - Allow `owner` to enable functionality of BasicIssuanceModule with only a state change and no contract deployment
-- Allow `operator`(s) to initialize the BasicIssuanceModule
+- Allow `owner` to initialize the BasicIssuanceModule
 - Allow users to `issue` and `redeem` the Set Token
+- Allow Set Token to accrue `issue` and `redeem` fees
 
-**StreamingFeeExtension**
+**StreamingFeeSplitExtension**
 
 - Allow `owner` to enable functionality of StreamingFeeModule with only a state change and no contract deployment
-- Allow `operator`(s) to initialize the StreamingFeeModule
+- Allow `owner` to initialize the StreamingFeeModule
 - Allow `owner` and `methodologist` to split streaming fees
 - Allow `owner` to update the streaming fee
 - Allow `owner` to update the streaming fee split
@@ -118,7 +119,7 @@ The recommended solution deploys single-use, modular manager contracts from a ma
 **TradeExtension**
 
 - Allow `owner` to enable functionality of TradeModule with only a state change and no contract deployment
-- Allow `operator`(s) to initialize the TradeModule
+- Allow `owner` to initialize the TradeModule
 - Allow privileged `operator`(s) to perform trades on a DEX
 - Allow `owner` to restrict assets the privileged `operator`(s) can trade into with an asset whitelist
 
@@ -139,12 +140,13 @@ An `owner` wants to create a new Set Token with a BaseManagerV3 smart contract m
     - owner: The address of the `owner`
     - methodologist: The address of the `methodologist`
     - operators: List of addresses of the `operator`(s)
+    - modules: List of addresses of modules to be enabled
     - assets: List of addresses of assets for initial asset whitelist
     - extensions: List of addresses of global extensions to be enabled
 
 2. A Set Token is deployed using SetTokenCreator
 3. A BaseManagerV3 is deployed with the ManagerFactory as the temporary `owner` until after initialization
-4. Initialization parameters for the Set Token are stored on the Factory
+4. The `owner` and `msg.sender` for the Set Token are stored on the Factory and BaseManagerV3
 5. The Set Token and Manager are put in pending state on the Factory
 
 ### ManagerFactory.migrate()
@@ -162,7 +164,7 @@ An `owner` wants to migrate an existing Set Token to a BaseManagerV3 smart contr
     - extensions: List of addresses of global extensions to be enabled
 
 2. A BaseManagerV3 is deployed with the ManagerFactory as the temporary `owner` until after initialization
-3. Initialization parameters for the Set Token are stored on the Factory
+3. The `owner` and `msg.sender` for the Set Token are stored on the Factory and BaseManagerV3
 4. The Set Token and Manager are put in pending state on the Factory
 
 ### ManagerFactory.initialize()
