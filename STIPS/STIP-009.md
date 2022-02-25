@@ -233,31 +233,39 @@ Reviewer: []
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
 |ISetToken|setToken|Instance of SetToken|
-|mapping(address => bool)|isExtension|Mapping to check if extension is needed|
-|address|owner|Address of owner|
-|address|methodologist|Address of methodologist|
-|address[]|operator|Address of operator(s)|
+|address|factory|Address of factory contract used to deploy contract|
+|mapping(address => bool)|extensionAllowList|Mapping to check if extension is enabled|
+|mapping(address => bool)|operatorAllowList|Mapping indicating if address is an approved operator|
+|mapping(address => bool)|assetAllowlist|Mapping indicating if asset is approved to be traded for, wrapped into, claimed, etc.|
+|address|methodologist|Address of methodologist which serves as providing methodology for the index|
 
 #### Private Variables
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
 |address[]|extensions|Array of enabled extensions|
+|address[]|operators|List of approved operators|
+|address[]|allowedAssets|Array of enabled extensions|
 
 #### Functions
 
 | Name  | Caller  | Description 	|
 |------	|------	|-------------	|
-|setManager|owner|Update the manager of the Set Token|
-|addExtension|owner|Add extension to the manager|
-|removeExtension|owner|Remove extension from the manager|
 |interactManager|extension|Interact with a module registered on the Set Token|
+|addExtensions|owner|Add a new extension that the DelegatedManager can call|
+|removeExtensions|owner|Remove an existing extension tracked by the DelegatedManager|
+|addOperators|owner|Add new operator(s) address|
+|addAllowedAssets|owner|Add new asset(s) that can be traded to, wrapped to, or claimed|
+|removeAllowedAssets|owner|Remove asset(s) so that it/they can't be traded to, wrapped to, or claimed|
+|setMethodologist|owner|Update the methodologist address|
+|setManager|owner|Update the manager of the Set Token|
 |addModule|owner|Add module to Set Token|
 |removeModule|owner|Remove module from Set Token|
-|setOwner|owner|Update the owner address|
-|setMethodologist|owner|Update the methodologist address|
-|addOperator|owner|Add an operator|
-|removeOperator|owner|Remove an operator|
+
+#### Modifiers
+> onlyOwner
+> onlyMethodologist
+> onlyExtension
 
 ### BasicIssuanceExtension
 
@@ -267,14 +275,29 @@ Reviewer: []
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|IIssuanceModule|issuanceModule|Issuance Module for Set Token|
 |address|manager|Address of the BaseManagerV3|
+
+#### Global Variables
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|IIssuanceModule|issuanceModule|Issuance Module for Set Token|
 
 #### Public Variables
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
 |mapping(address=>IssuanceParams)|setIssuanceParams|Mapping from Set Token to issuance parameters|
+
+#### Functions
+
+| Name  | Caller  | Description     |
+|------	|------	|-------------	|
+|updateIssueFee|owner|Update issue fee on IssuanceModule|
+|updateRedeemFee|owner|Update redeem fee on IssuanceModule|
+
+#### Modifiers
+> onlyOperator
 
 ### StreamingFeeSplitExtension
 
@@ -284,11 +307,15 @@ Reviewer: []
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|IStreamingFeeModule|streamingFeeModule|Streaming Fee Module for Set Token|
-|IIssuanceModule|issuanceModule|Issuance Module for Set Token|
 |uint256|operatorFeeSplit|Percent of fees in precise units (10^16 = 1%) sent to operator, rest to methodologist|
 |address|operatorFeeRecipient|Address that receives the operator's fees|
 |address|manager|Address of the BaseManagerV3|
+
+#### Global Variables
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|IStreamingFeeModule|streamingFeeModule|Streaming Fee Module for Set Token|
 
 #### Public Variables
 
@@ -302,11 +329,12 @@ Reviewer: []
 |------	|------	|-------------	|
 |accrueFeesAndDistribute|public|Accrue fees and distribute to owner and methodologist|
 |updateStreamingFee|owner|Migrate existing Set Token to a BaseManagerV3 manager|
-|updateIssueFee|owner|Update issue fee on IssuanceModule|
-|updateRedeemFee|owner|Update redeem fee on IssuanceModule|
-|updateFeeRecipient|owner|Update fee recipient on both streaming fee and issuance modules|
+|updateFeeRecipient|owner|Update fee recipient|
 |updateFeeSplit|owner|Update fee split between operator and methodologist
 |updateOperatorFeeRecipient|owner|Update the address that receives the operator's fees|
+
+#### Modifiers
+> onlyOperator
 
 ### TradeExtension
 
@@ -316,8 +344,13 @@ Reviewer: []
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|ITradeModule|tradeModule|Trade Module for Set Token|
 |address|manager|Address of the BaseManagerV3|
+
+#### Global Variables
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|ITradeModule|tradeModule|Trade Module for Set Token|
 
 #### Public Variables
 
@@ -330,6 +363,9 @@ Reviewer: []
 | Name  | Caller  | Description     |
 |------	|------	|-------------	|
 |trade|operator|Trade between whitelisted assets on a DEX|
+
+#### Modifiers
+> onlyOperator
 
 ## Checkpoint 3
 
