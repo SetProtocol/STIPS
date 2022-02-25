@@ -172,10 +172,9 @@ An owner wants to migrate an existing Set Token to a BaseManagerV3 smart contrac
 An owner wants to enable all extensions and initialize all corresponding modules.
 
 1. The `owner` calls initialize() passing in the parameters for initializing modules and extensions
-2. All extensions are enabled
-3. All modules are initialized via the extensions
-4. The Set Token and Manager are put in initialized state on the ManagerFactory
-5. The `owner` role is transfered from the Factory to the input `owner`
+2. All modules are initialized via the extensions
+3. The Set Token and Manager are put in initialized state on the ManagerFactory
+4. The `owner` role is transfered from the Factory to the input `owner`
 
 ### StreamingFeeExtension
 
