@@ -128,7 +128,7 @@ The recommended solution deploys single-use, modular manager contracts from a ma
 
 ![ManagerFactory create](../assets/stip-009/image2.png "")
 
-An owner wants to create a new Set Token with a BaseManagerV3 smart contract manager.
+An `owner` wants to create a new Set Token with a BaseManagerV3 smart contract manager.
 
 1. The `owner` calls create() passing in parameters to create a Set Token, parameters for the permissioning on BaseManagerV3, and the desired extensions. Specifically,
 
@@ -151,7 +151,7 @@ An owner wants to create a new Set Token with a BaseManagerV3 smart contract man
 
 ![ManagerFactory migrate](../assets/stip-009/image3.png "")
 
-An owner wants to migrate an existing Set Token to a BaseManagerV3 smart contract manager.
+An `owner` wants to migrate an existing Set Token to a BaseManagerV3 smart contract manager.
 
 1. The `owner` calls migrate() passing in the Set Token address, parameters for the permissioning on BaseManagerV3, and the desired extensions. Specifically,
 
@@ -169,7 +169,7 @@ An owner wants to migrate an existing Set Token to a BaseManagerV3 smart contrac
 
 ![ManagerFactory initialize](../assets/stip-009/image4.png "")
 
-An owner wants to enable all extensions and initialize all corresponding modules.
+An `owner` wants to enable all extensions and initialize all corresponding modules.
 
 1. The `owner` calls initialize() passing in the parameters for initializing modules and extensions
 2. All modules are initialized via the extensions
@@ -178,12 +178,18 @@ An owner wants to enable all extensions and initialize all corresponding modules
 
 ### StreamingFeeExtension
 
-An owner and methodologist want to split streaming fees with the option to update the parameters of the split. 
+![StreamingFeeExtension](../assets/stip-009/image5.png "")
+
+An `owner` and `methodologist` want to split streaming fees with the option for the `owner` to update the parameters of the split.
 
 1. The `owner` calls initialize() passing in the parameters for the streaming fee split with the `methodologist`
 2. The `owner` can update the streaming fee percentage
 3. The `owner` can update the streaming fee split
-4. Anyone can accrue the streaming fee and distribute
+4. Anyone can
+
+    4a. accrue the streaming fee to the manager
+
+    4b. distribute the streaming fee to the `owner` and `methodologist`
 
 
 ## Checkpoint 2
