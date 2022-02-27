@@ -25,7 +25,9 @@ At the moment there are two ways to manage Sets,(1) directly via an EOA or multi
 [BaseManagerV2](https://github.com/IndexCoop/index-coop-smart-contracts/blob/master/contracts/manager/BaseManagerV2.sol) - This manager contract is very similar to `BaseManager` it just gave `methodologists` greater ability to counteract `operators` ablility to add and remove privileged functionalities from the manager in case of an adversarial relationship between the `operator` and `methodologist`.
 
 ## Open Questions
+
 Pose any open questions you may still have about potential solutions here. We want to be sure that they have been resolved before moving ahead with talk about the implementation. This section should be living and breathing through out this process.
+
 - [ ] When accruing streaming fees where do we send the fees to? The manager?
     - *Answer*
 - [ ] How do we validate that trades for *x* asset are actually for *x* asset when the trade is encoded in a bunch of bytedata?
@@ -86,28 +88,28 @@ The recommended solution deploys single-use, modular manager contracts from a ma
 
 ## Requirements
 
-**ManagerFactory**
+### ManagerFactory
 
 - Allow `deployer` to create new set tokens with a manager smart contract
 - Allow `deployer` to migrate existing set tokens to a manager smart contract
 - Allow `deployer` to enable extensions and initialize corresponding modules
 - Allow `deployer` to create manager smart contract and initialize and parameterize all modules and extensions in two transactions
 
-**DelegatedManager**
+### DelegatedManager
 
 - Allow `owner` to add and remove global `operator` permissions on extensions
 - Allow `owner` to limit `operator`(s) functionality on extensions with an asset whitelist
 - Allow `owner` to update asset whitelist
 - Allow `owner` to perform Set Token admin functions such as `addModule`, `removeModule`, and `setManager`
 
-**BasicIssuanceExtension**
+### BasicIssuanceExtension
 
 - Allow `owner` to enable functionality of BasicIssuanceModule with only a state change and no contract deployment
 - Allow `owner` to initialize the BasicIssuanceModule
 - Allow users to `issue` and `redeem` the Set Token
 - Allow Set Token to accrue `issue` and `redeem` fees
 
-**StreamingFeeSplitExtension**
+### StreamingFeeSplitExtension
 
 - Allow `owner` to enable functionality of StreamingFeeModule with only a state change and no contract deployment
 - Allow `owner` to initialize the StreamingFeeModule
@@ -116,7 +118,7 @@ The recommended solution deploys single-use, modular manager contracts from a ma
 - Allow `owner` to update the streaming fee split
 - Allow `owner` to update the streaming fee recipient
 
-**TradeExtension**
+### TradeExtension
 
 - Allow `owner` to enable functionality of TradeModule with only a state change and no contract deployment
 - Allow `owner` to initialize the TradeModule
@@ -309,16 +311,16 @@ function initialize(
 )
     external
 {
-    require(msg.sender == initialize[setTokenAddress].deployer);
-    require(initialize[setTokenAddress].isPending);
+    require(msg.sender == initialize[_setTokenAddress].deployer);
+    require(initialize[_setTokenAddress].isPending);
 
     for (uint256 i = 0; i < _extensions.length; i++) {
         _extensions[i].initialize(_extensionParams[_extensions[i]]);
     }
 
-    initialize[setTokenAddress].manager.setManager(initialize[setTokenAddress].owner)
+    initialize[_setTokenAddress].manager.setManager(initialize[_setTokenAddress].owner)
 
-    delete initialize[setTokenAddress];
+    delete initialize[_setTokenAddress];
 }
 ```
 
@@ -390,7 +392,7 @@ function initialize(
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|mapping(address=>IssuanceParams)|setIssuanceParams|Mapping from Set Token to issuance parameters|
+|mapping(address => IssuanceParams)|setIssuanceParams|Mapping from Set Token to issuance parameters|
 
 #### Functions
 
@@ -428,7 +430,7 @@ function initialize(
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|mapping(address=>FeeParams)|setFeeParams|Mapping from Set Token to fee parameters|
+|mapping(address => FeeParams)|setFeeParams|Mapping from Set Token to fee parameters|
 
 #### Functions
 
@@ -467,7 +469,7 @@ function initialize(
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|mapping(address=>TradeParams)|setTradeParams|Mapping from Set Token to trade parameters|
+|mapping(address => TradeParams)|setTradeParams|Mapping from Set Token to trade parameters|
 
 #### Functions
 
