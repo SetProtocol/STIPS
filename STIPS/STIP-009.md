@@ -316,6 +316,8 @@ function initialize(
         _extensions[i].initialize(_extensionParams[_extensions[i]]);
     }
 
+    initialize[setTokenAddress].manager.setManager(initialize[setTokenAddress].owner)
+
     delete initialize[setTokenAddress];
 }
 ```
@@ -357,8 +359,11 @@ function initialize(
 |removeModule|owner|Remove module from Set Token|
 
 #### Modifiers
+
 > onlyOwner
+
 > onlyMethodologist
+
 > onlyExtension
 
 ### BasicIssuanceExtension
@@ -471,16 +476,29 @@ function initialize(
 |trade|operator|Trade between whitelisted assets on a DEX|
 
 #### Modifiers
+
+> onlyAssetAllowList
+
 > onlyOperator
 
 ### BaseExtension
 
 #### Modifiers
+
 > onlyAssetAllowList
 
 ```solidity
 modifier onlyAssetAllowList(address memory _receiveAsset) {
     require(manager.assetAllowList[_receiveAsset], "Must be allowed asset");
+    _;
+}
+```
+
+> onlyOperator
+
+```solidity
+modifier onlyOperator() {
+    require(manager.operatorAllowlist[msg.sender], "Must be operator");
     _;
 }
 ```
