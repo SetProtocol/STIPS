@@ -226,6 +226,93 @@ Reviewer: []
 |migrate|deployer|Migrate existing Set Token to a BaseManagerV3 manager|
 |initialize|deployer|Initialize modules and extensions|
 
+```solidity
+function create(
+    address[] memory _components,
+    uint256 _units,
+    string memory _name,
+    string memory _symbol,
+    address _owner,
+    address _methodologist,
+    address[] memory _modules,
+    address[] memory _operators,
+    address[] memory _assets,
+    address[] memory _extensions
+)
+    external
+{
+    address setTokenAddress = _deploySet(
+        _components,
+        _modules,
+        _units,
+        _name,
+        _symbol
+    );
+
+    address managerAddress = _deployManager(
+        setTokenAddress,
+        _methodologist,
+        _operators,
+        _assets,
+        _extensions
+    );
+
+    initialize[setTokenAddress] = InitializeParams({
+        deployer: msg.sender,
+        owner: _owner,
+        manager: managerAddress,
+        isPending: true
+    });
+}
+```
+
+```solidity
+function migrate(
+    address memory _setTokenAddress,
+    address _owner,
+    address _methodologist,
+    address[] memory _modules,
+    address[] memory _operators,
+    address[] memory _assets,
+    address[] memory _extensions
+)
+    external
+{
+    address managerAddress = _deployManager(
+        setTokenAddress,
+        _methodologist,
+        _operators,
+        _assets,
+        _extensions
+    );
+
+    initialize[setTokenAddress] = InitializeParams({
+        deployer: msg.sender,
+        owner: _owner,
+        manager: managerAddress,
+        isPending: true
+    });
+}
+```
+
+```solidity
+function initialize(
+    address memory _setTokenAddress,
+    address[] memory _extensions,
+    mapping(address => bytes) _extensionParams
+)
+    external
+{
+    require(msg.sender == initialize[setTokenAddress].deployer);
+
+    for (uint256 i = 0; i < _extensions.length; i++) {
+        _extensions[i].initialize(_extensionParams[_extensions[i]]);
+    }
+
+    delete initialize[setTokenAddress];
+}
+```
+
 ### BaseManagerV3
 
 #### Public Variables
@@ -269,6 +356,10 @@ Reviewer: []
 
 ### BasicIssuanceExtension
 
+#### Inheritance
+
+- BaseExtension
+
 #### Structs
 
 ##### IssuanceParams
@@ -300,6 +391,10 @@ Reviewer: []
 > onlyOperator
 
 ### StreamingFeeSplitExtension
+
+#### Inheritance
+
+- BaseExtension
 
 #### Structs
 
@@ -338,6 +433,10 @@ Reviewer: []
 
 ### TradeExtension
 
+#### Inheritance
+
+- BaseExtension
+
 #### Structs
 
 ##### TradeParams
@@ -366,6 +465,18 @@ Reviewer: []
 
 #### Modifiers
 > onlyOperator
+
+### BaseExtension
+
+#### Modifiers
+> onlyAssetAllowList
+
+```solidity
+modifier onlyAssetAllowList(address memory _receiveAsset) {
+    require(manager.assetAllowList[_receiveAsset], "Must be allowed asset");
+    _;
+}
+```
 
 ## Checkpoint 3
 
