@@ -74,9 +74,9 @@ The recommended solution deploys single-use, modular manager contracts from a ma
 
 ![Proposed Architecture Changes](../assets/stip-009/image1.png "")
 
-**ManagerFactory**: Factory smart contract which provides asset managers (`deployer`) the ability to `create` new Set Tokens with a BaseManagerV3 manager, `migrate` existing Set Tokens to a BaseManagerV3 manager, and `initialize` modules and enable extensions.
+**ManagerFactory**: Factory smart contract which provides asset managers (`deployer`) the ability to `create` new Set Tokens with a DelegatedManager manager, `migrate` existing Set Tokens to a DelegatedManager manager, and `initialize` modules and enable extensions.
 
-**BaseManagerV3**: Manager smart contract which provides asset managers three permissioned roles (`owner`, `methodologist`, `operator`) and asset whitelist functionality. The `owner` grants permissions to `operator`(s) to interact with extensions. The `owner` can restrict the `operator`(s) permissions with an asset whitelist.
+**DelegatedManager**: Manager smart contract which provides asset managers three permissioned roles (`owner`, `methodologist`, `operator`) and asset whitelist functionality. The `owner` grants permissions to `operator`(s) to interact with extensions. The `owner` can restrict the `operator`(s) permissions with an asset whitelist.
 
 **BasicIssuanceExtension**: Global extension which provides users with the ability to `issue` and `redeem` Set Tokens with a smart contract manager.
 
@@ -93,7 +93,7 @@ The recommended solution deploys single-use, modular manager contracts from a ma
 - Allow `deployer` to enable extensions and initialize corresponding modules
 - Allow `deployer` to create manager smart contract and initialize and parameterize all modules and extensions in two transactions
 
-**BaseManagerV3**
+**DelegatedManager**
 
 - Allow `owner` to add and remove global `operator` permissions on extensions
 - Allow `owner` to limit `operator`(s) functionality on extensions with an asset whitelist
@@ -129,9 +129,9 @@ The recommended solution deploys single-use, modular manager contracts from a ma
 
 ![ManagerFactory create](../assets/stip-009/image2.png "")
 
-An `deployer` wants to create a new Set Token with a BaseManagerV3 smart contract manager.
+An `deployer` wants to create a new Set Token with a DelegatedManager smart contract manager.
 
-1. The `deployer` calls create() passing in parameters to create a Set Token, parameters for the permissioning on BaseManagerV3, and the desired extensions. Specifically,
+1. The `deployer` calls create() passing in parameters to create a Set Token, parameters for the permissioning on DelegatedManager, and the desired extensions. Specifically,
 
     - components: List of addresses of components for initial positions
     - units: List of units for initial positions
@@ -145,16 +145,16 @@ An `deployer` wants to create a new Set Token with a BaseManagerV3 smart contrac
     - extensions: List of addresses of global extensions to be enabled
 
 2. A Set Token is deployed using SetTokenCreator
-3. A BaseManagerV3 is deployed with the ManagerFactory as the temporary `owner` until after initialization
-4. The `deployer`, `owner`, and BaseManagerV3 are stored on the Factory in pending state
+3. A DelegatedManager is deployed with the ManagerFactory as the temporary `owner` until after initialization
+4. The `deployer`, `owner`, and DelegatedManager are stored on the Factory in pending state
 
 ### ManagerFactory.migrate()
 
 ![ManagerFactory migrate](../assets/stip-009/image3.png "")
 
-An `deployer` wants to migrate an existing Set Token to a BaseManagerV3 smart contract manager.
+An `deployer` wants to migrate an existing Set Token to a DelegatedManager smart contract manager.
 
-1. The `deployer` calls migrate() passing in the Set Token address, parameters for the permissioning on BaseManagerV3, and the desired extensions. Specifically,
+1. The `deployer` calls migrate() passing in the Set Token address, parameters for the permissioning on DelegatedManager, and the desired extensions. Specifically,
 
     - owner: The address of the `owner`
     - methodologist: The address of the `methodologist`
@@ -162,8 +162,8 @@ An `deployer` wants to migrate an existing Set Token to a BaseManagerV3 smart co
     - assets: List of addresses of assets for initial asset whitelist
     - extensions: List of addresses of global extensions to be enabled
 
-2. A BaseManagerV3 is deployed with the ManagerFactory as the temporary `owner` until after initialization
-3. The `deployer`, `owner`, and BaseManagerV3 are stored on the Factory in pending state
+2. A DelegatedManager is deployed with the ManagerFactory as the temporary `owner` until after initialization
+3. The `deployer`, `owner`, and DelegatedManager are stored on the Factory in pending state
 
 ### ManagerFactory.initialize()
 
@@ -173,7 +173,7 @@ The `deployer` wants to enable all extensions, initialize all corresponding modu
 
 1. The `deployer` calls initialize() passing in the parameters for initializing modules and extensions
 2. All modules are initialized via the extensions
-3. The `owner` role on the BaseManagerV3 is transfered from the Factory to the input `owner`
+3. The `owner` role on the DelegatedManager is transfered from the Factory to the input `owner`
 4. The Factory deletes in `InitializeParams` for the set token, removing it from pending state
 
 ### StreamingFeeExtension.accrueFeeAndDistribute()
@@ -183,7 +183,7 @@ The `deployer` wants to enable all extensions, initialize all corresponding modu
 An interested party wants to accrue streaming fees and distribute them to the `owner` and `methodologist`.
 
 1. The interested party calls accrueFeeAndDistribute() on the StreamingFeeExtension
-2. Fees are accrued to the BaseManagerV3
+2. Fees are accrued to the DelegatedManager
 3. Fees are distributed to the `owner` and `methodologist`
 
 
@@ -207,7 +207,7 @@ Reviewer: []
 |------	|------	|-------------	|
 |address|deployer|Address of the deployer|
 |address|owner|Address of the owner|
-|address|manager|Address of the BaseManagerV3|
+|address|manager|Address of the DelegatedManager|
 |bool|isPending|Bool if manager in pending state|  
 
 #### Public Variables
@@ -222,9 +222,11 @@ Reviewer: []
 
 | Name  | Caller  | Description 	|
 |------	|------	|-------------	|
-|create|deployer|Create new Set Token with a BaseManagerV3 manager|
-|migrate|deployer|Migrate existing Set Token to a BaseManagerV3 manager|
+|create|deployer|Create new Set Token with a DelegatedManager manager|
+|migrate|deployer|Migrate existing Set Token to a DelegatedManager manager|
 |initialize|deployer|Initialize modules and extensions|
+
+> create
 
 ```solidity
 function create(
@@ -266,6 +268,8 @@ function create(
 }
 ```
 
+> migrate
+
 ```solidity
 function migrate(
     address memory _setTokenAddress,
@@ -295,6 +299,8 @@ function migrate(
 }
 ```
 
+> initialize
+
 ```solidity
 function initialize(
     address memory _setTokenAddress,
@@ -304,6 +310,7 @@ function initialize(
     external
 {
     require(msg.sender == initialize[setTokenAddress].deployer);
+    require(initialize[setTokenAddress].isPending);
 
     for (uint256 i = 0; i < _extensions.length; i++) {
         _extensions[i].initialize(_extensionParams[_extensions[i]]);
@@ -313,7 +320,7 @@ function initialize(
 }
 ```
 
-### BaseManagerV3
+### DelegatedManager
 
 #### Public Variables
 
@@ -366,7 +373,7 @@ function initialize(
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|address|manager|Address of the BaseManagerV3|
+|address|manager|Address of the DelegatedManager|
 
 #### Global Variables
 
@@ -404,7 +411,7 @@ function initialize(
 |------	|------	|-------------	|
 |uint256|operatorFeeSplit|Percent of fees in precise units (10^16 = 1%) sent to operator, rest to methodologist|
 |address|operatorFeeRecipient|Address that receives the operator's fees|
-|address|manager|Address of the BaseManagerV3|
+|address|manager|Address of the DelegatedManager|
 
 #### Global Variables
 
@@ -423,7 +430,7 @@ function initialize(
 | Name  | Caller  | Description     |
 |------	|------	|-------------	|
 |accrueFeesAndDistribute|public|Accrue fees and distribute to owner and methodologist|
-|updateStreamingFee|owner|Migrate existing Set Token to a BaseManagerV3 manager|
+|updateStreamingFee|owner|Migrate existing Set Token to a DelegatedManager manager|
 |updateFeeRecipient|owner|Update fee recipient|
 |updateFeeSplit|owner|Update fee split between operator and methodologist
 |updateOperatorFeeRecipient|owner|Update the address that receives the operator's fees|
@@ -443,7 +450,7 @@ function initialize(
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|address|manager|Address of the BaseManagerV3|
+|address|manager|Address of the DelegatedManager|
 
 #### Global Variables
 
