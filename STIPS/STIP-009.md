@@ -4,23 +4,38 @@
 
 ## Abstract
 
-In order to offer self-service deployment and management of Sets we need to create a standard set of manager contracts that is able to effectively delegate responsibilities to certain addresses and limit the assets that delegated addresses can add to positions.
+Historically, SetProtocol has manually deployed SetToken specific manager contracts and extensions for IndexCoop issued funds. These contracts encode fee management and rebalance trading logic and provide better security guarantees to SetToken holders than direct management via EOA.
+
+This STIP proposes that we automate manager contract deployments using on-chain factories and support "self-service" manager enabled SetToken creation as a feature available to anyone in the SetProtocol UI (tokensets.com).
+
+This involves:
++ creating a standard set of manager contracts that are:
+    + able to delegate responsibilities to certain participants (owners and operators)
+    + define the assets that participants are able to trade
+
++ creating a SetToken and Management Contract factory that deploys and wires all the contract components up.
 
 ## Motivation
 
-This feature will allow us to provide a standardized experience to SetToken owners that want to use the TokenSets UI to manage their Set. Currently, TokenSets supports only EOA managed Sets while the Sets with the largest TVL are generally managed by smart contracts (in order to restrict the manager's ability to rug users), here we seek to move everyone onto manager contracts. The manager contracts will facilitate better delegation abilities via the addition of operators (not to be confused with the operator role in previous manager contracts which will now be known as owners) which can execute trades, wraps, claims, etc. Additionally, the owner role will also be able to enforce asset whitelists on their delegated operators in order to make sure they are not able to trade into an asset they are not supposed to.
-
-Additional functionality will be built to facilitate the deployment of new Sets/manager contracts as well as the migration of old Sets to the new manager system. The goal is to minimize the amount of transactions necessary to deploy the Set/Manager as well initialize the Set's modules.
-
-All of this should add up to a better experience for the owner to create and manage their own Set while simplifying and standardizing flows on TokenSets. 
+This feature will allow us to:
++ provide a standardized experience to SetToken owners that want to use the TokenSets UI to manage their Set
++ make previously bespoke SetToken management systems available to any TokenSets user
++ improve the security tokensets-issued assets for Set holders by binding managers to smart-contract defined logics
++ introduce clearly defined roles for SetToken stakeholders and add the ability for SetToken managers to restrict Sets to a white-listed group of assets
 
 ## Background Information
 
-At the moment there are two ways to manage Sets,(1) directly via an EOA or multi-sig, or (2) via manager contract(s). EOAs/multi-sigs provide the greatest amount of flexibility because you are interacting directly with the system however they do not allow for advanced permissioning or further restrictions on the rebalancing of the Set, something a buyer of a Set may want in order to guarantee they will not be rugged by the manager. Currently there are no "standard" manager contracts built to interact with Sets and supported by the TokenSets UI, however there are a mixture of previous smart contracts with various different features:
+At the moment there are two ways to manage Sets:
+1. directly via an EOA or multi-sig,
+2. via manager contract(s).
 
-[ICManager](https://github.com/IndexCoop/index-coop-smart-contracts/blob/master/contracts/manager/ICManager.sol) - This was the monolithic, first iteration of a manager contract that contains `operator` and `methodologist` roles. It is not extensible via other contracts but did contain a function that allowed the `operator` to pass arbitrary bytedata to a target contract address (to call modules). This contract wasn't desirable due to it being unable to be conveniently upgraded as well as its poor UX for managers who would look to add new functionality (having to submit arbitrarty bytestrings instead of having clear interfaces).
+EOAs/multi-sigs provide the greatest amount of flexibility because they interact directly with the system. However they do not allow for advanced permissioning or restrictions on how the Set can be rebalanced.
 
-[BaseManager](https://github.com/IndexCoop/index-coop-smart-contracts/blob/master/contracts/manager/BaseManager.sol) - This next generation manager contract system was a more modular approach where extensions could be added to a BaseManager contract to add new functionality. This contract maintained the idea of an `operator` and `methodologist`, giving the `operator` the ability to add new functionality. Extensions became the only addresses permissioned to call an `interactManager` function on the manager which forwarded arbitrary bytedata to a target address (generally a module). This gave `operator`s much of the same powers as in the `ICManager` but the ability to add clean interfaces to interact with as well as be able to encode strategies to govern SetTokens within one of their extensions to allow for more decentralized execution of rebalances.
+Currently there are no "standard" manager contracts supported by the TokenSets UI for general use. However, several manager contracts we can draw design ideas from have been developed to support select client funds:
+
+[ICManager](https://github.com/IndexCoop/index-coop-smart-contracts/blob/master/contracts/manager/ICManager.sol) - This was the monolithic, first iteration of a manager contract that contains `operator` and `methodologist` roles. It is not extensible via other contracts but did contain a function that allowed the `operator` to pass arbitrary bytedata to a target contract address (to call modules). This contract wasn't desirable due to it being unable to be conveniently upgraded as well as its poor UX for managers who were required to submit arbitrary bytestrings instead of having clear interfaces.
+
+[BaseManager](https://github.com/IndexCoop/index-coop-smart-contracts/blob/master/contracts/manager/BaseManager.sol) - This next generation manager contract system implements a more modular approach where extensions can be added to a BaseManager contract to add new functionality. This contract maintained the idea of an `operator` and `methodologist`, giving the `operator` the ability to add new functionality. Extensions became the only addresses permissioned to call an `interactManager` function on the manager which forwarded arbitrary bytedata to a target address (generally a module). This gave `operator`s much of the same powers as in the `ICManager` but the ability to add clean interfaces to interact with as well as be able to encode strategies to govern SetTokens within one of their extensions to allow for more decentralized execution of rebalances.
 
 [BaseManagerV2](https://github.com/IndexCoop/index-coop-smart-contracts/blob/master/contracts/manager/BaseManagerV2.sol) - This manager contract is very similar to `BaseManager` it just gave `methodologists` greater ability to counteract `operators` ablility to add and remove privileged functionalities from the manager in case of an adversarial relationship between the `operator` and `methodologist`.
 
@@ -29,7 +44,7 @@ At the moment there are two ways to manage Sets,(1) directly via an EOA or multi
 Pose any open questions you may still have about potential solutions here. We want to be sure that they have been resolved before moving ahead with talk about the implementation. This section should be living and breathing through out this process.
 
 - [ ] When accruing streaming fees where do we send the fees to? The manager?
-    - *Answer*
+    - The manager. We don't want to pool fees in generalized extensions.
 - [ ] How do we validate that trades for *x* asset are actually for *x* asset when the trade is encoded in a bunch of bytedata?
     - *Answer*
 - [ ] What data needs to be held on every extension? What data needs to be passed in for initialization on each extension?
@@ -43,9 +58,9 @@ Pose any open questions you may still have about potential solutions here. We wa
 
 ## Feasibility Analysis
 
-### Single-use vs. Mutli-use Manager Contracts
+### Single-user vs. Mutli-user Manager Contracts
 
-Single-use manager contracts would be deployed once per Set Token by a manager factory contract, while a multi-use manager contract would be deployed once overall and could subsequently be used by all Set Tokens. Single-use manager contracts maintain separation between Set Tokens at the contract level but require individual deployments for each Set Token. A multi-use manager contract requires only one deployment but has functionality across many Set Tokens, which may open up attack vectors.
+Single-user manager contracts would be deployed once per Set Token by a manager factory contract, while a multi-user manager contract would be deployed once overall and could subsequently be used by all Set Tokens. Single-user manager contracts maintain separation between Set Tokens at the contract level but require individual deployments for each Set Token. A multi-user manager contract requires only one deployment but has functionality across many Set Tokens, which may open up attack vectors.
 
 ### Modular vs. Monolithic Manager Contracts
 
@@ -57,7 +72,14 @@ With individual extensions, a new extension contract must be deployed and enable
 
 ### Recommended Solution
 
-The recommended solution deploys single-use, modular manager contracts from a manager factory contract along with a collection of multi-use, global extensions providing basic functionality. These manager contracts will hold the `owner`, `methodologist`, and `operator` roles and an asset whitelist which will be used by extensions. The single-use manager contracts maintain the separation of Set Tokens from each other at the contract level. The modularity of the manager contracts allows for functionaity to be flexible and extensible. The collection of multi-use extensions gives managers access to basic functionality with only a state change and no contract deployment. Manager's will still have the option of deploying individual extensions for more complicated functionality.
+We recommend deploying single-user, modular manager contracts from a manager factory contract along with a collection of multi-user, "global" extensions providing basic functionality. Manager contracts will define `owner`, `methodologist`, and `operator` roles and an asset whitelist which will be used by extensions.
+
+**Design features**
+
++ single-user manager contracts mirror the separation of Set Tokens from each other at the contract level.
++ modular manager contracts allow for functionaity to be flexible and extensible.
++ a collection of multi-use extensions gives managers access to basic functionality without requiring a dedicated contract deployment.
++ managers will retain the option of deploying individual extensions for more complicated functionality.
 
 ## Timeline
 
@@ -211,7 +233,7 @@ Reviewer: []
 |address|deployer|Address of the deployer|
 |address|owner|Address of the owner|
 |address|manager|Address of the DelegatedManager|
-|bool|isPending|Bool if manager in pending state|  
+|bool|isPending|Bool if manager in pending state|
 
 #### Public Variables
 
@@ -552,5 +574,5 @@ Before we move onto the implementation phase we want to make sure that we are al
 ## Documentation
 [Link to Documentation on feature]()
 ## Deployment
-[Link to Deployment script PR]()  
+[Link to Deployment script PR]()
 [Link to Deploy outputs PR]()
