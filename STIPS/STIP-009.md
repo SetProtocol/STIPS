@@ -101,6 +101,7 @@ The recommended solution deploys single-use, modular manager contracts from a ma
 - Allow `owner` to limit `operator`(s) functionality on extensions with an asset whitelist
 - Allow `owner` to update asset whitelist
 - Allow `owner` to perform Set Token admin functions such as `addModule`, `removeModule`, and `setManager`
+- Allow extensions to interact with modules
 
 ### BasicIssuanceExtension
 
@@ -326,6 +327,18 @@ function initialize(
 
 ### DelegatedManager
 
+#### Enums
+
+##### ExtensionState
+
+```solidity
+enum ExtensionState {
+    NONE,
+    PENDING,
+    INITIALIZED
+}
+```
+
 #### Public Variables
 
 | Type 	| Name 	| Description 	|
@@ -350,6 +363,7 @@ function initialize(
 | Name  | Caller  | Description 	|
 |------	|------	|-------------	|
 |interactManager|extension|Interact with a module registered on the Set Token|
+|initializeExtension|extension|Initializes an added extension from PENDING to INITIALIZED state|
 |addExtensions|owner|Add a new extension that the DelegatedManager can call|
 |removeExtensions|owner|Remove an existing extension tracked by the DelegatedManager|
 |addOperators|owner|Add new operator(s) address|
@@ -368,11 +382,18 @@ function initialize(
 
 > onlyExtension
 
+```solidity
+modifier onlyExtension() {
+    require(extensionAllowlist[msg.sender] == ExtensionState.INITIALIZED, "Must be initialized extension");
+    _;
+}
+```
+
 ### BasicIssuanceExtension
 
 #### Inheritance
 
-- BaseExtension
+- BaseGlobalExtension
 
 #### Structs
 
@@ -401,14 +422,11 @@ function initialize(
 |updateIssueFee|owner|Update issue fee on IssuanceModule|
 |updateRedeemFee|owner|Update redeem fee on IssuanceModule|
 
-#### Modifiers
-> onlyOperator
-
 ### StreamingFeeSplitExtension
 
 #### Inheritance
 
-- BaseExtension
+- BaseGlobalExtension
 
 #### Structs
 
@@ -442,14 +460,11 @@ function initialize(
 |updateFeeSplit|owner|Update fee split between operator and methodologist
 |updateOperatorFeeRecipient|owner|Update the address that receives the operator's fees|
 
-#### Modifiers
-> onlyOperator
-
 ### TradeExtension
 
 #### Inheritance
 
-- BaseExtension
+- BaseGlobalExtension
 
 #### Structs
 
@@ -477,13 +492,7 @@ function initialize(
 |------	|------	|-------------	|
 |trade|operator|Trade between whitelisted assets on a DEX|
 
-#### Modifiers
-
-> onlyAssetAllowList
-
-> onlyOperator
-
-### BaseExtension
+### BaseGlobalExtension
 
 #### Modifiers
 
@@ -496,11 +505,38 @@ modifier onlyAssetAllowList(address memory _receiveAsset) {
 }
 ```
 
+> onlyOwner
+
+```solidity
+modifier onlyOwner(ISetToken _setToken) {
+    require(msg.sender == _manager(_setToken).owner(), "Must be owner");
+    _;
+}
+```
+
+> onlyMethodologist
+
+```solidity
+modifier onlyMethodologist(ISetToken _setToken) {
+    require(msg.sender == _manager(_setToken).methodologist(), "Must be methodologist");
+    _;
+}
+```
+
 > onlyOperator
 
 ```solidity
-modifier onlyOperator() {
-    require(manager.operatorAllowlist[msg.sender], "Must be operator");
+modifier onlyOperator(ISetToken _setToken) {
+    require(_manager(_setToken).operatorAllowlist(msg.sender), "Must be approved operator");
+    _;
+}
+```
+
+> onlyManager
+
+```solidity
+modifier onlyManager(ISetToken _setToken) {
+    require(address(_manager(_setToken)) == msg.sender, "Manager must be sender");
     _;
 }
 ```
