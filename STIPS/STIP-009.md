@@ -411,6 +411,87 @@ modifier onlyExtension() {
 }
 ```
 
+### BaseGlobalExtension
+
+#### Modifiers
+
+> onlyAssetAllowList
+
+```solidity
+modifier onlyAssetAllowList(address memory _receiveAsset) {
+    require(manager.assetAllowList[_receiveAsset], "Must be allowed asset");
+    _;
+}
+```
+
+> onlyOwner
+
+```solidity
+modifier onlyOwner(ISetToken _setToken) {
+    require(msg.sender == _manager(_setToken).owner(), "Must be owner");
+    _;
+}
+```
+
+> onlyMethodologist
+
+```solidity
+modifier onlyMethodologist(ISetToken _setToken) {
+    require(msg.sender == _manager(_setToken).methodologist(), "Must be methodologist");
+    _;
+}
+```
+
+> onlyOperator
+
+```solidity
+modifier onlyOperator(ISetToken _setToken) {
+    require(_manager(_setToken).operatorAllowlist(msg.sender), "Must be approved operator");
+    _;
+}
+```
+
+> onlyManager
+
+```solidity
+modifier onlyManager(ISetToken _setToken) {
+    require(address(_manager(_setToken)) == msg.sender, "Manager must be sender");
+    _;
+}
+```
+
+### TradeExtension
+
+#### Inheritance
+
+- BaseGlobalExtension
+
+#### Structs
+
+##### TradeParams
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|address|manager|Address of the DelegatedManager|
+
+#### Global Variables
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|ITradeModule|tradeModule|Trade Module for Set Token|
+
+#### Public Variables
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|mapping(address => TradeParams)|setTradeParams|Mapping from Set Token to trade parameters|
+
+#### Functions
+
+| Name  | Caller  | Description     |
+|------	|------	|-------------	|
+|trade|operator|Trade between whitelisted assets on a DEX|
+
 ### BasicIssuanceExtension
 
 #### Inheritance
@@ -481,87 +562,6 @@ modifier onlyExtension() {
 |updateFeeRecipient|owner|Update fee recipient|
 |updateFeeSplit|owner|Update fee split between operator and methodologist
 |updateOperatorFeeRecipient|owner|Update the address that receives the operator's fees|
-
-### TradeExtension
-
-#### Inheritance
-
-- BaseGlobalExtension
-
-#### Structs
-
-##### TradeParams
-
-| Type 	| Name 	| Description 	|
-|------	|------	|-------------	|
-|address|manager|Address of the DelegatedManager|
-
-#### Global Variables
-
-| Type 	| Name 	| Description 	|
-|------	|------	|-------------	|
-|ITradeModule|tradeModule|Trade Module for Set Token|
-
-#### Public Variables
-
-| Type 	| Name 	| Description 	|
-|------	|------	|-------------	|
-|mapping(address => TradeParams)|setTradeParams|Mapping from Set Token to trade parameters|
-
-#### Functions
-
-| Name  | Caller  | Description     |
-|------	|------	|-------------	|
-|trade|operator|Trade between whitelisted assets on a DEX|
-
-### BaseGlobalExtension
-
-#### Modifiers
-
-> onlyAssetAllowList
-
-```solidity
-modifier onlyAssetAllowList(address memory _receiveAsset) {
-    require(manager.assetAllowList[_receiveAsset], "Must be allowed asset");
-    _;
-}
-```
-
-> onlyOwner
-
-```solidity
-modifier onlyOwner(ISetToken _setToken) {
-    require(msg.sender == _manager(_setToken).owner(), "Must be owner");
-    _;
-}
-```
-
-> onlyMethodologist
-
-```solidity
-modifier onlyMethodologist(ISetToken _setToken) {
-    require(msg.sender == _manager(_setToken).methodologist(), "Must be methodologist");
-    _;
-}
-```
-
-> onlyOperator
-
-```solidity
-modifier onlyOperator(ISetToken _setToken) {
-    require(_manager(_setToken).operatorAllowlist(msg.sender), "Must be approved operator");
-    _;
-}
-```
-
-> onlyManager
-
-```solidity
-modifier onlyManager(ISetToken _setToken) {
-    require(address(_manager(_setToken)) == msg.sender, "Manager must be sender");
-    _;
-}
-```
 
 ## Checkpoint 3
 
