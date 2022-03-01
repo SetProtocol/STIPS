@@ -521,7 +521,7 @@ function initialize(
 |addAllowedAssets|owner|Add new asset(s) that can be traded to, wrapped to, or claimed|
 |removeAllowedAssets|owner|Remove asset(s) so that it/they can't be traded to, wrapped to, or claimed|
 |setUseAssetAllowed|owner|set useAssetAllowed variable to true or false|
-|setMethodologist|owner|Update the methodologist address|
+|setMethodologist|methodologist|Update the methodologist address|
 |setManager|owner|Update the manager of the Set Token|
 |addModule|owner|Add module to Set Token|
 |removeModule|owner|Remove module from Set Token|
@@ -531,7 +531,7 @@ function initialize(
 | Name  | Description   |
 |------ |-------------  |
 |onlyOwner| Requires that DelegatedManager `owner` is caller |
-|onlyOwner | Requires that DelegatedManager `methodologist` is caller |
+|onlyMethodologist | Requires that DelegatedManager `methodologist` is caller |
 |onlyExtension | Requires that msg.sender is an initialized extension in the `extensionAllowList` array |
 
 ### Functions
@@ -698,7 +698,7 @@ function setUseAssetAllowList(bool _useAssetAllowList)
 
 ONLY OWNER: Sets the *ownerFeeSplit*
 
-```
+```solidity
 function setOwnerFeeSplit(uint256 _ownerFeeSplit)
 ```
 
@@ -710,7 +710,7 @@ function setOwnerFeeSplit(uint256 _ownerFeeSplit)
 
 ONLY OWNER: Sets the *ownerFeeRecipient*
 
-```
+```solidity
 function setOwnerFeeRecipient(address _ownerFeeRecipient)
 ```
 
@@ -904,43 +904,25 @@ modifier onlyManager(ISetToken _setToken) {
 
 | Name  | Caller  | Description     |
 |------	|------	|-------------	|
-|initializeExtension|owner|Initialize the TradeExtension on the DelegatedManager|
-|initializeModuleAndExtension|owner|Initialize the TradeModule on the SetToken and the TradeExtension on the DelegatedManager|
+|initialize|owner|Initialize the TradeExtension on the DelegatedManager and initialize the TradeModule on the SetToken if necessary|
 |trade|operator|Trade between whitelisted assets on a DEX|
 
-> initializeExtension
+> initialize
 
-ONLY OWNER: Initialize the TradeExtension on the DelegatedManager
-
-```solidity
-function initializeExtension(IDelegatedManager _manager) external {
-    require(msg.sender == _manager.owner(), "Must be owner")
-    require(_manager.setToken().isInitializedModule(tradeModule), "Module must be initialized");
-    require(_manager.isPendingExtension(address(this)), "Extension must be pending");
-
-    _manager.initializeExtension();
-
-    setManagers[_manager.setToken()] = _manager;
-}
-```
-
-> initializeModuleAndExtension
-
-ONLY OWNER: Initialize the TradeModule on the SetToken and the TradeExtension on the DelegatedManager
+ONLY OWNER: Initialize the TradeExtension on the DelegatedManager and initialize the TradeModule on the SetToken if necessary
 
 ```solidity
-function initializeModuleAndExtension(IDelegatedManager _manager) external {
-    require(msg.sender == _manager.owner(), "Must be owner")
-    require(_manager.setToken().isInitializedModule(tradeModule), "Module must be pending");
-    require(_manager.isPendingExtension(address(this)), "Extension must be pending");
-
-    tradeModule.initialize(_manager.setToken());
-
-    _manager.initializeExtension();
-
-    setManagers[_manager.setToken()] = _manager;
-}
+function initialize(
+    bytes memory _data
+)
 ```
+
++ require that caller be the *deployer* specified in the *initialize[_setTokenAddress]* mapping
++ require that extension state in *extensionAllowList* is *PENDING*
++ if module state is *PENDING*, initialize module with decoded bytedata
++ set *setManagers[_setTokenAddress]* to manager
++ call `manager.initializeExtension()`
++ emit *ExtensionInitialized* event
 
 ### BasicIssuanceExtension
 
@@ -974,44 +956,26 @@ function initializeModuleAndExtension(IDelegatedManager _manager) external {
 
 | Name  | Caller  | Description     |
 |------	|------	|-------------	|
-|initializeExtension|owner|Initialize the BasicIssuanceExtension on the DelegatedManager|
-|initializeModuleAndExtension|owner|Initialize the BasicIssuanceModule on the SetToken and the BasicIssuanceExtension on the DelegatedManager|
+|initialize|owner|Initialize the BasicIssuanceExtension on the DelegatedManager and initialize the BasicIssuanceModule on the SetToken if necessary|
 |updateIssueFee|owner|Update issue fee on IssuanceModule|
 |updateRedeemFee|owner|Update redeem fee on IssuanceModule|
 
-> initializeExtension
+> initialize
 
-ONLY OWNER: Initialize the BasicIssuanceExtension on the DelegatedManager
-
-```solidity
-function initializeExtension(IDelegatedManager _manager) external {
-    require(msg.sender == _manager.owner(), "Must be owner")
-    require(_manager.setToken().isInitializedModule(issuanceModule), "Module must be initialized");
-    require(_manager.isPendingExtension(address(this)), "Extension must be pending");
-
-    _manager.initializeExtension();
-
-    setManagers[_manager.setToken()] = _manager;
-}
-```
-
-> initializeModuleAndExtension
-
-ONLY OWNER: Initialize the BasicIssuanceModule on the SetToken and the BasicIssuanceExtension on the DelegatedManager
+ONLY OWNER: Initialize the BasicIssuanceExtension on the DelegatedManager and initialize the BasicIssuanceModule on the SetToken if necessary
 
 ```solidity
-function initializeModuleAndExtension(IDelegatedManager _manager, FeeState _feeSettings) external {
-    require(msg.sender == _manager.owner(), "Must be owner")
-    require(_manager.setToken().isInitializedModule(tradeModule), "Module must be pending");
-    require(_manager.isPendingExtension(address(this)), "Extension must be pending");
-
-    issuanceModule.initialize(_manager.setToken(), _feeSettings);
-
-    _manager.initializeExtension();
-
-    setManagers[_manager.setToken()] = _manager;
-}
+function initialize(
+    bytes memory _data
+)
 ```
+
++ require that caller be the *deployer* specified in the *initialize[_setTokenAddress]* mapping
++ require that extension state in *extensionAllowList* is *PENDING*
++ if module state is *PENDING*, initialize module with decoded bytedata
++ set *setManagers[_setTokenAddress]* to manager
++ call `manager.initializeExtension()`
++ emit *ExtensionInitialized* event
 
 ### StreamingFeeSplitExtension
 
@@ -1047,44 +1011,26 @@ function initializeModuleAndExtension(IDelegatedManager _manager, FeeState _feeS
 | Name  | Caller  | Description     |
 |------	|------	|-------------	|
 |accrueFeesAndDistribute|public|Accrue fees and distribute to owner and methodologist|
-|initializeExtension|owner|Initialize the StreamingFeeSplitExtension on the DelegatedManager|
-|initializeModuleAndExtension|owner|Initialize the StreamingFeeModule on the SetToken and the StreamingFeeSplitExtension on the DelegatedManager|
+|initialize|owner|Initialize the StreamingFeeSplitExtension on the DelegatedManager and initialize the StreamingFeeModule on the SetToken if necessary|
 |updateStreamingFee|owner|Migrate existing Set Token to a DelegatedManager manager|
 |updateFeeRecipient|owner|Update fee recipient|
 
-> initializeExtension
+> initialize
 
-ONLY OWNER: Initialize the StreamingFeeSplitExtension on the DelegatedManager
-
-```solidity
-function initializeExtension(IDelegatedManager _manager, FeeState _feeSettings) external {
-    require(msg.sender == _manager.owner(), "Must be owner")
-    require(_manager.setToken().isInitializedModule(streamingFeeModule), "Module must be initialized");
-    require(_manager.isPendingExtension(address(this)), "Extension must be pending");
-
-    _manager.initializeExtension();
-
-    setManagers[_manager.setToken()] = _manager;
-}
-```
-
-> initializeModuleAndExtension
-
-ONLY OWNER: Initialize the StreamingFeeModule on the SetToken and the StreamingFeeSplitExtension on the DelegatedManager
+ONLY OWNER: Initialize the StreamingFeeSplitExtension on the DelegatedManager and initialize the StreamingFeeModule on the SetToken if necessary
 
 ```solidity
-function initializeModuleAndExtension(IDelegatedManager _manager, FeeState _feeSettings) external {
-    require(msg.sender == _manager.owner(), "Must be owner")
-    require(_manager.setToken().isInitializedModule(tradeModule), "Module must be pending");
-    require(_manager.isPendingExtension(address(this)), "Extension must be pending");
-
-    streamingFeeModule.initialize(_manager.setToken(), _feeSettings);
-
-    _manager.initializeExtension();
-
-    setManagers[_manager.setToken()] = _manager;
-}
+function initialize(
+    bytes memory _data
+)
 ```
+
++ require that caller be the *deployer* specified in the *initialize[_setTokenAddress]* mapping
++ require that extension state in *extensionAllowList* is *PENDING*
++ if module state is *PENDING*, initialize module with decoded bytedata
++ set *setManagers[_setTokenAddress]* to manager
++ call `manager.initializeExtension()`
++ emit *ExtensionInitialized* event
 
 ## Checkpoint 3
 
