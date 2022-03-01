@@ -411,6 +411,13 @@ function createManager(
 ONLY DEPLOYER: Wires SetToken, DelegatedManager, global manager extensions, and modules together into
 a functioning package. `_initializeTargets` includes any extensions or modules which need to be initialized. `initializeBytecode` is an encoded call to the relevant target's *initialize* function.
 
+To generate the bytecode to call the TradeModules initialize function with the ethers.js library you'd write:
+
+```js
+const iFace = new ethers.utils.interface(["initialize(address)"]);
+const bytecode = iface.encodeFunctionData("initialize", [setTokenAddress]);
+```
+
 ```solidity
 function initialize(
     address memory _setTokenAddress,
