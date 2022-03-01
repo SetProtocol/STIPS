@@ -353,9 +353,12 @@ function createSetAndManager(
     });
     ```
 
-ANYONE CAN CALL: Deploys a DelegatedManager and sets some temporary metadata about
+ONLY SETTOKEN MANAGER: Deploys a DelegatedManager and sets some temporary metadata about
 the deployment which will be read during a subsequent intialization step which wires everything
-together. This method is used when migrating an existing SetToken to the DelegatedManager system
+together. This method is used when migrating an existing SetToken to the DelegatedManager system.
+
+(Note: This flow should work well for SetTokens managed by an EOA. However, existing contract-managed Sets
+may need to have their ownership temporarily transferred to an EOA when migrating. We don't anticipate high demand for this migration case though.)
 
 > createManager
 
@@ -370,7 +373,7 @@ function createManager(
     address[] memory _extensions
 )
 ```
-
++ require *msg.sender* is *setToken.manager*
 + if `_assets` are specified, require that all of the sets existing *_components* are included in the *_assets* array
 
 + deploy the manager, setting its *useAssetsAllowedList* constructor parameter to true if there are *_assets* and false otherwise.
@@ -594,7 +597,7 @@ function transferTokens(address _token, address _destination, uint256 _amount)
 
 ----
 
-> initializeExtension
+ONLY PENDING EXTENSION > initializeExtension
 
 Initializes an added extension from PENDING to INITIALIZED state. An address can only
 enter a PENDING state if it is an enabled extension added by the manager. Only callable
@@ -604,7 +607,7 @@ by the extension itself, hence msg.sender is the subject of update.
 function initializeExtension()
 ```
 
-+ Require that extension exists and it's state is *PENDING*
++ Require that extension calling method has been added and it's state is *PENDING*
 + Set *extensionAllowlist[msg.sender]* to *INITIALIZED*
 + Add *msg.sender* to *extensions* array
 + emit *ExtensionInitialized* event
@@ -964,20 +967,38 @@ function removeExtension(ISetToken _setToken) external virtual;
 |initialize|owner|Initialize the TradeExtension on the DelegatedManager and initialize the TradeModule on the SetToken if necessary|
 |trade|operator|Trade between whitelisted assets on a DEX|
 
-> initialize
+> initializeExtension
 
-ONLY OWNER: Initialize the TradeExtension on the DelegatedManager and initialize the TradeModule on the SetToken if necessary
+ONLY OWNER: Initialize the TradeExtension on the DelegatedManager
 
 ```solidity
-function initialize(address _delegatedManager)
+function initializeExtension(address _delegatedManager)
 ```
-
-+ require that caller be the *deployer* specified in the factory's *initialize[_setTokenAddress]* mapping
-+ require that module state be INITIALIZED for setToken
 + require that extension state in delegatedManager's *extensionAllowList* is *PENDING*
 + set *setManagers[_setTokenAddress]* to manager
 + call `manager.initializeExtension()`
 + emit *ExtensionInitialized* event
+
+----
+
+> initializeModuleAndExtension
+
+ONLY OWNER: Initialize the TradeModule and the TradeExtension
+
+```
+function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanceHook _preIssueHook)
+```
+
++ call *initializeExtension(_delegatedManager);
++ Formulate call to initialize module from manager
+    ```solidity
+    bytes memory callData = abi.encodeWithSelector(
+        IStreamingFeeModule.initialize.selector,
+        delgatedManager.setToken()
+    );
+    ```
+
++ call *invokeManager(streamingFeeModule, callData)*
 
 ### BasicIssuanceExtension
 
@@ -1015,20 +1036,42 @@ function initialize(address _delegatedManager)
 |updateIssueFee|owner|Update issue fee on IssuanceModule|
 |updateRedeemFee|owner|Update redeem fee on IssuanceModule|
 
-> initialize
+> initializeExtension
 
-ONLY OWNER: Initialize the BasicIssuanceExtension on the DelegatedManager and initialize the BasicIssuanceModule on the SetToken if necessary
+ONLY OWNER: Initialize the BasicIssuanceExtension on the DelegatedManager
 
 ```solidity
-function initialize(address _delegatedManager)
+function initializeExtension(address _delegatedManager)
 ```
 
++ read _setTokenAddress from _delegatedManager
 + require that caller be the *deployer* specified in the factory's *initialize[_setTokenAddress]* mapping
-+ require that module state be INITIALIZED for setToken
 + require that extension state in delegatedManager's *extensionAllowList* is *PENDING*
 + set *setManagers[_setTokenAddress]* to manager
 + call `manager.initializeExtension()`
 + emit *ExtensionInitialized* event
+
+----
+
+> initializeModuleAndExtension
+
+ONLY OWNER: Initialize the BasicIssuanceModule and the BasicIssuanceExtension
+
+```
+function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanceHook _preIssueHook)
+```
+
++ call *initializeExtension(_delegatedManager);
++ Formulate call to initialize module from manager
+    ```solidity
+    bytes memory callData = abi.encodeWithSelector(
+        IStreamingFeeModule.initialize.selector,
+        delgatedManager.setToken(),
+        _preIssueHook
+    );
+    ```
+
++ call *invokeManager(streamingFeeModule, callData)*
 
 ### StreamingFeeSplitExtension
 
@@ -1068,20 +1111,40 @@ function initialize(address _delegatedManager)
 |updateStreamingFee|owner|Migrate existing Set Token to a DelegatedManager manager|
 |updateFeeRecipient|owner|Update fee recipient|
 
-> initialize
+> initializeExtension
 
-ONLY OWNER: Initialize the StreamingFeeSplitExtension on the DelegatedManager and initialize the StreamingFeeModule on the SetToken if necessary
+ONLY OWNER: Initialize the StreamingFeeSplitExtension on the DelegatedManager
 
 ```solidity
-function initialize(address _delegatedManager)
+function initializeExtension(address _delegatedManager)
 ```
 
-+ require that caller be the *deployer* specified in the factory's *initialize[_setTokenAddress]* mapping
-+ require that module state be INITIALIZED for setToken
 + require that extension state in delegatedManager's *extensionAllowList* is *PENDING*
-+ set *setManagers[_setTokenAddress]* to manager
++ set *setManagers[_setTokenAddress]* to _delagatedManager
 + call `manager.initializeExtension()`
 + emit *ExtensionInitialized* event
+
+----
+
+> initializeModuleAndExtension
+
+ONLY OWNER: Initialize the StreamingFeeModule and the StreamingFeeExtension
+
+```
+function initializeExtensionAndModule(address _delegatedManager, FeeState memory _settings)
+```
+
++ call *initializeExtension(_delegatedManager);
++ Formulate call to initialize module from manager
+    ```solidity
+    bytes memory callData = abi.encodeWithSelector(
+        IStreamingFeeModule.initialize.selector,
+        _delegatedManager.setToken(),
+        _settings
+    );
+    ```
+
++ call *invokeManager(streamingFeeModule, callData)*
 
 ## Checkpoint 3
 
