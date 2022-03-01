@@ -563,8 +563,21 @@ ONLY EXTENSION: Interact with a module registered on the SetToken
 ```
 function interactManager(address _module, bytes calldata _data) external onlyExtension
 ```
-
++ require that _module is not the *setToken* (to prevent operator from bypassing extension interfaces)
 + Call `_module.functionCallWithValue(_data, 0)`
+
+----
+
+> transferTokens
+
+ONLY OWNER: Transfers _tokens held by the manager to _destination. Can be used to
+recover anything sent here accidentally.
+
+```solidity
+function transferTokens(address _token, address _destination, uint256 _amount)
+```
+
++ Call `IERC20(_token).safeTransfer(_destination, _amount)`
 
 ----
 
