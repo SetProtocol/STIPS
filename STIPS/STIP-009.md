@@ -122,6 +122,10 @@ We recommend deploying single-user, modular manager contracts from a manager fac
 - Allow `owner` to limit `operator`(s) functionality on extensions with an asset whitelist
 - Allow `owner` to update asset whitelist
 - Allow `owner` to perform Set Token admin functions such as `addModule`, `removeModule`, and `setManager`
+- Allow `owner` to update ownerFeeSplit
+- Allow `owner` to update ownerFeeRecipient
+- Allow `owner` to transfer tokens held by the BaseManager to another address (sweeper)
+- Allow `owner` to update useAllowedAssetList flag. (When false, manager can trade any asset)
 - Allow extensions to interact with modules
 
 ### TradeExtension
