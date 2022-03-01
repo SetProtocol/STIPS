@@ -98,7 +98,7 @@ We recommend deploying single-user, modular manager contracts from a manager fac
 
 ![Proposed Architecture Changes](../assets/stip-009/image1.png "")
 
-**ManagerFactory**: Factory smart contract which provides asset managers (`deployer`) the ability to `create` new Set Tokens with a DelegatedManager manager, `migrate` existing Set Tokens to a DelegatedManager manager, and `initialize` modules and enable extensions.
+**DelegatedManagerFactory**: Factory smart contract which provides asset managers (`deployer`) the ability to `create` new Set Tokens with a DelegatedManager manager, `migrate` existing Set Tokens to a DelegatedManager manager, and `initialize` modules and enable extensions.
 
 **DelegatedManager**: Manager smart contract which provides asset managers three permissioned roles (`owner`, `methodologist`, `operator`) and asset whitelist functionality. The `owner` grants permissions to `operator`(s) to interact with extensions. The `owner` can restrict the `operator`(s) permissions with an asset whitelist.
 
@@ -110,7 +110,7 @@ We recommend deploying single-user, modular manager contracts from a manager fac
 
 ## Requirements
 
-### ManagerFactory
+### DelegatedManagerFactory
 
 - Allow `deployer` to create new set tokens with a manager smart contract
 - Allow `deployer` to migrate existing set tokens to a manager smart contract
@@ -150,9 +150,9 @@ We recommend deploying single-user, modular manager contracts from a manager fac
 
 ## User Flows
 
-### ManagerFactory.createSetAndManager()
+### DelegatedManagerFactory.createSetAndManager()
 
-![ManagerFactory create](../assets/stip-009/image2.png "")
+![DelegatedManagerFactory create](../assets/stip-009/image2.png "")
 
 A `deployer` wants to create a new Set Token with a DelegatedManager smart contract manager.
 
@@ -174,14 +174,14 @@ A `deployer` wants to create a new Set Token with a DelegatedManager smart contr
 
 3. A Set Token is deployed using SetTokenCreator
 
-4. A DelegatedManager is deployed with the ManagerFactory as the temporary `owner` until after initialization
+4. A DelegatedManager is deployed with the DelegatedManagerFactory as the temporary `owner` until after initialization
     - If assets are defined, constructor param *useAssetAllowList* is set to true, false otherwise.
 
 5. The `deployer`, `owner`, and DelegatedManager are stored on the Factory in pending state
 
-### ManagerFactory.createManager()
+### DelegatedManagerFactory.createManager()
 
-![ManagerFactory migrate](../assets/stip-009/image3.png "")
+![DelegatedManagerFactory migrate](../assets/stip-009/image3.png "")
 
 A `deployer` wants to migrate an existing Set Token to a DelegatedManager smart contract manager.
 
@@ -196,14 +196,14 @@ A `deployer` wants to migrate an existing Set Token to a DelegatedManager smart 
 2. createManager parameters are validated:
     - If assets are defined, asset list must match SetToken's existing components
 
-3. A DelegatedManager is deployed with the ManagerFactory as the temporary `owner` until after initialization
+3. A DelegatedManager is deployed with the DelegatedManagerFactory as the temporary `owner` until after initialization
     - If assets are defined, constructor param *useAssetAllowList* is set to true, false otherwise.
 
 4. The `deployer`, `owner`, and DelegatedManager are stored on the Factory in pending state
 
-### ManagerFactory.initialize()
+### DelegatedManagerFactory.initialize()
 
-![ManagerFactory initialize](../assets/stip-009/image4.png "")
+![DelegatedManagerFactory initialize](../assets/stip-009/image4.png "")
 
 The `deployer` wants to enable all extensions, initialize all corresponding modules, and transfer the manager `owner` role.
 
@@ -244,7 +244,7 @@ Reviewer: []
 
 ## Specification
 
-### ManagerFactory
+### DelegatedManagerFactory
 
 #### Events
 
@@ -419,6 +419,8 @@ function initialize(
 + for each target, bytecode in _initializeTargets, _initializeBytecode
     + call target.functionCallWithValue(bytecode, 0)
 
++ if setToken manager is this factory we're creating a new SetToken rather than migrating
+  + call `setToken.setManager(initialize[_setTokenAddress].manager)`
 + transfer ownership of manager from factory to *owner* specified in the *initialize[_setTokenAddress]* mapping
 + delete the *initialize[_setTokenAddress]* mapping entry
 
