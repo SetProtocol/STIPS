@@ -293,7 +293,7 @@ Reviewer: []
 |------	|------	|-------------	|
 |createSetAndManager |deployer|Create new Set Token with a DelegatedManager manager|
 |createManager | SetToken owner |Migrate existing Set Token to a DelegatedManager manager|
-|initialize |deployer or SetToken owner |Initialize modules and extensions|
+|initialize |deployer or SetToken owner |Initialize modules and extensions, set manager fee settings|
 
 > createSetAndManager
 
@@ -818,6 +818,16 @@ function isPendingExtension(address _extension)
 ```
 
 + if _extension state in *extensionAllowList* is PENDING, return true. Otherwise false;
+
+> isAllowedAsset
+
+```solidity
+function isAllowedAsset(address _asset)
+```
+
++ return allowedAssetList(_asset)
+
+
 
 
 
