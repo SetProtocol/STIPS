@@ -254,9 +254,7 @@ Reviewer: []
 |address|deployer|Address of the deployer|
 |address|owner|Address of the owner|
 |address|manager|Address of the DelegatedManager|
-|address[]|operators|Addresses of the operators|
-|address[]|assets|Addresses of whitelisted assets|
-|address[]|extensions|Addresses of extensions for manager|
+
 
 ##### DelegatedManagerInitialized
 
