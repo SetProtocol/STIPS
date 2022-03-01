@@ -154,7 +154,7 @@ We recommend deploying single-user, modular manager contracts from a manager fac
 
 ![ManagerFactory create](../assets/stip-009/image2.png "")
 
-An `deployer` wants to create a new Set Token with a DelegatedManager smart contract manager.
+A `deployer` wants to create a new Set Token with a DelegatedManager smart contract manager.
 
 1. The `deployer` calls createSetAndManager() passing in parameters to create a Set Token, parameters for the permissioning on DelegatedManager, and the desired extensions. Specifically,
 
@@ -183,7 +183,7 @@ An `deployer` wants to create a new Set Token with a DelegatedManager smart cont
 
 ![ManagerFactory migrate](../assets/stip-009/image3.png "")
 
-An `deployer` wants to migrate an existing Set Token to a DelegatedManager smart contract manager.
+A `deployer` wants to migrate an existing Set Token to a DelegatedManager smart contract manager.
 
 1. The `deployer` calls createManager() passing in the Set Token address, parameters for the permissioning on DelegatedManager, and the desired extensions. Specifically,
 
@@ -297,6 +297,10 @@ Reviewer: []
 
 > createSetAndManager
 
+ANYONE CAN CALL: Deploys a new SetToken and DelegatedManager. Sets some temporary metadata about
+the deployment which will be read during a subsequent intialization step which wires everything
+together
+
 ```solidity
 function createSetAndManager(
     address[] memory _components,
@@ -310,14 +314,12 @@ function createSetAndManager(
     address[] memory _assets,
     address[] memory _extensions
 )
-    external
-{
-    bool useAssetsAllowedList = _assets.length != 0;
+```
 
-    if (useAssetsAllowedList) {
-        _validateComponentsMatchWhitelistedAssets(_components, assets);
-    }
++ if `_assets` are specified, require that all *_components* are included in the *_assets* array
 
++ deploy the set
+    ```solidity
     address setTokenAddress = _deploySet(
         _components,
         _modules,
@@ -325,26 +327,36 @@ function createSetAndManager(
         _name,
         _symbol
     );
-
+    ```
++ deploy the manager, setting its *useAssetsAllowedList* constructor parameter to true if there are *_assets* and false otherwise.
+    ```solidity
     address managerAddress = _deployManager(
         setTokenAddress,
+        address(this),
         _methodologist,
         useAssetsAllowedList
         _operators,
         _assets,
         _extensions
     );
+    ```
 
++ set temporary initialization metadata for the newly created SetToken and DelegatedManager
+    ```solidity
     initialize[setTokenAddress] = InitializeParams({
         deployer: msg.sender,
         owner: _owner,
         manager: managerAddress,
         isPending: true
     });
-}
-```
+    ```
+
+ANYONE CAN CALL: Deploys a DelegatedManager and sets some temporary metadata about
+the deployment which will be read during a subsequent intialization step which wires everything
+together. This method is used when migrating an existing SetToken to the DelegatedManager system
 
 > createManager
+
 ```solidity
 function createManager(
     address memory _setTokenAddress,
@@ -355,29 +367,37 @@ function createManager(
     address[] memory _assets,
     address[] memory _extensions
 )
-    external
-{
-    _validateComponentsMatchWhitelistedAssets(setToken.getComponents(), assets);
+```
 
++ if `_assets` are specified, require that all of the sets existing *_components* are included in the *_assets* array
+
++ deploy the manager, setting its *useAssetsAllowedList* constructor parameter to true if there are *_assets* and false otherwise.
+    ```solidity
     address managerAddress = _deployManager(
         setTokenAddress,
         address(this),
         _methodologist,
+        useAssetsAllowedList
         _operators,
         _assets,
         _extensions
     );
+    ```
 
++ set temporary initialization metadata for the newly created SetToken and DelegatedManager
+    ```solidity
     initialize[setTokenAddress] = InitializeParams({
         deployer: msg.sender,
         owner: _owner,
         manager: managerAddress,
         isPending: true
     });
-}
-```
+    ```
 
 > initialize
+
+ANYONE CAN CALL: Wires SetToken, DelegatedManager, global manager extensions, and modules together into
+a functioning package.
 
 ```solidity
 function initialize(
@@ -387,24 +407,19 @@ function initialize(
     address[] memory _initializeExtensionTargets,
     bytes[] memory _initializeExtensionBytecode,
 )
-    external
-{
-    require(msg.sender == initialize[_setTokenAddress].deployer);
-    require(initialize[_setTokenAddress].isPending);
-    require(_initializeTargets.validatePairsWithArray(_initializeBytecode));
-
-    initialize[_setTokenAddress].manager.setOwnerFeeSplit(_ownerFeeSplit)
-    initialize[_setTokenAddress].manager.setOwnerFeeRecipient(_ownerFeeRecipient)
-
-    for (uint256 i = 0; i < _extensions.length; i++) {
-        _initializeExtensionTargets[i].initialize(_initializeExtensionBytecode[i]]);
-    }
-
-    initialize[_setTokenAddress].manager.setManager(initialize[_setTokenAddress].owner)
-
-    delete initialize[_setTokenAddress];
-}
 ```
++ require that caller be the *deployer* specified in the *initialize[_setTokenAddress]* mapping
++ require that *initialize[_setTokenAddress].isPending* is `true`
++ require that *_initializeExtensionTargets* and *initializeExtensionBytecode* arrays have same length
++ call DelegatedManager.setOwnerFeeSplit with *_ownerFeeSplit*
++ call DelegatedManager.setOwnerFeeRecipient with *_ownerFeeRecipient*
+
++ for each extension, bytecode in _initializeExtensionTargets, _initializeExtensionBytecode
+    + call extension.initialize(bytecode)
+
++ transfer ownership of manager from factory to *owner* specified in the *initialize[_setTokenAddress]* mapping
++ delete the *initialize[_setTokenAddress]* mapping entry
+
 
 ### DelegatedManager
 
