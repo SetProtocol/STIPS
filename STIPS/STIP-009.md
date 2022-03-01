@@ -212,16 +212,18 @@ The `deployer` wants to enable all extensions, initialize all corresponding modu
 2. Initialization parameters are validated:
     - `initializationState` must be `pending`
     - `initialize` caller must be the `deployer`
-    - `initializeTargets` (extension addresses) must be the same length as `initializeBytecode` (initialization instructions)
+    - `initializeTargets` (extension and module addresses) must be the same length as `initializeBytecode` (initialization instructions)
 
-3. All extensions are initialized for the SetToken (using bytecode blobs)
-    - modules are initialized for the SetToken via the extensions
+3. All modules and extensions are initialized for the SetToken (using bytecode blobs)
+    - modules must be initialized before extensions
 
-4. The `owner` role on the DelegatedManager is transfered from the Factory to the `owner` designated during the creation step.
+4. If the setToken manager is the factory, transfer manager role to the DelegatedManager contract
 
-5. The Factory deletes in `InitializeParams` for the set token, removing it from pending state
+5. The `owner` role on the DelegatedManager is transfered from the Factory to the `owner` designated during the creation step.
 
-(5.a) In a separate step, the SetToken's current manager address must be reset to point at the newly deployed DelegatedManager contract.
+6. The Factory deletes in `InitializeParams` for the set token, removing it from pending state
+
+7. (Optional) If migrating, the SetToken's current manager address must be reset to point at the newly deployed DelegatedManager contract in a separate step.
     - If SetToken manager is EOA, call setToken.setManager(_newAddress)
     - If SetToken manager is contract, call CurrentManagerContract.setManager(_newAddress)
 
