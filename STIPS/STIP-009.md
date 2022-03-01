@@ -118,6 +118,10 @@ We recommend deploying single-user, modular manager contracts from a manager fac
 
 ### DelegatedManager
 
+**NOTE**: Although this manager supports management fee splitting and multiple fee beneficiaries, its owner
+ultimately has total control over these as well as any funds accidentally sent to the contract. We are not
+supporting any special logic to guarantee that fee split arrangements are irrevocable.
+
 - Allow `owner` to add and remove global `operator` permissions on extensions
 - Allow `owner` to limit `operator`(s) functionality on extensions with an asset whitelist
 - Allow `owner` to update asset whitelist
