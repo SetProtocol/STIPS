@@ -98,24 +98,23 @@ We recommend deploying single-user, modular manager contracts from a manager fac
 
 ![Proposed Architecture Changes](../assets/stip-009/image1.png "")
 
-**DelegatedManagerFactory**: Factory smart contract which provides asset managers (`deployer`) the ability to `create` new Set Tokens with a DelegatedManager manager, `migrate` existing Set Tokens to a DelegatedManager manager, and `initialize` modules and enable extensions.
+**DelegatedManagerFactory**: Factory smart contract which provides asset managers (`deployer`) the ability to create a Set Token with a DelegatedManager manager, create a DelegatedManager manager for an existing Set Token to migrate to, and `initialize` extensions and modules.
 
 **DelegatedManager**: Manager smart contract which provides asset managers three permissioned roles (`owner`, `methodologist`, `operator`) and asset whitelist functionality. The `owner` grants permissions to `operator`(s) to interact with extensions. The `owner` can restrict the `operator`(s) permissions with an asset whitelist.
 
-**BasicIssuanceExtension**: Global extension which provides users with the ability to `issue` and `redeem` Set Tokens with a smart contract manager.
+**TradeExtension**: Global extension which provides privileged `operator`(s) the ability to `trade` on a DEX and the `owner` the ability to restrict `operator`(s) permissions with an asset whitelist.
+
+**BasicIssuanceExtension**: Global extension which provides the `owner` and `methodologist` the ability to accrue and split issuance and redemption fees at an mutable percentage.
 
 **StreamingFeeSplitExtension**: Global extension which provides the `owner` and `methodologist` the ability to accrue and split streaming fees at an mutable percentage.
-
-**TradeExtension**: Global extension which provides privileged `operator`(s) the ability to `trade` on a DEX and the `owner` the ability to restrict `operator`(s) permissions with an asset whitelist.
 
 ## Requirements
 
 ### DelegatedManagerFactory
 
-- Allow `deployer` to create new set tokens with a manager smart contract
-- Allow `deployer` to migrate existing set tokens to a manager smart contract
-- Allow `deployer` to enable extensions and initialize corresponding modules
-- Allow `deployer` to create manager smart contract and initialize and parameterize all modules and extensions in two transactions
+- Allow `deployer` to create new set tokens with a DelegatedManager manager
+- Allow `deployer` to create a new DelegatedManager for an existing set token to migrate to
+- Allow `deployer` to initialize extensions and modules
 
 ### DelegatedManager
 
@@ -125,28 +124,25 @@ We recommend deploying single-user, modular manager contracts from a manager fac
 - Allow `owner` to perform Set Token admin functions such as `addModule`, `removeModule`, and `setManager`
 - Allow extensions to interact with modules
 
+### TradeExtension
+
+- Allow `owner` to enable functionality of TradeModule with only a state change and no contract deployment
+- Allow privileged `operator`(s) to perform trades on a DEX
+- Allow `owner` to restrict assets the privileged `operator`(s) can trade into with an asset whitelist
+
 ### BasicIssuanceExtension
 
 - Allow `owner` to enable functionality of BasicIssuanceModule with only a state change and no contract deployment
-- Allow `owner` to initialize the BasicIssuanceModule
-- Allow users to `issue` and `redeem` the Set Token
-- Allow Set Token to accrue `issue` and `redeem` fees
+- Allow `owner` and `methodologist` to split issuance and redemption fees
+- Allow `owner` to update the issuance and redemption fee
+- Allow `owner` to update the issuance and redemption fee recipient
 
 ### StreamingFeeSplitExtension
 
 - Allow `owner` to enable functionality of StreamingFeeModule with only a state change and no contract deployment
-- Allow `owner` to initialize the StreamingFeeModule
 - Allow `owner` and `methodologist` to split streaming fees
 - Allow `owner` to update the streaming fee
-- Allow `owner` to update the streaming fee split
 - Allow `owner` to update the streaming fee recipient
-
-### TradeExtension
-
-- Allow `owner` to enable functionality of TradeModule with only a state change and no contract deployment
-- Allow `owner` to initialize the TradeModule
-- Allow privileged `operator`(s) to perform trades on a DEX
-- Allow `owner` to restrict assets the privileged `operator`(s) can trade into with an asset whitelist
 
 ## User Flows
 
