@@ -397,15 +397,17 @@ function createManager(
 > initialize
 
 ANYONE CAN CALL: Wires SetToken, DelegatedManager, global manager extensions, and modules together into
-a functioning package.
+a functioning package. `_initializeTargets` includes any extensions or modules which need to be initialized
+and modules must initialized before extensions.`initializeBytecode` is an encoded call to the
+relevant target's initialize function.
 
 ```solidity
 function initialize(
     address memory _setTokenAddress,
     uint256 _ownerFeeSplit,
     address _ownerFeeRecipient,
-    address[] memory _initializeExtensionTargets,
-    bytes[] memory _initializeExtensionBytecode,
+    address[] memory _initializeTargets,
+    bytes[] memory _initializeBytecode,
 )
 ```
 + require that caller be the *deployer* specified in the *initialize[_setTokenAddress]* mapping
@@ -414,8 +416,8 @@ function initialize(
 + call DelegatedManager.setOwnerFeeSplit with *_ownerFeeSplit*
 + call DelegatedManager.setOwnerFeeRecipient with *_ownerFeeRecipient*
 
-+ for each extension, bytecode in _initializeExtensionTargets, _initializeExtensionBytecode
-    + call extension.initialize(bytecode)
++ for each target, bytecode in _initializeTargets, _initializeBytecode
+    + call target.functionCallWithValue(bytecode, 0)
 
 + transfer ownership of manager from factory to *owner* specified in the *initialize[_setTokenAddress]* mapping
 + delete the *initialize[_setTokenAddress]* mapping entry
@@ -842,8 +844,6 @@ function isAllowedAsset(address _asset)
 
 
 
-
-
 ### BaseGlobalExtension
 
 #### Modifiers
@@ -925,14 +925,11 @@ modifier onlyManager(ISetToken _setToken) {
 ONLY OWNER: Initialize the TradeExtension on the DelegatedManager and initialize the TradeModule on the SetToken if necessary
 
 ```solidity
-function initialize(
-    bytes memory _data
-)
+function initialize(address _delegatedManager)
 ```
 
-+ require that caller be the *deployer* specified in the *initialize[_setTokenAddress]* mapping
-+ require that extension state in *extensionAllowList* is *PENDING*
-+ if module state is *PENDING*, initialize module with decoded bytedata
++ require that caller be the *deployer* specified in the factory's *initialize[_setTokenAddress]* mapping
++ require that extension state in delegatedManager's *extensionAllowList* is *PENDING*
 + set *setManagers[_setTokenAddress]* to manager
 + call `manager.initializeExtension()`
 + emit *ExtensionInitialized* event
@@ -978,14 +975,11 @@ function initialize(
 ONLY OWNER: Initialize the BasicIssuanceExtension on the DelegatedManager and initialize the BasicIssuanceModule on the SetToken if necessary
 
 ```solidity
-function initialize(
-    bytes memory _data
-)
+function initialize(address _delegatedManager)
 ```
 
-+ require that caller be the *deployer* specified in the *initialize[_setTokenAddress]* mapping
-+ require that extension state in *extensionAllowList* is *PENDING*
-+ if module state is *PENDING*, initialize module with decoded bytedata
++ require that caller be the *deployer* specified in the factory's *initialize[_setTokenAddress]* mapping
++ require that extension state in delegatedManager's *extensionAllowList* is *PENDING*
 + set *setManagers[_setTokenAddress]* to manager
 + call `manager.initializeExtension()`
 + emit *ExtensionInitialized* event
@@ -1033,14 +1027,11 @@ function initialize(
 ONLY OWNER: Initialize the StreamingFeeSplitExtension on the DelegatedManager and initialize the StreamingFeeModule on the SetToken if necessary
 
 ```solidity
-function initialize(
-    bytes memory _data
-)
+function initialize(address _delegatedManager)
 ```
 
-+ require that caller be the *deployer* specified in the *initialize[_setTokenAddress]* mapping
-+ require that extension state in *extensionAllowList* is *PENDING*
-+ if module state is *PENDING*, initialize module with decoded bytedata
++ require that caller be the *deployer* specified in the factory's *initialize[_setTokenAddress]* mapping
++ require that extension state in delegatedManager's *extensionAllowList* is *PENDING*
 + set *setManagers[_setTokenAddress]* to manager
 + call `manager.initializeExtension()`
 + emit *ExtensionInitialized* event
