@@ -444,7 +444,7 @@ function initialize(
 | Type  | Name  | Description   |
 |------ |------ |-------------  |
 |address|oldMethodologist| previous methodologist|
-|address|oldMethodologist| new methodologist|
+|address|newMethodologist| new methodologist|
 
 #### ExtensionAdded
 
