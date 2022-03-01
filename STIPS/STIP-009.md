@@ -631,14 +631,6 @@ modifier onlyManager(ISetToken _setToken) {
 
 - BaseGlobalExtension
 
-#### Structs
-
-##### TradeParams
-
-| Type 	| Name 	| Description 	|
-|------	|------	|-------------	|
-|address|manager|Address of the DelegatedManager|
-
 #### Global Variables
 
 | Type 	| Name 	| Description 	|
@@ -649,13 +641,49 @@ modifier onlyManager(ISetToken _setToken) {
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|mapping(address => TradeParams)|setTradeParams|Mapping from Set Token to trade parameters|
+|mapping(address => IDelegatedManager)|setManagers|Mapping from Set Token to DelegatedManager|
 
 #### Functions
 
 | Name  | Caller  | Description     |
 |------	|------	|-------------	|
+|initializeExtension|owner|Initialize the TradeExtension on the DelegatedManager|
+|initializeModuleAndExtension|owner|Initialize the TradeModule on the SetToken and the TradeExtension on the DelegatedManager|
 |trade|operator|Trade between whitelisted assets on a DEX|
+
+> initializeExtension
+
+ONLY OWNER: Initialize the TradeExtension on the DelegatedManager
+
+```
+function initializeExtension(IDelegatedManager _manager) external {
+    require(msg.sender == _manager.owner(), "Must be owner")
+    require(_manager.setToken().isInitializedModule(tradeModule), "Module must be initialized");
+    require(_manager.isPendingExtension(address(this)), "Extension must be pending");
+
+    _manager.initializeExtension();
+
+    setManagers[_manager.setToken()] = _manager;
+}
+```
+
+> initializeModuleAndExtension
+
+ONLY OWNER: Initialize the TradeModule on the SetToken and the TradeExtension on the DelegatedManager
+
+```
+function initializeModuleAndExtension(IDelegatedManager _manager) external {
+    require(msg.sender == _manager.owner(), "Must be owner")
+    require(_manager.setToken().isInitializedModule(tradeModule), "Module must be pending");
+    require(_manager.isPendingExtension(address(this)), "Extension must be pending");
+
+    tradeModule.initialize(_manager.setToken());
+
+    _manager.initializeExtension();
+
+    setManagers[_manager.setToken()] = _manager;
+}
+```
 
 ### BasicIssuanceExtension
 
@@ -663,13 +691,15 @@ modifier onlyManager(ISetToken _setToken) {
 
 - BaseGlobalExtension
 
-#### Structs
-
-##### IssuanceParams
+##### FeeState
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|address|manager|Address of the DelegatedManager|
+|address|feeRecipient|Address to accrue fees to|
+|uint256|maxIssueFee|Max issuance fee manager commits to using (1% = 1e16, 100% = 1e18)|
+|uint256|issueFee|Percent of Set accruing to manager on issuance (1% = 1e16, 100% = 1e18)|
+|uint256|maxRedeemFee|Max redemption fee manager commits to using (1% = 1e16, 100% = 1e18)|
+|uint256|redeemFee|Percent of Set accruing to manager on redemption (1% = 1e16, 100% = 1e18)|
 
 #### Global Variables
 
@@ -681,14 +711,50 @@ modifier onlyManager(ISetToken _setToken) {
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|mapping(address => IssuanceParams)|setIssuanceParams|Mapping from Set Token to issuance parameters|
+|mapping(address => IDelegatedManager)|setManagers|Mapping from Set Token to DelegatedManager|
 
 #### Functions
 
 | Name  | Caller  | Description     |
 |------	|------	|-------------	|
+|initializeExtension|owner|Initialize the BasicIssuanceExtension on the DelegatedManager|
+|initializeModuleAndExtension|owner|Initialize the BasicIssuanceModule on the SetToken and the BasicIssuanceExtension on the DelegatedManager|
 |updateIssueFee|owner|Update issue fee on IssuanceModule|
 |updateRedeemFee|owner|Update redeem fee on IssuanceModule|
+
+> initializeExtension
+
+ONLY OWNER: Initialize the BasicIssuanceExtension on the DelegatedManager
+
+```
+function initializeExtension(IDelegatedManager _manager) external {
+    require(msg.sender == _manager.owner(), "Must be owner")
+    require(_manager.setToken().isInitializedModule(issuanceModule), "Module must be initialized");
+    require(_manager.isPendingExtension(address(this)), "Extension must be pending");
+
+    _manager.initializeExtension();
+
+    setManagers[_manager.setToken()] = _manager;
+}
+```
+
+> initializeModuleAndExtension
+
+ONLY OWNER: Initialize the BasicIssuanceModule on the SetToken and the BasicIssuanceExtension on the DelegatedManager
+
+```
+function initializeModuleAndExtension(IDelegatedManager _manager, FeeState _feeSettings) external {
+    require(msg.sender == _manager.owner(), "Must be owner")
+    require(_manager.setToken().isInitializedModule(tradeModule), "Module must be pending");
+    require(_manager.isPendingExtension(address(this)), "Extension must be pending");
+
+    issuanceModule.initialize(_manager.setToken(), _feeSettings);
+
+    _manager.initializeExtension();
+
+    setManagers[_manager.setToken()] = _manager;
+}
+```
 
 ### StreamingFeeSplitExtension
 
@@ -698,13 +764,14 @@ modifier onlyManager(ISetToken _setToken) {
 
 #### Structs
 
-##### FeeParams
+##### FeeState
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|uint256|operatorFeeSplit|Percent of fees in precise units (10^16 = 1%) sent to operator, rest to methodologist|
-|address|operatorFeeRecipient|Address that receives the operator's fees|
-|address|manager|Address of the DelegatedManager|
+|address|feeRecipient|Address to accrue fees to|
+|uint256|maxStreamingFeePercentage|Max streaming fee manager commits to using (1% = 1e16, 100% = 1e18)|
+|uint256|streamingFeePercentage|Percent of Set accruing to manager annually (1% = 1e16, 100% = 1e18)|
+|uint256|lastStreamingFeeTimestamp|Timestamp last streaming fee was accrued|
 
 #### Global Variables
 
@@ -716,17 +783,51 @@ modifier onlyManager(ISetToken _setToken) {
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|mapping(address => FeeParams)|setFeeParams|Mapping from Set Token to fee parameters|
+|mapping(address => IDelegatedManager)|setManagers|Mapping from Set Token to DelegatedManager|
 
 #### Functions
 
 | Name  | Caller  | Description     |
 |------	|------	|-------------	|
 |accrueFeesAndDistribute|public|Accrue fees and distribute to owner and methodologist|
+|initializeExtension|owner|Initialize the StreamingFeeSplitExtension on the DelegatedManager|
+|initializeModuleAndExtension|owner|Initialize the StreamingFeeModule on the SetToken and the StreamingFeeSplitExtension on the DelegatedManager|
 |updateStreamingFee|owner|Migrate existing Set Token to a DelegatedManager manager|
 |updateFeeRecipient|owner|Update fee recipient|
-|updateFeeSplit|owner|Update fee split between operator and methodologist
-|updateOperatorFeeRecipient|owner|Update the address that receives the operator's fees|
+
+> initializeExtension
+
+ONLY OWNER: Initialize the StreamingFeeSplitExtension on the DelegatedManager
+
+```
+function initializeExtension(IDelegatedManager _manager, FeeState _feeSettings) external {
+    require(msg.sender == _manager.owner(), "Must be owner")
+    require(_manager.setToken().isInitializedModule(streamingFeeModule), "Module must be initialized");
+    require(_manager.isPendingExtension(address(this)), "Extension must be pending");
+
+    _manager.initializeExtension();
+
+    setManagers[_manager.setToken()] = _manager;
+}
+```
+
+> initializeModuleAndExtension
+
+ONLY OWNER: Initialize the StreamingFeeModule on the SetToken and the StreamingFeeSplitExtension on the DelegatedManager
+
+```
+function initializeModuleAndExtension(IDelegatedManager _manager, FeeState _feeSettings) external {
+    require(msg.sender == _manager.owner(), "Must be owner")
+    require(_manager.setToken().isInitializedModule(tradeModule), "Module must be pending");
+    require(_manager.isPendingExtension(address(this)), "Extension must be pending");
+
+    streamingFeeModule.initialize(_manager.setToken(), _feeSettings);
+
+    _manager.initializeExtension();
+
+    setManagers[_manager.setToken()] = _manager;
+}
+```
 
 ## Checkpoint 3
 
