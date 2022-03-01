@@ -971,6 +971,7 @@ function initialize(address _delegatedManager)
 ```
 
 + require that caller be the *deployer* specified in the factory's *initialize[_setTokenAddress]* mapping
++ require that module state be INITIALIZED for setToken
 + require that extension state in delegatedManager's *extensionAllowList* is *PENDING*
 + set *setManagers[_setTokenAddress]* to manager
 + call `manager.initializeExtension()`
@@ -1021,6 +1022,7 @@ function initialize(address _delegatedManager)
 ```
 
 + require that caller be the *deployer* specified in the factory's *initialize[_setTokenAddress]* mapping
++ require that module state be INITIALIZED for setToken
 + require that extension state in delegatedManager's *extensionAllowList* is *PENDING*
 + set *setManagers[_setTokenAddress]* to manager
 + call `manager.initializeExtension()`
@@ -1073,6 +1075,7 @@ function initialize(address _delegatedManager)
 ```
 
 + require that caller be the *deployer* specified in the factory's *initialize[_setTokenAddress]* mapping
++ require that module state be INITIALIZED for setToken
 + require that extension state in delegatedManager's *extensionAllowList* is *PENDING*
 + set *setManagers[_setTokenAddress]* to manager
 + call `manager.initializeExtension()`
