@@ -459,6 +459,13 @@ function initialize(
 |address|extension| removed extension address |
 
 
+#### ExtensionInitialized
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|extension| initialized extension address |
+
+
 #### OperatorAdded
 
 | Type  | Name  | Description   |
@@ -598,6 +605,7 @@ function initializeExtension()
 + Require that extension exists and it's state is *PENDING*
 + Set *extensionAllowlist[msg.sender]* to *INITIALIZED*
 + Add *msg.sender* to *extensions* array
++ emit *ExtensionInitialized* event
 
 ----
 
