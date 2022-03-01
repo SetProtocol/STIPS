@@ -397,7 +397,7 @@ function createManager(
 
 > initialize
 
-ANYONE CAN CALL: Wires SetToken, DelegatedManager, global manager extensions, and modules together into
+ONLY DEPLOYER: Wires SetToken, DelegatedManager, global manager extensions, and modules together into
 a functioning package. `_initializeTargets` includes any extensions or modules which need to be initialized
 and modules must initialized before extensions.`initializeBytecode` is an encoded call to the
 relevant target's initialize function.
