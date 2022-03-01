@@ -150,13 +150,13 @@ We recommend deploying single-user, modular manager contracts from a manager fac
 
 ## User Flows
 
-### ManagerFactory.create()
+### ManagerFactory.createSetAndManager()
 
 ![ManagerFactory create](../assets/stip-009/image2.png "")
 
 An `deployer` wants to create a new Set Token with a DelegatedManager smart contract manager.
 
-1. The `deployer` calls create() passing in parameters to create a Set Token, parameters for the permissioning on DelegatedManager, and the desired extensions. Specifically,
+1. The `deployer` calls createSetAndManager() passing in parameters to create a Set Token, parameters for the permissioning on DelegatedManager, and the desired extensions. Specifically,
 
     - components: List of addresses of components for initial positions
     - units: List of units for initial positions
@@ -169,17 +169,22 @@ An `deployer` wants to create a new Set Token with a DelegatedManager smart cont
     - assets: List of addresses of assets for initial asset whitelist
     - extensions: List of addresses of global extensions to be enabled
 
-2. A Set Token is deployed using SetTokenCreator
-3. A DelegatedManager is deployed with the ManagerFactory as the temporary `owner` until after initialization
-4. The `deployer`, `owner`, and DelegatedManager are stored on the Factory in pending state
+2. Creation Parameters are validated:
+    - If assets are defined, asset list must match components
 
-### ManagerFactory.migrate()
+3. A Set Token is deployed using SetTokenCreator
+
+4. A DelegatedManager is deployed with the ManagerFactory as the temporary `owner` until after initialization
+
+5. The `deployer`, `owner`, and DelegatedManager are stored on the Factory in pending state
+
+### ManagerFactory.createManager()
 
 ![ManagerFactory migrate](../assets/stip-009/image3.png "")
 
 An `deployer` wants to migrate an existing Set Token to a DelegatedManager smart contract manager.
 
-1. The `deployer` calls migrate() passing in the Set Token address, parameters for the permissioning on DelegatedManager, and the desired extensions. Specifically,
+1. The `deployer` calls createManager() passing in the Set Token address, parameters for the permissioning on DelegatedManager, and the desired extensions. Specifically,
 
     - owner: The address of the `owner`
     - methodologist: The address of the `methodologist`
@@ -187,8 +192,12 @@ An `deployer` wants to migrate an existing Set Token to a DelegatedManager smart
     - assets: List of addresses of assets for initial asset whitelist
     - extensions: List of addresses of global extensions to be enabled
 
-2. A DelegatedManager is deployed with the ManagerFactory as the temporary `owner` until after initialization
-3. The `deployer`, `owner`, and DelegatedManager are stored on the Factory in pending state
+2. createManager parameters are validated:
+    - If assets are defined, asset list must match SetToken's existing components
+
+3. A DelegatedManager is deployed with the ManagerFactory as the temporary `owner` until after initialization
+
+4. The `deployer`, `owner`, and DelegatedManager are stored on the Factory in pending state
 
 ### ManagerFactory.initialize()
 
@@ -197,9 +206,22 @@ An `deployer` wants to migrate an existing Set Token to a DelegatedManager smart
 The `deployer` wants to enable all extensions, initialize all corresponding modules, and transfer the manager `owner` role.
 
 1. The `deployer` calls initialize() passing in the parameters for initializing modules and extensions
-2. All modules are initialized via the extensions
-3. The `owner` role on the DelegatedManager is transfered from the Factory to the input `owner`
-4. The Factory deletes in `InitializeParams` for the set token, removing it from pending state
+
+2. Initialization parameters are validated:
+    - `initializationState` must be `pending`
+    - `initialize` caller must be the `deployer`
+    - `initializeTargets` (extension addresses) must be the same length as `initializeBytecode` (initialization instructions)
+
+3. All extensions are initialized for the SetToken (using bytecode blobs)
+    - modules are initialized for the SetToken via the extensions
+
+4. The `owner` role on the DelegatedManager is transfered from the Factory to the `owner` designated during the creation step.
+
+5. The Factory deletes in `InitializeParams` for the set token, removing it from pending state
+
+(5.a) In a separate step, the SetToken's current manager address must be reset to point at the newly deployed DelegatedManager contract.
+    - If SetToken manager is EOA, call setToken.setManager(_newAddress)
+    - If SetToken manager is contract, call CurrentManagerContract.setManager(_newAddress)
 
 ### StreamingFeeExtension.accrueFeeAndDistribute()
 
@@ -214,8 +236,6 @@ An interested party wants to accrue streaming fees and distribute them to the `o
 
 ## Checkpoint 2
 
-Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
-
 **Reviewer**:
 
 Reviewer: []
@@ -223,6 +243,30 @@ Reviewer: []
 ## Specification
 
 ### ManagerFactory
+
+#### Events
+
+##### DelegatedManagerDeployed
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|setToken|Address of SetToken to be managed|
+|address|deployer|Address of the deployer|
+|address|owner|Address of the owner|
+|address|manager|Address of the DelegatedManager|
+|address[]|operators|Addresses of the operators|
+|address[]|assets|Addresses of whitelisted assets|
+|address[]|extensions|Addresses of extensions for manager|
+
+##### DelegatedManagerInitialized
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|setToken|Address of SetToken to be managed|
+|address|deployer|Address of the deployer|
+|address|owner|Address of the owner|
+|address|manager|Address of the DelegatedManager|
+
 
 #### Structs
 
@@ -247,14 +291,14 @@ Reviewer: []
 
 | Name  | Caller  | Description 	|
 |------	|------	|-------------	|
-|create|deployer|Create new Set Token with a DelegatedManager manager|
-|migrate|deployer|Migrate existing Set Token to a DelegatedManager manager|
-|initialize|deployer|Initialize modules and extensions|
+|createSetAndManager |deployer|Create new Set Token with a DelegatedManager manager|
+|createManager | SetToken owner |Migrate existing Set Token to a DelegatedManager manager|
+|initialize |deployer or SetToken owner |Initialize modules and extensions|
 
-> create
+> createSetAndManager
 
 ```solidity
-function create(
+function createSetAndManager(
     address[] memory _components,
     uint256 _units,
     string memory _name,
@@ -268,6 +312,10 @@ function create(
 )
     external
 {
+    if (_assets.length != 0) {
+        _validateComponentsMatchWhitelistedAssets(_components, assets);
+    }
+
     address setTokenAddress = _deploySet(
         _components,
         _modules,
@@ -293,10 +341,9 @@ function create(
 }
 ```
 
-> migrate
-
+> createManager
 ```solidity
-function migrate(
+function createManager(
     address memory _setTokenAddress,
     address _owner,
     address _methodologist,
@@ -307,6 +354,8 @@ function migrate(
 )
     external
 {
+    _validateComponentsMatchWhitelistedAssets(setToken.getComponents(), assets);
+
     address managerAddress = _deployManager(
         setTokenAddress,
         _methodologist,
@@ -329,16 +378,17 @@ function migrate(
 ```solidity
 function initialize(
     address memory _setTokenAddress,
-    address[] memory _extensions,
-    mapping(address => bytes) _extensionParams
+    address[] memory _initializeTargets,
+    bytes[] memory _initializeBytecode,
 )
     external
 {
     require(msg.sender == initialize[_setTokenAddress].deployer);
     require(initialize[_setTokenAddress].isPending);
+    require(_initializeTargets.validatePairsWithArray(_initializeBytecode));
 
     for (uint256 i = 0; i < _extensions.length; i++) {
-        _extensions[i].initialize(_extensionParams[_extensions[i]]);
+        _initializeTargets[i].initialize(_initializeBytecode[i]]);
     }
 
     initialize[_setTokenAddress].manager.setManager(initialize[_setTokenAddress].owner)
