@@ -20,7 +20,7 @@ This involves:
 This feature will allow us to:
 + provide a standardized experience to SetToken owners that want to use the TokenSets UI to manage their Set
 + make previously bespoke SetToken management systems available to any TokenSets user
-+ improve the security tokensets-issued assets for Set holders by binding managers to smart-contract defined logics
++ improve the security of Tokensets-issued assets for Set holders by binding managers to smart-contract defined logics
 + introduce clearly defined roles for SetToken stakeholders and add the ability for SetToken managers to restrict Sets to a white-listed group of assets
 
 ## Background Information
@@ -175,6 +175,7 @@ An `deployer` wants to create a new Set Token with a DelegatedManager smart cont
 3. A Set Token is deployed using SetTokenCreator
 
 4. A DelegatedManager is deployed with the ManagerFactory as the temporary `owner` until after initialization
+    - If assets are defined, constructor param *useAssetAllowList* is set to true, false otherwise.
 
 5. The `deployer`, `owner`, and DelegatedManager are stored on the Factory in pending state
 
@@ -196,6 +197,7 @@ An `deployer` wants to migrate an existing Set Token to a DelegatedManager smart
     - If assets are defined, asset list must match SetToken's existing components
 
 3. A DelegatedManager is deployed with the ManagerFactory as the temporary `owner` until after initialization
+    - If assets are defined, constructor param *useAssetAllowList* is set to true, false otherwise.
 
 4. The `deployer`, `owner`, and DelegatedManager are stored on the Factory in pending state
 
@@ -310,7 +312,9 @@ function createSetAndManager(
 )
     external
 {
-    if (_assets.length != 0) {
+    bool useAssetsAllowedList = _assets.length != 0;
+
+    if (useAssetsAllowedList) {
         _validateComponentsMatchWhitelistedAssets(_components, assets);
     }
 
@@ -325,6 +329,7 @@ function createSetAndManager(
     address managerAddress = _deployManager(
         setTokenAddress,
         _methodologist,
+        useAssetsAllowedList
         _operators,
         _assets,
         _extensions
@@ -356,6 +361,7 @@ function createManager(
 
     address managerAddress = _deployManager(
         setTokenAddress,
+        address(this),
         _methodologist,
         _operators,
         _assets,
@@ -376,14 +382,18 @@ function createManager(
 ```solidity
 function initialize(
     address memory _setTokenAddress,
-    address[] memory _initializeTargets,
-    bytes[] memory _initializeBytecode,
+    uint256 _ownerFeeSplit,
+    address _ownerFeeRecipient,
+    address[] memory _initializeExtensionTargets,
+    bytes[] memory _initializeExtensionBytecode,
 )
     external
 {
     require(msg.sender == initialize[_setTokenAddress].deployer);
     require(initialize[_setTokenAddress].isPending);
     require(_initializeTargets.validatePairsWithArray(_initializeBytecode));
+
+    initialize[_setTokenAddress].manager.initialize(_ownerFeeSplit, _ownerFeeRecipient)
 
     for (uint256 i = 0; i < _extensions.length; i++) {
         _initializeTargets[i].initialize(_initializeBytecode[i]]);
@@ -454,6 +464,12 @@ function initialize(
 |------ |------ |-------------  |
 |address|asset| added allowed asset |
 
+#### UseAllowListUpdated
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|bool|useAssetAllowList| updated state of useAssetAllowList flag|
+
 
 #### Public Variables
 
@@ -462,7 +478,10 @@ function initialize(
 |ISetToken|setToken|Instance of SetToken|
 |address|factory|Address of factory contract used to deploy contract|
 |address|methodologist|Address of methodologist which serves as providing methodology for the index|
-|boolean|anyAssetAllowed|when true, assetAllowList restrictions are ignored |
+|boolean|isInitialized|True when manager's *initialize* function has executed, false otherwise|
+|boolean|useAssetAllowed|when false, assetAllowList restrictions are ignored |
+|uint256|ownerFeeSplit|Percent of fees in precise units (10^16 = 1%) sent to owner, rest to methodologist|
+|address|ownerFeeRecipient|Address which receives operator's share of fees when they're distributed|
 |mapping(address => ExtensionState)|extensionAllowList|Mapping to check if extension is enabled|
 |mapping(address => bool)|operatorAllowList|Mapping indicating if address is an approved operator|
 |mapping(address => bool)|assetAllowlist|Mapping indicating if asset is approved to be traded for, wrapped into, claimed, etc.|
@@ -486,7 +505,7 @@ function initialize(
 |addOperators|owner|Add new operator(s) address|
 |addAllowedAssets|owner|Add new asset(s) that can be traded to, wrapped to, or claimed|
 |removeAllowedAssets|owner|Remove asset(s) so that it/they can't be traded to, wrapped to, or claimed|
-|setAnyAssetAllowed|owner|set anyAssetAllowed variable to true or false|
+|setUseAssetAllowed|owner|set useAssetAllowed variable to true or false|
 |setMethodologist|owner|Update the methodologist address|
 |setManager|owner|Update the manager of the Set Token|
 |addModule|owner|Add module to Set Token|
@@ -497,6 +516,7 @@ function initialize(
 | Name  | Description   |
 |------ |-------------  |
 |onlyOwner| Requires that DelegatedManager `owner` is caller |
+|onlyOwner | Requires that DelegatedManager `methodologist` is caller |
 |onlyExtension | Requires that msg.sender is an initialized extension in the `extensionAllowList` array |
 
 ### Functions
@@ -508,17 +528,36 @@ constructor(
     ISetToken _setToken,
     address _factory,
     address _methodologist,
+    bool _useAssetAllowlist
     address[] memory _extensions,
     address[] memory _operators,
-    address[] memory _allowedAssets
+    address[] memory _allowedAssets,
 )
 ```
 
-TODO: more details here....
-+ Set *setToken*, *factory* and *methodologist* public variables
++ Set *setToken*, *factory*, *methodologist*, and *useAssetAllowList* public variables
 + Add allowed *_extensions* (these will be in set to *PENDING* state)
 + Add approved *_operators*
-+ If *_allowedAssets* array is empty, set `anyAssetAllowed` to otherwise add allowedAssets to....
+
+----
+
+> initialize
+
+ONLY OWNER: This method is called by the factory to set additional state in the DelegateManager.
+(The factory creation methods run into stack depth limits that constrain how much can be done in
+the constructor here).
+  + The owner is the factory when this is called
+  + method can only be called once
+
+```solidity
+function initialize(uint256 _ownerFeeSplit, address _ownerFeeRecipient)
+```
++ require that *isInitialized* is true
++ set *ownerFeeSplit* to _ownerFeeSplit
++ set *ownerFeeRecipient* to _ownerFeeRecipient
++ set *isInitialized* to `false`
+
+----
 
 > interactManager
 
@@ -528,8 +567,9 @@ ONLY EXTENSION: Interact with a module registered on the SetToken
 function interactManager(address _module, bytes calldata _data) external onlyExtension
 ```
 
-+ Require that *_module* is not the SetToken (to prevent operator from bypassing the extension interface)
 + Call `_module.functionCallWithValue(_data, 0)`
+
+----
 
 > initializeExtension
 
@@ -545,6 +585,8 @@ function initializeExtension()
 + Set *extensionAllowlist[msg.sender]* to *INITIALIZED*
 + Add *msg.sender* to *extensions* array
 
+----
+
 > addExtension
 
 ONLY OWNER: Add a new extension that the DelegatedManager can call
@@ -558,6 +600,7 @@ function addExtensions(address[] memory _extensions)
   + set *extensionAllowlist[extension]* to PENDING
   + emit *ExtensionAdded* event
 
+----
 
 > removeExtensions
 
@@ -576,6 +619,211 @@ function removeExtensions(address[] memory _extensions)
 
 >
 
+----
+
+> addOperators
+
+ONLY OWNER: Add new operator(s) address
+
+```solidity
+function addOperators(address[] memory _operators)
+```
++ for each operator in _operators
+  + require that operator is not already registered in the *operatorAllowList* mapping
+  + add operator to the *operators* array
+  + set *operatorAllowlist[operator]* to `true`
+  + emit *OperatorAdded* event
+
+----
+
+> removeOperators
+
+ONLY OWNER: Remove operator(s) from the allowlist
+
+```solidity
+function removeOperators(address[] memory _operators)
+```
+
++ for each operator in _operators
+  + require that operator is in the *operatorAllowList* mapping
+  + delete operator from the *operators* array
+  + set *operatorAllowlist[operator]* to `false`
+  + emit *OperatorRemoved* event
+
+----
+
+> addAllowedAssets
+
+ONLY OWNER: Add new asset(s) that can be traded to, wrapped to, or claimed
+
+```solidity
+function addAllowedAssets(address[] memory _assets)
+```
++ for each asset in _assets
+  + require that asset is not already registered in the *assetAllowList* mapping
+  + add asset to the *assetAllowList* array
+  + set *assetAllowlist[asset]* to `true`
+  + emit *AllowAssetAdded* event
+
+---
+
+> removeAllowedAssets
+
+ONLY OWNER: Remove asset(s) so that it/they can't be traded to, wrapped to, or claimed
+
+```solidity
+function removeAllowedAssets(address[] memory _assets)
+```
+
++ for each asset in _assets
+  + require that asset is present in the *assetAllowList* mappiing
+  + delete asset from the *allowedAssets* array
+  + set *assetAllowlist[asset]* to `false`
+  + emit AllowedAssetRemoved event
+
+----
+
+> setUseAssetAllowList
+
+ONLY OWNER: Toggles whether or not operator can trade any asset. When false, assetAllowList
+restrictions are ignored.
+
+```solidity
+function setUseAssetAllowList(bool _useAssetAllowList)
+```
+
++ set *useAssetAllowList* to _useAssetAllowList
++ emit *UseAllowListUpdated* event
+
+----
+
+> setOwnerFeeSplit
+
+ONLY EXTENSION: Sets the *ownerFeeSplit*
+
+```
+function setOwnerFeeSplit(uint256 _ownerFeeSplit)
+```
+
++ set *ownerFeeSplit* to _ownerFeeSplit
+
+----
+
+> setOwnerFeeRecipient
+
+ONLY OWNER: Sets the *ownerFeeRecipient*
+
+```
+function setOwnerFeeRecipient(address _ownerFeeRecipient)
+```
+
++ set *ownerFeeRecipient* to _ownerFeeRecipient
+
+----
+
+> setMethodologist
+
+ONLY METHODOLOGIST: Update the methodologist address
+
+```solidity
+function setMethodologist(address _newMethodologist)
+```
+
++ set *methodologist* to _newMethodologist
++ emit MethodologistChanged Event
+
+----
+
+> setManager
+
+ONLY OWNER: Update the SetToken manager address
+
+```solidity
+function setManager(address _newManager)
+```
+
++ require that _newManager is not a null address
++ call `setToken.setManager(_newManager)`
+
+----
+
+> addModule
+
+ONLY OWNER: Add a new module to the SetToken
+
+```solidity
+function addModule(address _module)
+```
+
++ call `setToken.addModule(_module)`
+
+----
+
+> removeModule
+
+ONLY OWNER: Remove a new module from the SetToken
+
+```solidity
+function removeModule(address _module)
+```
+
++ call `setToken.removeModule(_module)`
+
+----
+
+
+#### Getters
+
+> getExtensions
+
+```solidity
+function getExtensions()
+```
+
++ returns *extensions* array
+
+----
+
+> getOperators
+
+```solidity
+function getOperators()
+```
+
++ returns operators array
+
+----
+
+> getAllowedAssets
+
+```solidity
+function getAllowedAssets()
+```
+
++ returns allowedAssets array
+
+----
+
+> isInitializedExtension
+
+```solidity
+function isInitializedExtension(address _extension)
+```
+
++ if _extension state in *extensionAllowList* is INITIALIZED, return true. Otherwise false;
+
+----
+
+> isPendingExtension
+
+```solidity
+function isPendingExtension(address _extension)
+```
+
++ if _extension state in *extensionAllowList* is PENDING, return true. Otherwise false;
+
+
+
 ### BaseGlobalExtension
 
 #### Modifiers
@@ -584,7 +832,9 @@ function removeExtensions(address[] memory _extensions)
 
 ```solidity
 modifier onlyAssetAllowList(address memory _receiveAsset) {
-    require(manager.assetAllowList[_receiveAsset], "Must be allowed asset");
+    if (manager.useAllowList) {
+        require(manager.assetAllowList[_receiveAsset], "Must be allowed asset");
+    }
     _;
 }
 ```
