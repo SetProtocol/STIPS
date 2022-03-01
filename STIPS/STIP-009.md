@@ -994,7 +994,7 @@ function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanc
 + Formulate call to initialize module from manager
     ```solidity
     bytes memory callData = abi.encodeWithSelector(
-        IStreamingFeeModule.initialize.selector,
+        ITradeModule.initialize.selector,
         delgatedManager.setToken()
     );
     ```
@@ -1066,7 +1066,7 @@ function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanc
 + Formulate call to initialize module from manager
     ```solidity
     bytes memory callData = abi.encodeWithSelector(
-        IStreamingFeeModule.initialize.selector,
+        IBasicIssuanceModule.initialize.selector,
         delgatedManager.setToken(),
         _preIssueHook
     );
