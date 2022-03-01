@@ -414,8 +414,8 @@ function initialize(
 + require that caller be the *deployer* specified in the *initialize[_setTokenAddress]* mapping
 + require that *initialize[_setTokenAddress].isPending* is `true`
 + require that *_initializeExtensionTargets* and *initializeExtensionBytecode* arrays have same length
-+ call DelegatedManager.setOwnerFeeSplit with *_ownerFeeSplit*
-+ call DelegatedManager.setOwnerFeeRecipient with *_ownerFeeRecipient*
++ call DelegatedManager.updateOwnerFeeSplit with *_ownerFeeSplit*
++ call DelegatedManager.updateOwnerFeeRecipient with *_ownerFeeRecipient*
 
 + for each target, bytecode in _initializeTargets, _initializeBytecode
     + call target.functionCallWithValue(bytecode, 0)
@@ -720,24 +720,24 @@ function setUseAssetAllowList(bool _useAssetAllowList)
 
 ----
 
-> setOwnerFeeSplit
+> updateOwnerFeeSplit
 
 ONLY OWNER: Sets the *ownerFeeSplit*
 
 ```solidity
-function setOwnerFeeSplit(uint256 _ownerFeeSplit)
+function updateOwnerFeeSplit(uint256 _ownerFeeSplit)
 ```
 
 + set *ownerFeeSplit* to _ownerFeeSplit
 
 ----
 
-> setOwnerFeeRecipient
+> updateOwnerFeeRecipient
 
 ONLY OWNER: Sets the *ownerFeeRecipient*
 
 ```solidity
-function setOwnerFeeRecipient(address _ownerFeeRecipient)
+function updateOwnerFeeRecipient(address _ownerFeeRecipient)
 ```
 
 + set *ownerFeeRecipient* to _ownerFeeRecipient
