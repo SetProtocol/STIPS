@@ -401,13 +401,59 @@ function initialize(
 
 ##### ExtensionState
 
-```solidity
-enum ExtensionState {
-    NONE,
-    PENDING,
-    INITIALIZED
-}
-```
+| Value  | Name  | Description   |
+|------ |------ |-------------  |
+| 0 | NONE | State when extension has not been added |
+| 1 | PENDING | State when extension has been added but not yet initialized |
+| 2 | INITIALIZED | State when extension has been initialized |
+
+#### Events
+
+##### MethodologistChanged
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|oldMethodologist| previous methodologist|
+|address|oldMethodologist| new methodologist|
+
+#### ExtensionAdded
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|extension| added extension address |
+
+#### ExtensionRemoved
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|extension| removed extension address |
+
+
+#### OperatorAdded
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|operator| added operator address |
+
+
+#### OperatorRemoved
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|operator| removed operator address |
+
+#### AllowedAssetAdded
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|asset| added allowed asset |
+
+#### AllowedAssetRemoved
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|asset| added allowed asset |
+
 
 #### Public Variables
 
@@ -415,10 +461,11 @@ enum ExtensionState {
 |------	|------	|-------------	|
 |ISetToken|setToken|Instance of SetToken|
 |address|factory|Address of factory contract used to deploy contract|
-|mapping(address => bool)|extensionAllowList|Mapping to check if extension is enabled|
+|address|methodologist|Address of methodologist which serves as providing methodology for the index|
+|boolean|anyAssetAllowed|when true, assetAllowList restrictions are ignored |
+|mapping(address => ExtensionState)|extensionAllowList|Mapping to check if extension is enabled|
 |mapping(address => bool)|operatorAllowList|Mapping indicating if address is an approved operator|
 |mapping(address => bool)|assetAllowlist|Mapping indicating if asset is approved to be traded for, wrapped into, claimed, etc.|
-|address|methodologist|Address of methodologist which serves as providing methodology for the index|
 
 #### Private Variables
 
@@ -439,6 +486,7 @@ enum ExtensionState {
 |addOperators|owner|Add new operator(s) address|
 |addAllowedAssets|owner|Add new asset(s) that can be traded to, wrapped to, or claimed|
 |removeAllowedAssets|owner|Remove asset(s) so that it/they can't be traded to, wrapped to, or claimed|
+|setAnyAssetAllowed|owner|set anyAssetAllowed variable to true or false|
 |setMethodologist|owner|Update the methodologist address|
 |setManager|owner|Update the manager of the Set Token|
 |addModule|owner|Add module to Set Token|
@@ -446,18 +494,87 @@ enum ExtensionState {
 
 #### Modifiers
 
-> onlyOwner
+| Name  | Description   |
+|------ |-------------  |
+|onlyOwner| Requires that DelegatedManager `owner` is caller |
+|onlyExtension | Requires that msg.sender is an initialized extension in the `extensionAllowList` array |
 
-> onlyMethodologist
+### Functions
 
-> onlyExtension
+> constructor
 
 ```solidity
-modifier onlyExtension() {
-    require(extensionAllowlist[msg.sender] == ExtensionState.INITIALIZED, "Must be initialized extension");
-    _;
-}
+constructor(
+    ISetToken _setToken,
+    address _factory,
+    address _methodologist,
+    address[] memory _extensions,
+    address[] memory _operators,
+    address[] memory _allowedAssets
+)
 ```
+
+TODO: more details here....
++ Set *setToken*, *factory* and *methodologist* public variables
++ Add allowed *_extensions* (these will be in set to *PENDING* state)
++ Add approved *_operators*
++ If *_allowedAssets* array is empty, set `anyAssetAllowed` to otherwise add allowedAssets to....
+
+> interactManager
+
+ONLY EXTENSION: Interact with a module registered on the SetToken
+
+```
+function interactManager(address _module, bytes calldata _data) external onlyExtension
+```
+
++ Require that *_module* is not the SetToken (to prevent operator from bypassing the extension interface)
++ Call `_module.functionCallWithValue(_data, 0)`
+
+> initializeExtension
+
+Initializes an added extension from PENDING to INITIALIZED state. An address can only
+enter a PENDING state if it is an enabled extension added by the manager. Only callable
+by the extension itself, hence msg.sender is the subject of update.
+
+```solidity
+function initializeExtension()
+```
+
++ Require that extension exists and it's state is *PENDING*
++ Set *extensionAllowlist[msg.sender]* to *INITIALIZED*
++ Add *msg.sender* to *extensions* array
+
+> addExtension
+
+ONLY OWNER: Add a new extension that the DelegatedManager can call
+
+```solidity
+function addExtensions(address[] memory _extensions)
+```
+
++ for each extension in _extensions
+  + require that extension state in *extensionAllowList* is *NONE* (has not already been added)
+  + set *extensionAllowlist[extension]* to PENDING
+  + emit *ExtensionAdded* event
+
+
+> removeExtensions
+
+ONLY OWNER: Remove an existing extension tracked by the DelegatedManager.
+
+```solidity
+function removeExtensions(address[] memory _extensions)
+```
+
++ for each extension in _extensions
+  + require that extension state in *extensionAllowList* is *INITIALZED*
+  + delete extension from *extensions* array
+  + set extension state to *NONE* in *extensionAllowList*
+  + call extensions's own *removeExtension* method for manager's setToken
+  + emit *ExtensionRemoved* event
+
+>
 
 ### BaseGlobalExtension
 
