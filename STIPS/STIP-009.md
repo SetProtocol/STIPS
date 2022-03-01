@@ -300,6 +300,10 @@ Reviewer: []
 |createManager | SetToken owner |Migrate existing Set Token to a DelegatedManager manager|
 |initialize |deployer or SetToken owner |Initialize modules and extensions, set manager fee settings|
 
+----
+
+### Functions
+
 > createSetAndManager
 
 ANYONE CAN CALL: Deploys a new SetToken and DelegatedManager. Sets some temporary metadata about
@@ -551,6 +555,8 @@ function initialize(
 |onlyMethodologist | Requires that DelegatedManager `methodologist` is caller |
 |onlyExtension | Requires that msg.sender is an initialized extension in the `extensionAllowList` array |
 
+----
+
 ### Functions
 
 > constructor
@@ -645,7 +651,6 @@ function removeExtensions(address[] memory _extensions)
   + call extensions's own *removeExtension* method for manager's setToken
   + emit *ExtensionRemoved* event
 
->
 
 ----
 
@@ -693,7 +698,7 @@ function addAllowedAssets(address[] memory _assets)
   + set *assetAllowlist[asset]* to `true`
   + emit *AllowAssetAdded* event
 
----
+----
 
 > removeAllowedAssets
 
@@ -859,7 +864,6 @@ function isAllowedAsset(address _asset)
 + return allowedAssetList(_asset)
 
 
-
 ### BaseGlobalExtension
 
 #### Modifiers
@@ -968,6 +972,10 @@ function removeExtension(ISetToken _setToken) external virtual;
 |initialize|owner|Initialize the TradeExtension on the DelegatedManager and initialize the TradeModule on the SetToken if necessary|
 |trade|operator|Trade between whitelisted assets on a DEX|
 
+----
+
+### Functions
+
 > initializeExtension
 
 ONLY OWNER: Initialize the TradeExtension on the DelegatedManager
@@ -1036,6 +1044,10 @@ function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanc
 |initialize|owner|Initialize the BasicIssuanceExtension on the DelegatedManager and initialize the BasicIssuanceModule on the SetToken if necessary|
 |updateIssueFee|owner|Update issue fee on IssuanceModule|
 |updateRedeemFee|owner|Update redeem fee on IssuanceModule|
+
+----
+
+### Functions
 
 > initializeExtension
 
@@ -1111,6 +1123,10 @@ function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanc
 |initialize|owner|Initialize the StreamingFeeSplitExtension on the DelegatedManager and initialize the StreamingFeeModule on the SetToken if necessary|
 |updateStreamingFee|owner|Migrate existing Set Token to a DelegatedManager manager|
 |updateFeeRecipient|owner|Update fee recipient|
+
+----
+
+### Functions
 
 > initializeExtension
 
