@@ -393,10 +393,11 @@ function initialize(
     require(initialize[_setTokenAddress].isPending);
     require(_initializeTargets.validatePairsWithArray(_initializeBytecode));
 
-    initialize[_setTokenAddress].manager.initialize(_ownerFeeSplit, _ownerFeeRecipient)
+    initialize[_setTokenAddress].manager.setOwnerFeeSplit(_ownerFeeSplit)
+    initialize[_setTokenAddress].manager.setOwnerFeeRecipient(_ownerFeeRecipient)
 
     for (uint256 i = 0; i < _extensions.length; i++) {
-        _initializeTargets[i].initialize(_initializeBytecode[i]]);
+        _initializeExtensionTargets[i].initialize(_initializeExtensionBytecode[i]]);
     }
 
     initialize[_setTokenAddress].manager.setManager(initialize[_setTokenAddress].owner)
@@ -478,7 +479,6 @@ function initialize(
 |ISetToken|setToken|Instance of SetToken|
 |address|factory|Address of factory contract used to deploy contract|
 |address|methodologist|Address of methodologist which serves as providing methodology for the index|
-|boolean|isInitialized|True when manager's *initialize* function has executed, false otherwise|
 |boolean|useAssetAllowed|when false, assetAllowList restrictions are ignored |
 |uint256|ownerFeeSplit|Percent of fees in precise units (10^16 = 1%) sent to owner, rest to methodologist|
 |address|ownerFeeRecipient|Address which receives operator's share of fees when they're distributed|
@@ -538,24 +538,6 @@ constructor(
 + Set *setToken*, *factory*, *methodologist*, and *useAssetAllowList* public variables
 + Add allowed *_extensions* (these will be in set to *PENDING* state)
 + Add approved *_operators*
-
-----
-
-> initialize
-
-ONLY OWNER: This method is called by the factory to set additional state in the DelegateManager.
-(The factory creation methods run into stack depth limits that constrain how much can be done in
-the constructor here).
-  + The owner is the factory when this is called
-  + method can only be called once
-
-```solidity
-function initialize(uint256 _ownerFeeSplit, address _ownerFeeRecipient)
-```
-+ require that *isInitialized* is true
-+ set *ownerFeeSplit* to _ownerFeeSplit
-+ set *ownerFeeRecipient* to _ownerFeeRecipient
-+ set *isInitialized* to `false`
 
 ----
 
@@ -699,7 +681,7 @@ function setUseAssetAllowList(bool _useAssetAllowList)
 
 > setOwnerFeeSplit
 
-ONLY EXTENSION: Sets the *ownerFeeSplit*
+ONLY OWNER: Sets the *ownerFeeSplit*
 
 ```
 function setOwnerFeeSplit(uint256 _ownerFeeSplit)
