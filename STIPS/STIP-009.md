@@ -897,6 +897,38 @@ modifier onlyManager(ISetToken _setToken) {
 }
 ```
 
+### Internal functions
+
+> invokeManager
+
+Invoke call from manager
+
+```solidity
+function invokeManager(ISetToken _setToken, address _module, bytes memory _encoded)
+```
+
++ call *_manager(_setToken).interactManager(_module, _encoded)*
+
+### Abstract Functions
+
+> _manager
+
+Internal function to grab manager of passed SetToken from extensions data structure
+
+```solidity
+function _manager(ISetToken _setToken) internal virtual view returns (IDelegatedManager)
+```
+
+----
+
+> removeExtension
+
+Removes extension
+
+```solidity
+function removeExtension(ISetToken _setToken) external virtual;
+```
+
 ### TradeExtension
 
 #### Inheritance
