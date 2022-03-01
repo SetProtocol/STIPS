@@ -4,16 +4,16 @@
 
 ## Abstract
 
-Historically, SetProtocol has manually deployed SetToken specific manager contracts and extensions for IndexCoop issued funds. These contracts encode fee management and rebalance trading logic and provide better security guarantees to SetToken holders than direct management via EOA.
+Historically, SetProtocol has deployed SetToken specific manager contracts and extensions for IndexCoop issued funds. These contracts encode fee management and rebalance trading logic and provide better security guarantees to SetToken holders than direct management via EOA.
 
 This STIP proposes that we automate manager contract deployments using on-chain factories and support "self-service" manager enabled SetToken creation as a feature available to anyone in the SetProtocol UI (tokensets.com).
 
-This involves:
-+ creating a standard set of manager contracts that are:
+This involves creating:
++ a standard set of manager contracts that are:
     + able to delegate responsibilities to certain participants (owners and operators)
     + define the assets that participants are able to trade
 
-+ creating a SetToken and Management Contract factory that deploys and wires all the contract components up.
++ a SetToken and DelegatedManager contract factory that deploys and wires all the contract components up.
 
 ## Motivation
 
@@ -31,7 +31,7 @@ At the moment there are two ways to manage Sets:
 
 EOAs/multi-sigs provide the greatest amount of flexibility because they interact directly with the system. However they do not allow for advanced permissioning or restrictions on how the Set can be rebalanced.
 
-Currently there are no "standard" manager contracts supported by the TokenSets UI for general use. However, several manager contracts we can draw design ideas from have been developed to support select client funds:
+Currently there are no "standard" manager contracts supported by the TokenSets UI for general use. However, there are several manager contracts that have been developed to support IndexCoop funds we can draw design ideas from:
 
 [ICManager](https://github.com/IndexCoop/index-coop-smart-contracts/blob/master/contracts/manager/ICManager.sol) - This was the monolithic, first iteration of a manager contract that contains `operator` and `methodologist` roles. It is not extensible via other contracts but did contain a function that allowed the `operator` to pass arbitrary bytedata to a target contract address (to call modules). This contract wasn't desirable due to it being unable to be conveniently upgraded as well as its poor UX for managers who were required to submit arbitrary bytestrings instead of having clear interfaces.
 
@@ -118,9 +118,9 @@ We recommend deploying single-user, modular manager contracts from a manager fac
 
 ### DelegatedManager
 
-**NOTE**: Although this manager supports management fee splitting and multiple fee beneficiaries, its owner
+**NOTE**: Although this manager supports management fee splitting with multiple beneficiaries, its owner
 ultimately has total control over these as well as any funds accidentally sent to the contract. We are not
-supporting any special logic to guarantee that fee split arrangements are irrevocable.
+supporting any logic to guarantee that fee split arrangements are irrevocable.
 
 - Allow `owner` to add and remove global `operator` permissions on extensions
 - Allow `owner` to limit `operator`(s) functionality on extensions with an asset whitelist
@@ -218,14 +218,13 @@ The `deployer` wants to enable all extensions, initialize all corresponding modu
     - `initialize` caller must be the `deployer`
     - `initializeTargets` (extension and module addresses) must be the same length as `initializeBytecode` (initialization instructions)
 
-3. All modules and extensions are initialized for the SetToken (using bytecode blobs)
-    - modules must be initialized before extensions
+3. All modules and extensions are initialized for the SetToken
 
-4. If the setToken manager is the factory, transfer manager role to the DelegatedManager contract
+4. If the setToken manager is the factory, transfer `manager` role to the DelegatedManager contract
 
 5. The `owner` role on the DelegatedManager is transfered from the Factory to the `owner` designated during the creation step.
 
-6. The Factory deletes in `InitializeParams` for the set token, removing it from pending state
+6. The Factory deletes the `InitializeParams` entry for the set token, removing it from pending state
 
 7. (Optional) If migrating, the SetToken's current manager address must be reset to point at the newly deployed DelegatedManager contract in a separate step.
     - If SetToken manager is EOA, call setToken.setManager(_newAddress)
@@ -406,9 +405,7 @@ function createManager(
 > initialize
 
 ONLY DEPLOYER: Wires SetToken, DelegatedManager, global manager extensions, and modules together into
-a functioning package. `_initializeTargets` includes any extensions or modules which need to be initialized
-and modules must initialized before extensions.`initializeBytecode` is an encoded call to the
-relevant target's initialize function.
+a functioning package. `_initializeTargets` includes any extensions or modules which need to be initialized. `initializeBytecode` is an encoded call to the relevant target's *initialize* function.
 
 ```solidity
 function initialize(
@@ -425,7 +422,7 @@ function initialize(
 + call DelegatedManager.updateOwnerFeeSplit with *_ownerFeeSplit*
 + call DelegatedManager.updateOwnerFeeRecipient with *_ownerFeeRecipient*
 
-+ for each target, bytecode in _initializeTargets, _initializeBytecode
++ for each (target, bytecode)  in  (_initializeTargets, _initializeBytecode)
     + call target.functionCallWithValue(bytecode, 0)
 
 + if setToken manager is this factory we're creating a new SetToken rather than migrating
@@ -993,7 +990,7 @@ ONLY OWNER: Initialize the TradeModule and the TradeExtension
 function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanceHook _preIssueHook)
 ```
 
-+ call *initializeExtension(_delegatedManager);
++ call *initializeExtension(_delegatedManager)*
 + Formulate call to initialize module from manager
     ```solidity
     bytes memory callData = abi.encodeWithSelector(
@@ -1065,7 +1062,7 @@ ONLY OWNER: Initialize the BasicIssuanceModule and the BasicIssuanceExtension
 function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanceHook _preIssueHook)
 ```
 
-+ call *initializeExtension(_delegatedManager);
++ call *initializeExtension(_delegatedManager)*
 + Formulate call to initialize module from manager
     ```solidity
     bytes memory callData = abi.encodeWithSelector(
@@ -1138,7 +1135,7 @@ ONLY OWNER: Initialize the StreamingFeeModule and the StreamingFeeExtension
 function initializeExtensionAndModule(address _delegatedManager, FeeState memory _settings)
 ```
 
-+ call *initializeExtension(_delegatedManager);
++ call *initializeExtension(_delegatedManager)*
 + Formulate call to initialize module from manager
     ```solidity
     bytes memory callData = abi.encodeWithSelector(
