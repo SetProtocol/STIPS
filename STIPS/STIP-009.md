@@ -655,7 +655,7 @@ modifier onlyManager(ISetToken _setToken) {
 
 ONLY OWNER: Initialize the TradeExtension on the DelegatedManager
 
-```
+```solidity
 function initializeExtension(IDelegatedManager _manager) external {
     require(msg.sender == _manager.owner(), "Must be owner")
     require(_manager.setToken().isInitializedModule(tradeModule), "Module must be initialized");
@@ -671,7 +671,7 @@ function initializeExtension(IDelegatedManager _manager) external {
 
 ONLY OWNER: Initialize the TradeModule on the SetToken and the TradeExtension on the DelegatedManager
 
-```
+```solidity
 function initializeModuleAndExtension(IDelegatedManager _manager) external {
     require(msg.sender == _manager.owner(), "Must be owner")
     require(_manager.setToken().isInitializedModule(tradeModule), "Module must be pending");
@@ -726,7 +726,7 @@ function initializeModuleAndExtension(IDelegatedManager _manager) external {
 
 ONLY OWNER: Initialize the BasicIssuanceExtension on the DelegatedManager
 
-```
+```solidity
 function initializeExtension(IDelegatedManager _manager) external {
     require(msg.sender == _manager.owner(), "Must be owner")
     require(_manager.setToken().isInitializedModule(issuanceModule), "Module must be initialized");
@@ -742,7 +742,7 @@ function initializeExtension(IDelegatedManager _manager) external {
 
 ONLY OWNER: Initialize the BasicIssuanceModule on the SetToken and the BasicIssuanceExtension on the DelegatedManager
 
-```
+```solidity
 function initializeModuleAndExtension(IDelegatedManager _manager, FeeState _feeSettings) external {
     require(msg.sender == _manager.owner(), "Must be owner")
     require(_manager.setToken().isInitializedModule(tradeModule), "Module must be pending");
@@ -799,7 +799,7 @@ function initializeModuleAndExtension(IDelegatedManager _manager, FeeState _feeS
 
 ONLY OWNER: Initialize the StreamingFeeSplitExtension on the DelegatedManager
 
-```
+```solidity
 function initializeExtension(IDelegatedManager _manager, FeeState _feeSettings) external {
     require(msg.sender == _manager.owner(), "Must be owner")
     require(_manager.setToken().isInitializedModule(streamingFeeModule), "Module must be initialized");
@@ -815,7 +815,7 @@ function initializeExtension(IDelegatedManager _manager, FeeState _feeSettings) 
 
 ONLY OWNER: Initialize the StreamingFeeModule on the SetToken and the StreamingFeeSplitExtension on the DelegatedManager
 
-```
+```solidity
 function initializeModuleAndExtension(IDelegatedManager _manager, FeeState _feeSettings) external {
     require(msg.sender == _manager.owner(), "Must be owner")
     require(_manager.setToken().isInitializedModule(tradeModule), "Module must be pending");
