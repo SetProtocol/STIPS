@@ -875,10 +875,10 @@ function isAllowedAsset(address _asset)
 
 #### Modifiers
 
-> onlyAssetAllowlist
+> onlyAllowedAsset
 
 ```solidity
-modifier onlyAssetAllowlist(address memory _receiveAsset) {
+modifier onlyAllowedAsset(address memory _receiveAsset) {
     if (manager.useAllowlist) {
         require(manager.assetAllowlist[_receiveAsset], "Must be allowed asset");
     }
