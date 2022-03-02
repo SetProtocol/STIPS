@@ -323,6 +323,8 @@ function createSetAndManager(
     address[] memory _assets,
     address[] memory _extensions
 )
+    external
+    returns (ISetToken, address)
 ```
 
 + if `_assets` are specified, require that all *_components* are included in the *_assets* array
@@ -379,6 +381,8 @@ function createManager(
     address[] memory _assets,
     address[] memory _extensions
 )
+    external
+    returns (address)
 ```
 + require *msg.sender* is *setToken.manager*
 + if `_assets` are specified, require that all of the sets existing *_components* are included in the *_assets* array
@@ -426,6 +430,7 @@ function initialize(
     address[] memory _initializeTargets,
     bytes[] memory _initializeBytecode,
 )
+    external
 ```
 + require that caller be the *deployer* specified in the *initialize[_setTokenAddress]* mapping
 + require that *initialize[_setTokenAddress].isPending* is `true`
@@ -578,6 +583,7 @@ constructor(
     address[] memory _operators,
     address[] memory _allowedAssets,
 )
+    public
 ```
 
 + Set *setToken*, *factory*, *methodologist*, and *useAssetAllowlist* public variables
@@ -604,21 +610,21 @@ ONLY OWNER: Transfers _tokens held by the manager to _destination. Can be used t
 recover anything sent here accidentally.
 
 ```solidity
-function transferTokens(address _token, address _destination, uint256 _amount)
+function transferTokens(address _token, address _destination, uint256 _amount) external onlyOwner
 ```
 
 + Call `IERC20(_token).safeTransfer(_destination, _amount)`
 
 ----
 
-ONLY PENDING EXTENSION > initializeExtension
+> initializeExtension
 
-Initializes an added extension from PENDING to INITIALIZED state. An address can only
+ONLY PENDING EXTENSION: Initializes an added extension from PENDING to INITIALIZED state. An address can only
 enter a PENDING state if it is an enabled extension added by the manager. Only callable
 by the extension itself, hence msg.sender is the subject of update.
 
 ```solidity
-function initializeExtension()
+function initializeExtension() external
 ```
 
 + Require that extension calling method has been added and it's state is *PENDING*
@@ -633,7 +639,7 @@ function initializeExtension()
 ONLY OWNER: Add a new extension that the DelegatedManager can call
 
 ```solidity
-function addExtensions(address[] memory _extensions)
+function addExtensions(address[] memory _extensions) external onlyOwner
 ```
 
 + for each extension in _extensions
@@ -648,7 +654,7 @@ function addExtensions(address[] memory _extensions)
 ONLY OWNER: Remove an existing extension tracked by the DelegatedManager.
 
 ```solidity
-function removeExtensions(address[] memory _extensions)
+function removeExtensions(address[] memory _extensions) external onlyOwner
 ```
 
 + for each extension in _extensions
@@ -666,7 +672,7 @@ function removeExtensions(address[] memory _extensions)
 ONLY OWNER: Add new operator(s) address
 
 ```solidity
-function addOperators(address[] memory _operators)
+function addOperators(address[] memory _operators) external onlyOwner
 ```
 + for each operator in _operators
   + require that operator is not already registered in the *operatorAllowlist* mapping
@@ -681,7 +687,7 @@ function addOperators(address[] memory _operators)
 ONLY OWNER: Remove operator(s) from the allowlist
 
 ```solidity
-function removeOperators(address[] memory _operators)
+function removeOperators(address[] memory _operators) external onlyOwner
 ```
 
 + for each operator in _operators
@@ -697,7 +703,7 @@ function removeOperators(address[] memory _operators)
 ONLY OWNER: Add new asset(s) that can be traded to, wrapped to, or claimed
 
 ```solidity
-function addAllowedAssets(address[] memory _assets)
+function addAllowedAssets(address[] memory _assets) external onlyOwner
 ```
 + for each asset in _assets
   + require that asset is not already registered in the *assetAllowlist* mapping
@@ -712,7 +718,7 @@ function addAllowedAssets(address[] memory _assets)
 ONLY OWNER: Remove asset(s) so that it/they can't be traded to, wrapped to, or claimed
 
 ```solidity
-function removeAllowedAssets(address[] memory _assets)
+function removeAllowedAssets(address[] memory _assets) external onlyOwner
 ```
 
 + for each asset in _assets
@@ -729,7 +735,7 @@ ONLY OWNER: Toggles whether or not operator can trade any asset. When false, ass
 restrictions are ignored.
 
 ```solidity
-function setUseAssetAllowlist(bool _useAssetAllowlist)
+function setUseAssetAllowlist(bool _useAssetAllowlist) external onlyOwner
 ```
 
 + set *useAssetAllowlist* to _useAssetAllowlist
@@ -742,7 +748,7 @@ function setUseAssetAllowlist(bool _useAssetAllowlist)
 ONLY OWNER: Sets the *ownerFeeSplit*
 
 ```solidity
-function updateOwnerFeeSplit(uint256 _ownerFeeSplit)
+function updateOwnerFeeSplit(uint256 _ownerFeeSplit) external onlyOwner
 ```
 
 + set *ownerFeeSplit* to _ownerFeeSplit
@@ -754,7 +760,7 @@ function updateOwnerFeeSplit(uint256 _ownerFeeSplit)
 ONLY OWNER: Sets the *ownerFeeRecipient*
 
 ```solidity
-function updateOwnerFeeRecipient(address _ownerFeeRecipient)
+function updateOwnerFeeRecipient(address _ownerFeeRecipient) external onlyOwner
 ```
 
 + set *ownerFeeRecipient* to _ownerFeeRecipient
@@ -766,7 +772,7 @@ function updateOwnerFeeRecipient(address _ownerFeeRecipient)
 ONLY METHODOLOGIST: Update the methodologist address
 
 ```solidity
-function setMethodologist(address _newMethodologist)
+function setMethodologist(address _newMethodologist) external onlyMethodologist
 ```
 
 + set *methodologist* to _newMethodologist
@@ -779,7 +785,7 @@ function setMethodologist(address _newMethodologist)
 ONLY OWNER: Update the SetToken manager address
 
 ```solidity
-function setManager(address _newManager)
+function setManager(address _newManager) external onlyOwner
 ```
 
 + require that _newManager is not a null address
@@ -792,7 +798,7 @@ function setManager(address _newManager)
 ONLY OWNER: Add a new module to the SetToken
 
 ```solidity
-function addModule(address _module)
+function addModule(address _module) external onlyOwner
 ```
 
 + call `setToken.addModule(_module)`
@@ -804,7 +810,7 @@ function addModule(address _module)
 ONLY OWNER: Remove a new module from the SetToken
 
 ```solidity
-function removeModule(address _module)
+function removeModule(address _module) external onlyOwner
 ```
 
 + call `setToken.removeModule(_module)`
@@ -989,7 +995,7 @@ function removeExtension(ISetToken _setToken) external virtual;
 Initialize the TradeExtension on the DelegatedManager
 
 ```solidity
-function initializeExtension(address _delegatedManager)
+function initializeExtension(address _delegatedManager) external
 ```
 
 + require that *msg.sender* is the *_delegatedManager.owner*
@@ -1005,7 +1011,7 @@ function initializeExtension(address _delegatedManager)
 Initialize the TradeModule and the TradeExtension. (Can only be called by delegatedManager owner, checked in `initializeExtension`)
 
 ```
-function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanceHook _preIssueHook)
+function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanceHook _preIssueHook) external
 ```
 
 + call *initializeExtension(_delegatedManager)*
@@ -1065,7 +1071,7 @@ function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanc
 Initialize the BasicIssuanceExtension on the DelegatedManager
 
 ```solidity
-function initializeExtension(address _delegatedManager)
+function initializeExtension(address _delegatedManager) external
 ```
 + require that *msg.sender* is the *_delegatedManager.owner*
 + require that extension state in delegatedManager's *extensionAllowlist* is *PENDING*
@@ -1080,7 +1086,7 @@ function initializeExtension(address _delegatedManager)
 Initialize the BasicIssuanceModule and the BasicIssuanceExtension. (Can only be called by delegatedManager owner, checked in `initializeExtension`)
 
 ```
-function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanceHook _preIssueHook)
+function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanceHook _preIssueHook) external
 ```
 
 + call *initializeExtension(_delegatedManager)*
@@ -1143,7 +1149,7 @@ function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanc
 Initialize the StreamingFeeSplitExtension on the DelegatedManager
 
 ```solidity
-function initializeExtension(address _delegatedManager)
+function initializeExtension(address _delegatedManager) external
 ```
 
 + require that *msg.sender* is the *_delegatedManager.owner*
@@ -1159,7 +1165,7 @@ function initializeExtension(address _delegatedManager)
 Initialize the StreamingFeeModule and the StreamingFeeExtension. (Can only be called by delegatedManager owner, checked in `initializeExtension`)
 
 ```
-function initializeExtensionAndModule(address _delegatedManager, FeeState memory _settings)
+function initializeExtensionAndModule(address _delegatedManager, FeeState memory _settings) external
 ```
 
 + call *initializeExtension(_delegatedManager)*
