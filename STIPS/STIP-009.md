@@ -1064,8 +1064,6 @@ ONLY OWNER: Initialize the BasicIssuanceExtension on the DelegatedManager
 function initializeExtension(address _delegatedManager)
 ```
 
-+ read _setTokenAddress from _delegatedManager
-+ require that caller be the *deployer* specified in the factory's *initialize[_setTokenAddress]* mapping
 + require that extension state in delegatedManager's *extensionAllowlist* is *PENDING*
 + set *setManagers[_setTokenAddress]* to manager
 + call `manager.initializeExtension()`
