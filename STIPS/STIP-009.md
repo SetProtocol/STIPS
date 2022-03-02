@@ -1011,7 +1011,7 @@ function initializeExtension(address _delegatedManager) external
 Initialize the TradeModule and the TradeExtension. (Can only be called by delegatedManager owner, checked in `initializeExtension`)
 
 ```
-function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanceHook _preIssueHook) external
+function initializeModuleAndExtension(address _delegatedManager) external
 ```
 
 + call *initializeExtension(_delegatedManager)*
@@ -1023,7 +1023,7 @@ function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanc
     );
     ```
 
-+ call *invokeManager(streamingFeeModule, callData)*
++ call *invokeManager(tradingModule, callData)*
 
 ### BasicIssuanceExtension
 
@@ -1099,7 +1099,7 @@ function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanc
     );
     ```
 
-+ call *invokeManager(streamingFeeModule, callData)*
++ call *invokeManager(basicIssuanceModule, callData)*
 
 ### StreamingFeeSplitExtension
 
