@@ -976,7 +976,8 @@ function removeExtension(ISetToken _setToken) external virtual;
 
 | Name  | Caller  | Description     |
 |------	|------	|-------------	|
-|initialize|owner|Initialize the TradeExtension on the DelegatedManager and initialize the TradeModule on the SetToken if necessary|
+|initializeExtension|owner|Initialize the TradeExtension on the DelegatedManager|
+|initializeExtensionAndModule|owner|Initialize the StreamingFeeModule on the SetToken and the StreamingFeeExtension on the DelegatedManager|
 |trade|operator|Trade between whitelisted assets on a DEX|
 
 ----
@@ -985,11 +986,13 @@ function removeExtension(ISetToken _setToken) external virtual;
 
 > initializeExtension
 
-ONLY OWNER: Initialize the TradeExtension on the DelegatedManager
+Initialize the TradeExtension on the DelegatedManager
 
 ```solidity
 function initializeExtension(address _delegatedManager)
 ```
+
++ require that *msg.sender* is the *_delegatedManager.owner*
 + require that extension state in delegatedManager's *extensionAllowlist* is *PENDING*
 + set *setManagers[_setTokenAddress]* to manager
 + call `manager.initializeExtension()`
@@ -999,7 +1002,7 @@ function initializeExtension(address _delegatedManager)
 
 > initializeModuleAndExtension
 
-ONLY OWNER: Initialize the TradeModule and the TradeExtension
+Initialize the TradeModule and the TradeExtension. (Can only be called by delegatedManager owner, checked in `initializeExtension`)
 
 ```
 function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanceHook _preIssueHook)
@@ -1048,7 +1051,8 @@ function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanc
 
 | Name  | Caller  | Description     |
 |------	|------	|-------------	|
-|initialize|owner|Initialize the BasicIssuanceExtension on the DelegatedManager and initialize the BasicIssuanceModule on the SetToken if necessary|
+|initializeExtension|owner|Initialize the BasicIssuanceExtension on the DelegatedManager |
+|initializeExtensionAndModule|owner|Initialize the BasicIssuanceModule on the SetToken and the BasicIssuanceExtension on the DelegatedManager |
 |updateIssueFee|owner|Update issue fee on IssuanceModule|
 |updateRedeemFee|owner|Update redeem fee on IssuanceModule|
 
@@ -1058,12 +1062,12 @@ function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanc
 
 > initializeExtension
 
-ONLY OWNER: Initialize the BasicIssuanceExtension on the DelegatedManager
+Initialize the BasicIssuanceExtension on the DelegatedManager
 
 ```solidity
 function initializeExtension(address _delegatedManager)
 ```
-
++ require that *msg.sender* is the *_delegatedManager.owner*
 + require that extension state in delegatedManager's *extensionAllowlist* is *PENDING*
 + set *setManagers[_setTokenAddress]* to manager
 + call `manager.initializeExtension()`
@@ -1073,7 +1077,7 @@ function initializeExtension(address _delegatedManager)
 
 > initializeModuleAndExtension
 
-ONLY OWNER: Initialize the BasicIssuanceModule and the BasicIssuanceExtension
+Initialize the BasicIssuanceModule and the BasicIssuanceExtension. (Can only be called by delegatedManager owner, checked in `initializeExtension`)
 
 ```
 function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanceHook _preIssueHook)
@@ -1125,7 +1129,8 @@ function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanc
 | Name  | Caller  | Description     |
 |------	|------	|-------------	|
 |accrueFeesAndDistribute|public|Accrue fees and distribute to owner and methodologist|
-|initialize|owner|Initialize the StreamingFeeSplitExtension on the DelegatedManager and initialize the StreamingFeeModule on the SetToken if necessary|
+|initializeExtension|owner|Initialize the StreamingFeeSplitExtension|
+|initializeExtensionAndModule|owner|Initialize the StreamingFeeModule and the StreamingFeeExtension|
 |updateStreamingFee|owner|Migrate existing Set Token to a DelegatedManager manager|
 |updateFeeRecipient|owner|Update fee recipient|
 
@@ -1135,12 +1140,13 @@ function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanc
 
 > initializeExtension
 
-ONLY OWNER: Initialize the StreamingFeeSplitExtension on the DelegatedManager
+Initialize the StreamingFeeSplitExtension on the DelegatedManager
 
 ```solidity
 function initializeExtension(address _delegatedManager)
 ```
 
++ require that *msg.sender* is the *_delegatedManager.owner*
 + require that extension state in delegatedManager's *extensionAllowlist* is *PENDING*
 + set *setManagers[_setTokenAddress]* to _delagatedManager
 + call `manager.initializeExtension()`
@@ -1150,7 +1156,7 @@ function initializeExtension(address _delegatedManager)
 
 > initializeModuleAndExtension
 
-ONLY OWNER: Initialize the StreamingFeeModule and the StreamingFeeExtension
+Initialize the StreamingFeeModule and the StreamingFeeExtension. (Can only be called by delegatedManager owner, checked in `initializeExtension`)
 
 ```
 function initializeExtensionAndModule(address _delegatedManager, FeeState memory _settings)
