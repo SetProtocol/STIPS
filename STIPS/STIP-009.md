@@ -1031,16 +1031,6 @@ function initializeModuleAndExtension(address _delegatedManager) external
 
 - BaseGlobalExtension
 
-##### FeeState
-
-| Type 	| Name 	| Description 	|
-|------	|------	|-------------	|
-|address|feeRecipient|Address to accrue fees to|
-|uint256|maxIssueFee|Max issuance fee manager commits to using (1% = 1e16, 100% = 1e18)|
-|uint256|issueFee|Percent of Set accruing to manager on issuance (1% = 1e16, 100% = 1e18)|
-|uint256|maxRedeemFee|Max redemption fee manager commits to using (1% = 1e16, 100% = 1e18)|
-|uint256|redeemFee|Percent of Set accruing to manager on redemption (1% = 1e16, 100% = 1e18)|
-
 #### Global Variables
 
 | Type 	| Name 	| Description 	|
