@@ -551,6 +551,7 @@ function initialize(
 |addExtensions|owner|Add a new extension that the DelegatedManager can call|
 |removeExtensions|owner|Remove an existing extension tracked by the DelegatedManager|
 |addOperators|owner|Add new operator(s) address|
+|removeOperators|owner| Remove operator(s) address|
 |addAllowedAssets|owner|Add new asset(s) that can be traded to, wrapped to, or claimed|
 |removeAllowedAssets|owner|Remove asset(s) so that it/they can't be traded to, wrapped to, or claimed|
 |setUseAssetAllowed|owner|set useAssetAllowed variable to true or false|
