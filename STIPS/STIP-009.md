@@ -1099,15 +1099,6 @@ function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanc
 
 #### Structs
 
-##### FeeState
-
-| Type 	| Name 	| Description 	|
-|------	|------	|-------------	|
-|address|feeRecipient|Address to accrue fees to|
-|uint256|maxStreamingFeePercentage|Max streaming fee manager commits to using (1% = 1e16, 100% = 1e18)|
-|uint256|streamingFeePercentage|Percent of Set accruing to manager annually (1% = 1e16, 100% = 1e18)|
-|uint256|lastStreamingFeeTimestamp|Timestamp last streaming fee was accrued|
-
 #### Global Variables
 
 | Type 	| Name 	| Description 	|
