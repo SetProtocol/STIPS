@@ -4,7 +4,7 @@
 
 ## Abstract
 
-Historically, SetProtocol has deployed SetToken specific manager contracts and extensions for IndexCoop issued funds. These contracts encode fee management and rebalance trading logic and provide better security guarantees to SetToken holders than direct management via EOA.
+Historically, Set Protocol has deployed SetToken specific manager contracts and extensions for IndexCoop issued funds. These contracts encode fee management and rebalance trading logic and provide better security guarantees to SetToken holders than direct management via EOA.
 
 This STIP proposes that we automate manager contract deployments using on-chain factories and support "self-service" manager enabled SetToken creation as a feature available to anyone in the SetProtocol UI (tokensets.com).
 
@@ -60,7 +60,7 @@ Pose any open questions you may still have about potential solutions here. We wa
 
 ### Single-user vs. Mutli-user Manager Contracts
 
-Single-user manager contracts would be deployed once per Set Token by a manager factory contract, while a multi-user manager contract would be deployed once overall and could subsequently be used by all Set Tokens. Single-user manager contracts maintain separation between Set Tokens at the contract level but require individual deployments for each Set Token. A multi-user manager contract requires only one deployment but has functionality across many Set Tokens, which may open up attack vectors.
+Single-user manager contracts would be deployed once per SetToken by a manager factory contract, while a multi-user manager contract would be deployed once overall and could subsequently be used by all SetTokens. Single-user manager contracts maintain separation between SetTokens at the contract level but require individual deployments for each SetToken. A multi-user manager contract requires only one deployment but has functionality across many SetTokens, which may open up attack vectors.
 
 ### Modular vs. Monolithic Manager Contracts
 
@@ -76,7 +76,7 @@ We recommend deploying single-user, modular manager contracts from a manager fac
 
 **Design features**
 
-+ single-user manager contracts mirror the separation of Set Tokens from each other at the contract level.
++ single-user manager contracts mirror the separation of SetTokens from each other at the contract level.
 + modular manager contracts allow for functionaity to be flexible and extensible.
 + a collection of multi-use extensions gives managers access to basic functionality without requiring a dedicated contract deployment.
 + managers will retain the option of deploying individual extensions for more complicated functionality.
@@ -98,7 +98,7 @@ We recommend deploying single-user, modular manager contracts from a manager fac
 
 ![Proposed Architecture Changes](../assets/stip-009/image1.png "")
 
-**DelegatedManagerFactory**: Factory smart contract which provides asset managers (`deployer`) the ability to create a Set Token with a DelegatedManager manager, create a DelegatedManager manager for an existing Set Token to migrate to, and `initialize` extensions and modules.
+**DelegatedManagerFactory**: Factory smart contract which provides asset managers (`deployer`) the ability to create a SetToken with a DelegatedManager manager, create a DelegatedManager manager for an existing SetToken to migrate to, and `initialize` extensions and modules.
 
 **DelegatedManager**: Manager smart contract which provides asset managers three permissioned roles (`owner`, `methodologist`, `operator`) and asset whitelist functionality. The `owner` grants permissions to `operator`(s) to interact with extensions. The `owner` can restrict the `operator`(s) permissions with an asset whitelist.
 
@@ -125,7 +125,7 @@ supporting any logic to guarantee that fee split arrangements are irrevocable.
 - Allow `owner` to add and remove global `operator` permissions on extensions
 - Allow `owner` to limit `operator`(s) functionality on extensions with an asset whitelist
 - Allow `owner` to update asset whitelist
-- Allow `owner` to perform Set Token admin functions such as `addModule`, `removeModule`, and `setManager`
+- Allow `owner` to perform SetToken admin functions such as `addModule`, `removeModule`, and `setManager`
 - Allow `owner` to update ownerFeeSplit
 - Allow `owner` to update ownerFeeRecipient
 - Allow `owner` to transfer tokens held by the BaseManager to another address (sweeper)
@@ -158,9 +158,9 @@ supporting any logic to guarantee that fee split arrangements are irrevocable.
 
 ![DelegatedManagerFactory create](../assets/stip-009/image2.png "")
 
-A `deployer` wants to create a new Set Token with a DelegatedManager smart contract manager.
+A `deployer` wants to create a new SetToken with a DelegatedManager smart contract manager.
 
-1. The `deployer` calls createSetAndManager() passing in parameters to create a Set Token, parameters for the permissioning on DelegatedManager, and the desired extensions. Specifically,
+1. The `deployer` calls createSetAndManager() passing in parameters to create a SetToken, parameters for the permissioning on DelegatedManager, and the desired extensions. Specifically,
 
     - components: List of addresses of components for initial positions
     - units: List of units for initial positions
@@ -176,7 +176,7 @@ A `deployer` wants to create a new Set Token with a DelegatedManager smart contr
 2. Creation Parameters are validated:
     - If assets are defined, asset list must match components
 
-3. A Set Token is deployed using SetTokenCreator
+3. A SetToken is deployed using SetTokenCreator
 
 4. A DelegatedManager is deployed with the DelegatedManagerFactory as the temporary `owner` until after initialization
     - If assets are defined, constructor param *useAssetAllowlist* is set to true, false otherwise.
@@ -187,9 +187,9 @@ A `deployer` wants to create a new Set Token with a DelegatedManager smart contr
 
 ![DelegatedManagerFactory migrate](../assets/stip-009/image3.png "")
 
-A `deployer` wants to migrate an existing Set Token to a DelegatedManager smart contract manager.
+A `deployer` wants to migrate an existing SetToken to a DelegatedManager smart contract manager.
 
-1. The `deployer` calls createManager() passing in the Set Token address, parameters for the permissioning on DelegatedManager, and the desired extensions. Specifically,
+1. The `deployer` calls createManager() passing in the SetToken address, parameters for the permissioning on DelegatedManager, and the desired extensions. Specifically,
 
     - owner: The address of the `owner`
     - methodologist: The address of the `methodologist`
@@ -288,16 +288,16 @@ Reviewer: []
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|address|factory|Address of Set Token factory|
-|mapping(address => InitializeParams)|initialize|Mapping from Set Token to initialization parameters|
+|address|factory|Address of SetToken factory|
+|mapping(address => InitializeParams)|initialize|Mapping from SetToken to initialization parameters|
 
 
 #### Functions
 
 | Name  | Caller  | Description 	|
 |------	|------	|-------------	|
-|createSetAndManager |deployer|Create new Set Token with a DelegatedManager manager|
-|createManager | SetToken owner |Migrate existing Set Token to a DelegatedManager manager|
+|createSetAndManager |deployer|Create new SetToken with a DelegatedManager manager|
+|createManager | SetToken owner |Migrate existing SetToken to a DelegatedManager manager|
 |initialize |deployer or SetToken owner |Initialize modules and extensions, set manager fee settings|
 
 ----
@@ -418,7 +418,7 @@ a functioning package. `_initializeTargets` includes any extensions or modules w
 To generate the bytecode to call the TradeModules initialize function with the ethers.js library you'd write:
 
 ```js
-const iFace = new ethers.utils.interface(["initialize(address)"]);
+const iFace = new ethers.utils.interface(["function initialize(address)"]);
 const bytecode = iFace.encodeFunctionData("initialize", [setTokenAddress]);
 ```
 
@@ -546,7 +546,7 @@ function initialize(
 
 | Name  | Caller  | Description 	|
 |------	|------	|-------------	|
-|interactManager|extension|Interact with a module registered on the Set Token|
+|interactManager|extension|Interact with a module registered on the SetToken|
 |initializeExtension|extension|Initializes an added extension from PENDING to INITIALIZED state|
 |addExtensions|owner|Add a new extension that the DelegatedManager can call|
 |removeExtensions|owner|Remove an existing extension tracked by the DelegatedManager|
@@ -555,9 +555,9 @@ function initialize(
 |removeAllowedAssets|owner|Remove asset(s) so that it/they can't be traded to, wrapped to, or claimed|
 |setUseAssetAllowed|owner|set useAssetAllowed variable to true or false|
 |setMethodologist|methodologist|Update the methodologist address|
-|setManager|owner|Update the manager of the Set Token|
-|addModule|owner|Add module to Set Token|
-|removeModule|owner|Remove module from Set Token|
+|setManager|owner|Update the manager of the SetToken|
+|addModule|owner|Add module to SetToken|
+|removeModule|owner|Remove module from SetToken|
 
 #### Modifiers
 
@@ -970,13 +970,13 @@ function removeExtension(ISetToken _setToken) external virtual;
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|ITradeModule|tradeModule|Trade Module for Set Token|
+|ITradeModule|tradeModule|Trade Module for SetToken|
 
 #### Public Variables
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|mapping(address => IDelegatedManager)|setManagers|Mapping from Set Token to DelegatedManager|
+|mapping(address => IDelegatedManager)|setManagers|Mapping from SetToken to DelegatedManager|
 
 #### Functions
 
@@ -1045,13 +1045,13 @@ function initializeModuleAndExtension(address _delegatedManager) external
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|IIssuanceModule|issuanceModule|Issuance Module for Set Token|
+|IIssuanceModule|issuanceModule|Issuance Module for SetToken|
 
 #### Public Variables
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|mapping(address => IDelegatedManager)|setManagers|Mapping from Set Token to DelegatedManager|
+|mapping(address => IDelegatedManager)|setManagers|Mapping from SetToken to DelegatedManager|
 
 #### Functions
 
@@ -1122,13 +1122,13 @@ function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanc
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|IStreamingFeeModule|streamingFeeModule|Streaming Fee Module for Set Token|
+|IStreamingFeeModule|streamingFeeModule|Streaming Fee Module for SetToken|
 
 #### Public Variables
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|mapping(address => IDelegatedManager)|setManagers|Mapping from Set Token to DelegatedManager|
+|mapping(address => IDelegatedManager)|setManagers|Mapping from SetToken to DelegatedManager|
 
 #### Functions
 
@@ -1137,7 +1137,7 @@ function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanc
 |accrueFeesAndDistribute|public|Accrue fees and distribute to owner and methodologist|
 |initializeExtension|owner|Initialize the StreamingFeeSplitExtension|
 |initializeExtensionAndModule|owner|Initialize the StreamingFeeModule and the StreamingFeeExtension|
-|updateStreamingFee|owner|Migrate existing Set Token to a DelegatedManager manager|
+|updateStreamingFee|owner|Migrate existing SetToken to a DelegatedManager manager|
 |updateFeeRecipient|owner|Update fee recipient|
 
 ----
