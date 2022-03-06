@@ -600,7 +600,7 @@ constructor(
 
 ONLY EXTENSION: Interact with a module registered on the SetToken
 
-```
+```solidity
 function interactManager(address _module, bytes calldata _data) external onlyExtension
 ```
 + require that _module is not the *setToken* (to prevent operator from bypassing extension interfaces)
@@ -1014,7 +1014,7 @@ function initializeExtension(address _delegatedManager) external
 
 Initialize the TradeModule and the TradeExtension. (Can only be called by delegatedManager owner, checked in `initializeExtension`)
 
-```
+```solidity
 function initializeModuleAndExtension(address _delegatedManager) external
 ```
 
@@ -1079,7 +1079,7 @@ function initializeExtension(address _delegatedManager) external
 
 Initialize the BasicIssuanceModule and the BasicIssuanceExtension. (Can only be called by delegatedManager owner, checked in `initializeExtension`)
 
-```
+```solidity
 function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanceHook _preIssueHook) external
 ```
 
@@ -1149,7 +1149,7 @@ function initializeExtension(address _delegatedManager) external
 
 Initialize the StreamingFeeModule and the StreamingFeeExtension. (Can only be called by delegatedManager owner, checked in `initializeExtension`)
 
-```
+```solidity
 function initializeExtensionAndModule(address _delegatedManager, FeeState memory _settings) external
 ```
 
