@@ -98,6 +98,8 @@ We recommend deploying single-user, modular manager contracts from a manager fac
 
 ![Proposed Architecture Changes](../assets/stip-009/image1.png "")
 
+**ManagerCore**: Contract that houses state for approvals for manager factories.
+
 **DelegatedManagerFactory**: Factory smart contract which provides asset managers (`deployer`) the ability to create a SetToken with a DelegatedManager manager, create a DelegatedManager manager for an existing SetToken to migrate to, and `initialize` extensions and modules.
 
 **DelegatedManager**: Manager smart contract which provides asset managers three permissioned roles (`owner`, `methodologist`, `operator`) and asset whitelist functionality. The `owner` grants permissions to `operator`(s) to interact with extensions. The `owner` can restrict the `operator`(s) permissions with an asset whitelist.
@@ -109,6 +111,10 @@ We recommend deploying single-user, modular manager contracts from a manager fac
 **StreamingFeeSplitExtension**: Global extension which provides the `owner` and `methodologist` the ability to accrue and split streaming fees at an mutable percentage.
 
 ## Requirements
+
+### ManagerCore
+
+- Allow system `owner` to add and remove approved manager factories
 
 ### DelegatedManagerFactory
 
@@ -248,6 +254,106 @@ An interested party wants to accrue streaming fees and distribute them to the `o
 Reviewer: []
 
 ## Specification
+
+### ManagerCore
+
+#### Inheritance
+
+- Ownable
+
+#### Events
+
+##### ManagerFactoryAdded
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|factory|Address of manager factory added|
+
+##### ManagerFactoryRemoved
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|factory|Address of manager factory removed|
+
+#### Public Variables
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|address[]|factories|List of enabled factories of managers|
+|mapping(address => bool)|isFactory|Mapping to check whether address is valid factory|
+|bool|isInitialized|Bool to check whether ManagerCore is initialized|
+
+#### Functions
+
+| Name  | Caller  | Description 	|
+|------	|------	|-------------	|
+|initialize|owner|Initialize any predeployed factories|
+|addFactory|owner|Allows governance to add a factory|
+|removeFactory|owner|Allows governance to remove a factory|
+
+#### Modifiers
+
+| Name  | Description   |
+|------ |-------------  |
+|onlyOwner| Requires that the `owner` is caller |
+|onlyInitialized | Requires that `isInitialized` is true |
+
+----
+
+> initialize
+
+ONLY OWNER: Initialize any predeployed factories. This function can only be called by the owner once to batch initialize factories.
+
+```solidity
+function initialize(
+    address[] memory _factories
+)
+    external
+    onlyOwner
+```
+
++ require ManagerCore is not initialized
++ Set `factories` public variable
++ for each factory in _factories
+  + require that factory is not zero address
+  + set *isFactory[factory]* to true
++ Set `isInitialized` to true
+
+> addFactory
+
+ONLY OWNER: Allows governance to add a factory.
+
+```solidity
+function addFactory(
+    address _factory
+)
+    external
+    onlyInitialized
+    onlyOwner
+```
+
++ require `!isFactory[_factory]`
++ Set *isFactory[factory]* to true
++ Add *_factory* to *factories* array
++ emit *FactoryAdded* event
+
+> removeFactory
+
+ONLY OWNER: Allows governance to remove a factory.
+
+```solidity
+function removeFactory(
+    address _factory
+)
+    external
+    onlyInitialized
+    onlyOwner
+```
+
++ require `isFactory[_factory]`
++ Remove *_factory* to *factories* array
++ Set *isFactory[factory]* to false
++ emit *FactoryRemoved* event
 
 ### DelegatedManagerFactory
 
@@ -988,6 +1094,7 @@ function removeExtension(ISetToken _setToken) external virtual;
 |------	|------	|-------------	|
 |initializeExtension|owner|Initialize the TradeExtension on the DelegatedManager|
 |initializeExtensionAndModule|owner|Initialize the StreamingFeeModule on the SetToken and the StreamingFeeExtension on the DelegatedManager|
+|removeExtension|manager|Remove an existing SetToken and DelegatedManager tracked by the TradeExtension|
 |trade|operator|Trade between whitelisted assets on a DEX|
 
 ----
@@ -1002,6 +1109,7 @@ Initialize the TradeExtension on the DelegatedManager
 function initializeExtension(address _delegatedManager) external
 ```
 
++ require that *msg.sender* is an enabled factory on ManagerCore or that the _delegatedManager is the SetToken manager
 + require that *msg.sender* is the *_delegatedManager.owner*
 + require that extension state in delegatedManager's *extensionAllowlist* is *PENDING*
 + set *setManagers[_setTokenAddress]* to manager
@@ -1053,6 +1161,7 @@ function initializeModuleAndExtension(address _delegatedManager) external
 |------	|------	|-------------	|
 |initializeExtension|owner|Initialize the BasicIssuanceExtension on the DelegatedManager |
 |initializeExtensionAndModule|owner|Initialize the BasicIssuanceModule on the SetToken and the BasicIssuanceExtension on the DelegatedManager |
+|removeExtension|manager|Remove an existing SetToken and DelegatedManager tracked by the BasicIssuanceExtension|
 |updateIssueFee|owner|Update issue fee on IssuanceModule|
 |updateRedeemFee|owner|Update redeem fee on IssuanceModule|
 
@@ -1067,6 +1176,8 @@ Initialize the BasicIssuanceExtension on the DelegatedManager
 ```solidity
 function initializeExtension(address _delegatedManager) external
 ```
+
++ require that *msg.sender* is an enabled factory on ManagerCore or that the _delegatedManager is the SetToken manager
 + require that *msg.sender* is the *_delegatedManager.owner*
 + require that extension state in delegatedManager's *extensionAllowlist* is *PENDING*
 + set *setManagers[_setTokenAddress]* to manager
@@ -1122,6 +1233,7 @@ function initializeModuleAndExtension(address _delegatedManager, IManagerIssuanc
 |accrueFeesAndDistribute|public|Accrue fees and distribute to owner and methodologist|
 |initializeExtension|owner|Initialize the StreamingFeeSplitExtension|
 |initializeExtensionAndModule|owner|Initialize the StreamingFeeModule and the StreamingFeeExtension|
+|removeExtension|manager|Remove an existing SetToken and DelegatedManager tracked by the StreamingFeeSplitExtension|
 |updateStreamingFee|owner|Migrate existing SetToken to a DelegatedManager manager|
 |updateFeeRecipient|owner|Update fee recipient|
 
@@ -1137,6 +1249,7 @@ Initialize the StreamingFeeSplitExtension on the DelegatedManager
 function initializeExtension(address _delegatedManager) external
 ```
 
++ require that *msg.sender* is an enabled factory on ManagerCore or that the _delegatedManager is the SetToken manager
 + require that *msg.sender* is the *_delegatedManager.owner*
 + require that extension state in delegatedManager's *extensionAllowlist* is *PENDING*
 + set *setManagers[_setTokenAddress]* to _delagatedManager
