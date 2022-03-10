@@ -98,7 +98,7 @@ We recommend deploying single-user, modular manager contracts from a manager fac
 
 ![Proposed Architecture Changes](../assets/stip-009/image1.png "")
 
-**ManagerCore**: Contract that houses state for approvals for manager factories.
+**ManagerCore**: Contract that houses state for approvals for DelegatedManager factories and managers. Used by the global extensions to verify managers are valid.
 
 **DelegatedManagerFactory**: Factory smart contract which provides asset managers (`deployer`) the ability to create a SetToken with a DelegatedManager manager, create a DelegatedManager manager for an existing SetToken to migrate to, and `initialize` extensions and modules.
 
@@ -115,6 +115,7 @@ We recommend deploying single-user, modular manager contracts from a manager fac
 ### ManagerCore
 
 - Allow system `owner` to add and remove approved manager factories
+- Allow approved `factory` to add approved managers
 
 ### DelegatedManagerFactory
 
@@ -187,7 +188,9 @@ A `deployer` wants to create a new SetToken with a DelegatedManager smart contra
 4. A DelegatedManager is deployed with the DelegatedManagerFactory as the temporary `owner` until after initialization
     - If assets are defined, constructor param *useAssetAllowlist* is set to true, false otherwise.
 
-5. The `deployer`, `owner`, and DelegatedManager are stored on the Factory in pending state
+5. The DelegatedManager is added to ManagerCore by the Factory
+
+6. The `deployer`, `owner`, and DelegatedManager are stored on the Factory in pending state
 
 ### DelegatedManagerFactory.createManager()
 
@@ -209,7 +212,9 @@ A `deployer` wants to migrate an existing SetToken to a DelegatedManager smart c
 3. A DelegatedManager is deployed with the DelegatedManagerFactory as the temporary `owner` until after initialization
     - If assets are defined, constructor param *useAssetAllowlist* is set to true, false otherwise.
 
-4. The `deployer`, `owner`, and DelegatedManager are stored on the Factory in pending state
+4. The DelegatedManager is added to ManagerCore by the Factory
+
+5. The `deployer`, `owner`, and DelegatedManager are stored on the Factory in pending state
 
 ### DelegatedManagerFactory.initialize()
 
@@ -275,11 +280,25 @@ Reviewer: []
 |------ |------ |-------------  |
 |address|factory|Address of manager factory removed|
 
+##### ManagerAdded
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|manager|Address of manager added|
+
+##### ManagerRemoved
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|manager|Address of manager removed|
+
 #### Public Variables
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
+|address[]|managers|List of enabled managers|
 |address[]|factories|List of enabled factories of managers|
+|mapping(address => bool)|isManager|Mapping to check whether address is valid manager|
 |mapping(address => bool)|isFactory|Mapping to check whether address is valid factory|
 |bool|isInitialized|Bool to check whether ManagerCore is initialized|
 
@@ -288,6 +307,8 @@ Reviewer: []
 | Name  | Caller  | Description 	|
 |------	|------	|-------------	|
 |initialize|owner|Initialize any predeployed factories|
+|addManager|factory|Allows factory to add a manager|
+|removeManager|owner|Allows governance to remove a manager|
 |addFactory|owner|Allows governance to add a factory|
 |removeFactory|owner|Allows governance to remove a factory|
 
@@ -296,6 +317,7 @@ Reviewer: []
 | Name  | Description   |
 |------ |-------------  |
 |onlyOwner| Requires that the `owner` is caller |
+|onlyFactory | Requires that caller is an enabled `factory` |
 |onlyInitialized | Requires that `isInitialized` is true |
 
 ----
@@ -319,6 +341,42 @@ function initialize(
   + set *isFactory[factory]* to true
 + Set `isInitialized` to true
 
+> addManager
+
+ONLY FACTORY: Allows factory to add a manager.
+
+```solidity
+function addManager(
+    address _manager
+)
+    external
+    onlyInitialized
+    onlyFactory
+```
+
++ require `!isManager[_manager]`
++ Set *isManager[_manager]* to true
++ Add *_manager* to *managers* array
++ emit *ManagerAdded* event
+
+> removeManager
+
+ONLY OWNER: Allows governance to remove a manager.
+
+```solidity
+function removeManager(
+    address _manager
+)
+    external
+    onlyInitialized
+    onlyOwner
+```
+
++ require `isManager[_manager]`
++ Remove *_manager* to *managers* array
++ Set *isManager[_manager]* to false
++ emit *ManagerRemoved* event
+
 > addFactory
 
 ONLY OWNER: Allows governance to add a factory.
@@ -333,7 +391,7 @@ function addFactory(
 ```
 
 + require `!isFactory[_factory]`
-+ Set *isFactory[factory]* to true
++ Set *isFactory[_factory]* to true
 + Add *_factory* to *factories* array
 + emit *FactoryAdded* event
 
@@ -352,21 +410,20 @@ function removeFactory(
 
 + require `isFactory[_factory]`
 + Remove *_factory* to *factories* array
-+ Set *isFactory[factory]* to false
++ Set *isFactory[_factory]* to false
 + emit *FactoryRemoved* event
 
 ### DelegatedManagerFactory
 
 #### Events
 
-##### DelegatedManagerDeployed
+##### DelegatedManagerCreated
 
 | Type  | Name  | Description   |
 |------ |------ |-------------  |
 |address|setToken|Address of SetToken to be managed|
-|address|deployer|Address of the deployer|
-|address|owner|Address of the owner|
 |address|manager|Address of the DelegatedManager|
+|address|deployer|Address of the deployer|
 
 
 ##### DelegatedManagerInitialized
@@ -374,8 +431,6 @@ function removeFactory(
 | Type  | Name  | Description   |
 |------ |------ |-------------  |
 |address|setToken|Address of SetToken to be managed|
-|address|deployer|Address of the deployer|
-|address|owner|Address of the owner|
 |address|manager|Address of the DelegatedManager|
 
 
@@ -394,6 +449,7 @@ function removeFactory(
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
+|address|managerCore|Address of ManagerCore|
 |address|factory|Address of SetToken factory|
 |mapping(address => InitializeParams)|initialize|Mapping from SetToken to initialization parameters|
 
@@ -457,7 +513,7 @@ function createSetAndManager(
         _extensions
     );
     ```
-
++ add manager to ManagerCore
 + set temporary initialization metadata for the newly created SetToken and DelegatedManager
     ```solidity
     initialize[setTokenAddress] = InitializeParams({
@@ -506,6 +562,7 @@ function createManager(
     );
     ```
 
++ add manager to ManagerCore
 + set temporary initialization metadata for the newly created SetToken and DelegatedManager
     ```solidity
     initialize[setTokenAddress] = InitializeParams({
@@ -1038,17 +1095,28 @@ modifier onlyManager(ISetToken _setToken) {
 }
 ```
 
+> onlyOwnerAndValidManager
+
+```solidity
+modifier onlyOwnerAndValidManager(IDelegatedManager _delegatedManager) {
+    require(msg.sender == _delegatedManager.owner(), "Must be owner");
+    require(managerCore.isManager(address(_delegatedManager)), "Must be ManagerCore-enabled manager");
+    _;
+}
+```
+
 ### Internal functions
 
-> invokeManager
+> _invokeManager
 
 Invoke call from manager
 
 ```solidity
-function invokeManager(ISetToken _setToken, address _module, bytes memory _encoded)
+function _invokeManager(IDelegatedManager _delegatedManager, address _module, bytes memory _encoded)
 ```
 
-+ call *_manager(_setToken).interactManager(_module, _encoded)*
++ call *_delegatedManager.interactManager(_module, _encoded)*
+
 
 ### Abstract Functions
 
@@ -1067,7 +1135,7 @@ function _manager(ISetToken _setToken) internal virtual view returns (IDelegated
 Removes extension
 
 ```solidity
-function removeExtension(ISetToken _setToken) external virtual;
+function removeExtension() external virtual;
 ```
 
 ### TradeExtension
