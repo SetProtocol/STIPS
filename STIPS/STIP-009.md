@@ -123,7 +123,8 @@ We recommend deploying single-user, modular manager contracts from a manager fac
 
 - Allow `deployer` to create new set tokens with a DelegatedManager manager
 - Allow `deployer` to create a new DelegatedManager for an existing set token to migrate to
-- Allow `deployer` to initialize extensions and modules
+- Allow `deployer` to initialize extensions tracked on the ManagerCore
+- Allow `deployer` to initialize modules with extensions if they create a set token through the factory
 
 ### DelegatedManager
 
@@ -187,12 +188,12 @@ A `deployer` wants to create a new SetToken with a DelegatedManager smart contra
 
 3. A SetToken is deployed using SetTokenCreator
 
-4. A DelegatedManager is deployed with the DelegatedManagerFactory as the temporary `owner` until after initialization
+4. A DelegatedManager is deployed with the DelegatedManagerFactory as the temporary `owner` and `methodologist` until after initialization
     - If assets are defined, constructor param *useAssetAllowlist* is set to true, false otherwise.
 
 5. The DelegatedManager is added to ManagerCore by the Factory
 
-6. The `deployer`, `owner`, and DelegatedManager are stored on the Factory in pending state
+6. The `deployer`, `owner`, `methodologist`, and DelegatedManager are stored on the Factory in pending state
 
 ### DelegatedManagerFactory.createManager()
 
@@ -211,31 +212,36 @@ A `deployer` wants to migrate an existing SetToken to a DelegatedManager smart c
 2. createManager parameters are validated:
     - If assets are defined, asset list must match SetToken's existing components
 
-3. A DelegatedManager is deployed with the DelegatedManagerFactory as the temporary `owner` until after initialization
+3. A DelegatedManager is deployed with the DelegatedManagerFactory as the temporary `owner` and `methodologist` until after initialization
     - If assets are defined, constructor param *useAssetAllowlist* is set to true, false otherwise.
 
 4. The DelegatedManager is added to ManagerCore by the Factory
 
-5. The `deployer`, `owner`, and DelegatedManager are stored on the Factory in pending state
+5. The `deployer`, `owner`, `methodologist`, and DelegatedManager are stored on the Factory in pending state
 
 ### DelegatedManagerFactory.initialize()
 
 ![DelegatedManagerFactory initialize](../assets/stip-009/image5.png "")
 
-The `deployer` wants to enable all extensions, initialize all corresponding modules, and transfer the manager `owner` role.
+The `deployer` wants to initialize extensions and transfer the manager `owner` role.
 
 1. The `deployer` calls initialize() passing in the parameters for initializing modules and extensions
 
 2. Initialization parameters are validated:
     - `initializationState` must be `pending`
     - `initialize` caller must be the `deployer`
-    - `initializeTargets` (extension and module addresses) must be the same length as `initializeBytecode` (initialization instructions)
+    - `extensions` (extension addresses tracked on the ManagerCore) must be the same length as `initializeBytecode` (initialization instructions)
 
-3. All modules and extensions are initialized for the SetToken
+3. If the setToken manager is the factory, transfer `manager` role to the DelegatedManager contract
 
-4. If the setToken manager is the factory, transfer `manager` role to the DelegatedManager contract
+4. All extensions are initialized for the SetToken
+    - Each `extension` must be tracked on the ManagerCore
+    - The first argument of each `initializeBytecode` must be the DelegatedManager address corresponding to the `deployer`
 
-5. The `owner` role on the DelegatedManager is transfered from the Factory to the `owner` designated during the creation step.
+5. The DelegatedManager state is set
+    - The `ownerFeeSplit` and `ownerFeeRecipient` are updated
+    - The `owner` role on the DelegatedManager is transfered from the Factory to the `owner` designated during the creation step.
+    - The `methodologist` role on the DelegatedManager is transfered from the Factory to the `methodologist` designated during the creation step.
 
 6. The Factory deletes the `InitializeParams` entry for the set token, removing it from pending state
 
@@ -270,13 +276,25 @@ Reviewer: []
 
 #### Events
 
-##### ManagerFactoryAdded
+##### ExtensionAdded
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|extension|Address of extension added|
+
+##### ExtensionRemoved
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|extension|Address of extension removed|
+
+##### FactoryAdded
 
 | Type  | Name  | Description   |
 |------ |------ |-------------  |
 |address|factory|Address of manager factory added|
 
-##### ManagerFactoryRemoved
+##### FactoryRemoved
 
 | Type  | Name  | Description   |
 |------ |------ |-------------  |
@@ -298,10 +316,12 @@ Reviewer: []
 
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
-|address[]|managers|List of enabled managers|
+|address[]|extensions|List of enabled extensions|
 |address[]|factories|List of enabled factories of managers|
-|mapping(address => bool)|isManager|Mapping to check whether address is valid manager|
+|address[]|managers|List of enabled managers|
+|mapping(address => bool)|isExtension|Mapping to check whether address is valid extension|
 |mapping(address => bool)|isFactory|Mapping to check whether address is valid factory|
+|mapping(address => bool)|isManager|Mapping to check whether address is valid manager|
 |bool|isInitialized|Bool to check whether ManagerCore is initialized|
 
 #### Functions
@@ -309,10 +329,12 @@ Reviewer: []
 | Name  | Caller  | Description 	|
 |------	|------	|-------------	|
 |initialize|owner|Initialize any predeployed factories|
-|addManager|factory|Allows factory to add a manager|
-|removeManager|owner|Allows governance to remove a manager|
+|addExtension|extension|Allows governance to add an extension|
+|removeExtension|owner|Allows governance to remove an extension|
 |addFactory|owner|Allows governance to add a factory|
 |removeFactory|owner|Allows governance to remove a factory|
+|addManager|factory|Allows factory to add a manager|
+|removeManager|owner|Allows governance to remove a manager|
 
 #### Modifiers
 
@@ -330,6 +352,7 @@ ONLY OWNER: Initialize any predeployed factories. This function can only be call
 
 ```solidity
 function initialize(
+    address[] memory _extensions,
     address[] memory _factories
 )
     external
@@ -337,11 +360,91 @@ function initialize(
 ```
 
 + require ManagerCore is not initialized
++ Set `extensions` public variable
 + Set `factories` public variable
++ for each extension in _extensions
+  + require that extension is not zero address
+  + set *isExtension[extension]* to true
+  + emit *ExtensionAdded* event
 + for each factory in _factories
   + require that factory is not zero address
   + set *isFactory[factory]* to true
+  + emit *FactoryAdded* event
 + Set `isInitialized` to true
+
+> addExtension
+
+ONLY OWNER: Allows governance to add an extension.
+
+```solidity
+function addExtension(
+    address _extension
+)
+    external
+    onlyInitialized
+    onlyOwner
+```
+
++ require `!isExtension[_extension]`
++ require that extension is not zero address
++ Set *isExtension[_extension]* to true
++ emit *ExtensionAdded* event
++ Add *_extension* to *extensions* array
+
+> removeExtension
+
+ONLY OWNER: Allows governance to remove an extension.
+
+```solidity
+function removeExtension(
+    address _extension
+)
+    external
+    onlyInitialized
+    onlyOwner
+```
+
++ require `isExtension[_extension]`
++ Remove *_extension* to *extensions* array
++ Set *isExtension[_extension]* to false
++ emit *ExtensionRemoved* event
+
+> addFactory
+
+ONLY OWNER: Allows governance to add a factory.
+
+```solidity
+function addFactory(
+    address _factory
+)
+    external
+    onlyInitialized
+    onlyOwner
+```
+
++ require `!isFactory[_factory]`
++ require that factory is not zero address
++ Set *isFactory[_factory]* to true
++ emit *FactoryAdded* event
++ Add *_factory* to *factories* array
+
+> removeFactory
+
+ONLY OWNER: Allows governance to remove a factory.
+
+```solidity
+function removeFactory(
+    address _factory
+)
+    external
+    onlyInitialized
+    onlyOwner
+```
+
++ require `isFactory[_factory]`
++ Remove *_factory* to *factories* array
++ Set *isFactory[_factory]* to false
++ emit *FactoryRemoved* event
 
 > addManager
 
@@ -379,42 +482,6 @@ function removeManager(
 + Set *isManager[_manager]* to false
 + emit *ManagerRemoved* event
 
-> addFactory
-
-ONLY OWNER: Allows governance to add a factory.
-
-```solidity
-function addFactory(
-    address _factory
-)
-    external
-    onlyInitialized
-    onlyOwner
-```
-
-+ require `!isFactory[_factory]`
-+ Set *isFactory[_factory]* to true
-+ Add *_factory* to *factories* array
-+ emit *FactoryAdded* event
-
-> removeFactory
-
-ONLY OWNER: Allows governance to remove a factory.
-
-```solidity
-function removeFactory(
-    address _factory
-)
-    external
-    onlyInitialized
-    onlyOwner
-```
-
-+ require `isFactory[_factory]`
-+ Remove *_factory* to *factories* array
-+ Set *isFactory[_factory]* to false
-+ emit *FactoryRemoved* event
-
 ### DelegatedManagerFactory
 
 #### Events
@@ -444,6 +511,7 @@ function removeFactory(
 |------	|------	|-------------	|
 |address|deployer|Address of the deployer|
 |address|owner|Address of the owner|
+|address|methodologist|Address of the methodologist|
 |address|manager|Address of the DelegatedManager|
 |bool|isPending|Bool if manager in pending state|
 
@@ -452,8 +520,9 @@ function removeFactory(
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
 |address|managerCore|Address of ManagerCore|
-|address|factory|Address of SetToken factory|
-|mapping(address => InitializeParams)|initialize|Mapping from SetToken to initialization parameters|
+|address|controller|Address of Controller|
+|address|setTokenFactory|Address of SetToken factory|
+|mapping(address => InitializeParams)|initializeState|Mapping from SetToken to initialization parameters|
 
 
 #### Functions
@@ -462,7 +531,7 @@ function removeFactory(
 |------	|------	|-------------	|
 |createSetAndManager |deployer|Create new SetToken with a DelegatedManager manager|
 |createManager | SetToken owner |Migrate existing SetToken to a DelegatedManager manager|
-|initialize |deployer or SetToken owner |Initialize modules and extensions, set manager fee settings|
+|initialize |deployer or SetToken owner |Initialize extensions, set manager fee settings|
 
 ----
 
@@ -508,7 +577,7 @@ function createSetAndManager(
     address managerAddress = _deployManager(
         setTokenAddress,
         address(this),
-        _methodologist,
+        address(this),
         useAssetsAllowedList
         _operators,
         _assets,
@@ -521,6 +590,7 @@ function createSetAndManager(
     initialize[setTokenAddress] = InitializeParams({
         deployer: msg.sender,
         owner: _owner,
+        methodologist: _methodologist,
         manager: managerAddress,
         isPending: true
     });
@@ -556,7 +626,7 @@ function createManager(
     address managerAddress = _deployManager(
         setTokenAddress,
         address(this),
-        _methodologist,
+        address(this),
         useAssetsAllowedList
         _operators,
         _assets,
@@ -570,6 +640,7 @@ function createManager(
     initialize[setTokenAddress] = InitializeParams({
         deployer: msg.sender,
         owner: _owner,
+        methodologist: _methodologist,
         manager: managerAddress,
         isPending: true
     });
@@ -578,16 +649,16 @@ function createManager(
 > initialize
 
 ONLY DEPLOYER: Wires SetToken, DelegatedManager, global manager extensions, and modules together into
-a functioning package. `_initializeTargets` includes any extensions or modules which need to be initialized. `initializeBytecode` is an encoded call to the relevant target's *initialize* function.
+a functioning package. `extensions` includes any ManagerCore tracked extensions which need to be initialized. `initializeBytecode` is an encoded call to the relevant target's *initialize* function.
 
 (Some DelegatedManager state variables are set in this method because the factory's creation methods
 consume Solidity's stack depth limit.)
 
-To generate the bytecode to call the TradeModules initialize function with the ethers.js library you'd write:
+To generate the bytecode to call the TradeExtensions initialize function with the ethers.js library you'd write:
 
 ```js
 const iFace = new ethers.utils.interface(["function initialize(address)"]);
-const bytecode = iFace.encodeFunctionData("initialize", [setTokenAddress]);
+const bytecode = iFace.encodeFunctionData("initialize", [delegatedManagerAddress]);
 ```
 
 ```solidity
@@ -595,25 +666,24 @@ function initialize(
     address memory _setTokenAddress,
     uint256 _ownerFeeSplit,
     address _ownerFeeRecipient,
-    address[] memory _initializeTargets,
+    address[] memory _extensions,
     bytes[] memory _initializeBytecode,
 )
     external
 ```
-+ require that caller be the *deployer* specified in the *initialize[_setTokenAddress]* mapping
 + require that *initialize[_setTokenAddress].isPending* is `true`
-+ require that *_initializeExtensionTargets* and *initializeExtensionBytecode* arrays have same length
++ require that caller be the *deployer* specified in the *initialize[_setTokenAddress]* mapping
++ require that *_extensions* and *_initializeBytecode* arrays have same length
++ if the setToken manager is the factory, transfer `manager` role to the DelegatedManager contract
++ for each (extension, bytecode)  in  (_extensions, _initializeBytecode)
+    + require that the extension is tracked on the ManagerCore
+    + require that the first argument in bytecode is the DelegatedManager corresponding to the `deployer`
+    + call target.functionCallWithValue(bytecode, 0)
 + call DelegatedManager.updateOwnerFeeSplit with *_ownerFeeSplit*
 + call DelegatedManager.updateOwnerFeeRecipient with *_ownerFeeRecipient*
-
-+ for each (target, bytecode)  in  (_initializeTargets, _initializeBytecode)
-    + call target.functionCallWithValue(bytecode, 0)
-
-+ if setToken manager is this factory we're creating a new SetToken rather than migrating
-  + call `setToken.setManager(initialize[_setTokenAddress].manager)`
 + transfer ownership of manager from factory to *owner* specified in the *initialize[_setTokenAddress]* mapping
++ transfer methodologist role of manager from factory to *methodologist* specified in the *initialize[_setTokenAddress]* mapping
 + delete the *initialize[_setTokenAddress]* mapping entry
-
 
 ### DelegatedManager
 
@@ -715,6 +785,7 @@ function initialize(
 | Name  | Caller  | Description 	|
 |------	|------	|-------------	|
 |interactManager|extension|Interact with a module registered on the SetToken|
+|transferTokens|extension|Transfers tokens held by the manager to destination|
 |initializeExtension|extension|Initializes an added extension from PENDING to INITIALIZED state|
 |addExtensions|owner|Add a new extension that the DelegatedManager can call|
 |removeExtensions|owner|Remove an existing extension tracked by the DelegatedManager|
@@ -722,7 +793,9 @@ function initialize(
 |removeOperators|owner| Remove operator(s) address|
 |addAllowedAssets|owner|Add new asset(s) that can be traded to, wrapped to, or claimed|
 |removeAllowedAssets|owner|Remove asset(s) so that it/they can't be traded to, wrapped to, or claimed|
-|setUseAssetAllowed|owner|set useAssetAllowed variable to true or false|
+|updateUseAssetAllowed|owner|Set useAssetAllowed variable to true or false|
+|updateOwnerFeeSplit|owner or methodologist|Update percent of fees that are sent to owner. Mutual upgrade between owner and methodologist|
+|updateOwnerFeeRecipient|owner|Update address owner receives fees at|
 |setMethodologist|methodologist|Update the methodologist address|
 |setManager|owner|Update the manager of the SetToken|
 |addModule|owner|Add module to SetToken|
@@ -734,6 +807,7 @@ function initialize(
 |------ |-------------  |
 |onlyOwner| Requires that DelegatedManager `owner` is caller |
 |onlyMethodologist | Requires that DelegatedManager `methodologist` is caller |
+|mutualUpgrade| Requires that both signing parties call function to execute |
 |onlyExtension | Requires that msg.sender is an initialized extension in the `extensionAllowlist` array |
 
 ----
@@ -756,8 +830,21 @@ constructor(
 ```
 
 + Set *setToken*, *factory*, *methodologist*, and *useAssetAllowlist* public variables
-+ Add allowed *_extensions* (these will be in set to *PENDING* state)
-+ Add approved *_operators*
++ emit *UseAssetAllowlistUpdated* event
++ for each extension in _extensions
+  + require that extension state in *extensionAllowlist* is *NONE* (has not already been added)
+  + set *extensionAllowlist[extension]* to PENDING
+  + emit *ExtensionAdded* event
++ for each operator in _operators
+  + require that operator is not already registered in the *operatorAllowlist* mapping
+  + add operator to the *operators* array
+  + set *operatorAllowlist[operator]* to `true`
+  + emit *OperatorAdded* event
++ for each asset in _allowedAssets
+  + require that asset is not already registered in the *assetAllowlist* mapping
+  + add asset to the *assetAllowlist* array
+  + set *assetAllowlist[asset]* to `true`
+  + emit *AllowAssetAdded* event
 
 ----
 
@@ -914,13 +1001,15 @@ function setUseAssetAllowlist(bool _useAssetAllowlist) external onlyOwner
 
 > updateOwnerFeeSplit
 
-ONLY OWNER: Sets the *ownerFeeSplit*
+MUTUAL UPGRADE: Sets the *ownerFeeSplit*. Owner and Methodologist must each call this function to execute the update. If Owner and Methodologist point to the same address, update can be executed in a single call.
 
 ```solidity
-function updateOwnerFeeSplit(uint256 _ownerFeeSplit) external onlyOwner
+function updateOwnerFeeSplit(uint256 _newFeeSplit) external mutualUpgrade(owner(), methodologist)
 ```
 
++ require _newFeeSplit to be less or equal to *PreciseUnitMath.preciseUnit()*
 + set *ownerFeeSplit* to _ownerFeeSplit
++ emit *OwnerFeeSplitUpdated* event
 
 ----
 
@@ -929,10 +1018,12 @@ function updateOwnerFeeSplit(uint256 _ownerFeeSplit) external onlyOwner
 ONLY OWNER: Sets the *ownerFeeRecipient*
 
 ```solidity
-function updateOwnerFeeRecipient(address _ownerFeeRecipient) external onlyOwner
+function updateOwnerFeeRecipient(address _newFeeRecipient) external onlyOwner
 ```
 
++ require _newFeeRecipient is not zero address
 + set *ownerFeeRecipient* to _ownerFeeRecipient
++ emit *OwnerFeeRecipientUpdated* event
 
 ----
 
@@ -944,6 +1035,7 @@ ONLY METHODOLOGIST: Update the methodologist address
 function setMethodologist(address _newMethodologist) external onlyMethodologist
 ```
 
++ require _newMethodologist is not zero address
 + set *methodologist* to _newMethodologist
 + emit MethodologistChanged Event
 
@@ -957,7 +1049,8 @@ ONLY OWNER: Update the SetToken manager address
 function setManager(address _newManager) external onlyOwner
 ```
 
-+ require that _newManager is not a null address
++ require that _newManager is not zero address
++ require that all extensions are removed
 + call `setToken.setManager(_newManager)`
 
 ----
@@ -1142,14 +1235,9 @@ function _initializeExtension(ISetToken _setToken, IDelegatedManager _delegatedM
 Internal function to delete SetToken/Manager from extension
 
 ```solidity
-function _removeExtension() internal
+function _removeExtension(ISetToken _setToken, IDelegatedManager _delegatedManager) internal
 ```
 
-+ extract SetToken and DelegatedManager from *msg.sender*
-    ```solidity
-    IDelegatedManager delegatedManager = IDelegatedManager(msg.sender);
-    ISetToken setToken = delegatedManager.setToken();
-    ```
 + require *msg.sender* is the tracked manager *_manager(setToken)*
 + delete *setManagers[setToken]*
 + emit ExtensionRemoved event
@@ -1237,6 +1325,20 @@ function initializeModuleAndExtension(IDelegatedManager _delegatedManager) exter
 + call *_initializeModule(setToken, _delegatedManager)*
 + emit *TradeExtensionInitialized* event
 
+----
+
+> removeExtension
+
+Remove an existing SetToken and DelegatedManager tracked by the TradeExtension
+
+```solidity
+function removeExtension() external override
+```
+
++ Extract DelegatedManager *IDelegatedManager(msg.sender)*
++ Extract SetToken *delegatedManager.setToken()*
++ call *_removeExtension(setToken, delegatedManager*
+
 ### Internal functions
 
 > _initializeModule
@@ -1250,7 +1352,7 @@ function _initializeModule(ISetToken _setToken, IDelegatedManager _delegatedMana
 + Formulate call to initialize module from manager
     ```solidity
     bytes memory callData = abi.encodeWithSignature(
-        "initialize(address)", 
+        "initialize(address)",
         _setToken
     );
     ```
@@ -1301,8 +1403,8 @@ function initializeModule(
     uint256 _managerRedeemFee,
     address _feeRecipient,
     address _managerIssuanceHook
-) 
-    external 
+)
+    external
     onlyOwnerAndValidManager(_delegatedManager)
 ```
 
@@ -1312,7 +1414,7 @@ function initializeModule(
     _initializeModule(
         _delegatedManager.setToken(),
         _delegatedManager,
-        _maxManagerFee, 
+        _maxManagerFee,
         _managerIssueFee,
         _managerRedeemFee,
         _feeRecipient,
@@ -1348,7 +1450,7 @@ function initializeModuleAndExtension(
     uint256 _managerRedeemFee,
     address _feeRecipient,
     address _managerIssuanceHook
-) 
+)
     external
     onlyOwnerAndValidManager(_delegatedManager)
 ```
@@ -1361,7 +1463,7 @@ function initializeModuleAndExtension(
     _initializeModule(
         _delegatedManager.setToken(),
         _delegatedManager,
-        _maxManagerFee, 
+        _maxManagerFee,
         _managerIssueFee,
         _managerRedeemFee,
         _feeRecipient,
@@ -1369,6 +1471,20 @@ function initializeModuleAndExtension(
     );
     ```
 + emit *IssuanceExtensionInitialized* event
+
+----
+
+> removeExtension
+
+Remove an existing SetToken and DelegatedManager tracked by the IssuanceExtension
+
+```solidity
+function removeExtension() external override
+```
+
++ Extract DelegatedManager *IDelegatedManager(msg.sender)*
++ Extract SetToken *delegatedManager.setToken()*
++ call *_removeExtension(setToken, delegatedManager*
 
 ### Internal functions
 
@@ -1385,14 +1501,14 @@ function _initializeModule(
     uint256 _managerRedeemFee,
     address _feeRecipient,
     address _managerIssuanceHook
-) 
+)
     internal
 ```
 
 + Formulate call to initialize module from manager
     ```solidity
     bytes memory callData = abi.encodeWithSignature(
-        "initialize(address,uint256,uint256,uint256,address,address)", 
+        "initialize(address,uint256,uint256,uint256,address,address)",
         _setToken,
         _maxManagerFee,
         _managerIssueFee,
@@ -1447,8 +1563,8 @@ Initializes StreamingFeeModule on the SetToken associated with the DelegatedMana
 function initializeModule(
     IDelegatedManager _delegatedManager,
     IStreamingFeeModule.FeeState memory _settings
-) 
-    external 
+)
+    external
     onlyOwnerAndValidManager(_delegatedManager)
 ```
 
@@ -1479,7 +1595,7 @@ Initializes StreamingFeeSplitExtension to the DelegatedManager and StreamingFeeM
 function initializeModuleAndExtension(
     IDelegatedManager _delegatedManager,
     IStreamingFeeModule.FeeState memory _settings
-) 
+)
     external
     onlyOwnerAndValidManager(_delegatedManager)
 ```
@@ -1489,6 +1605,20 @@ function initializeModuleAndExtension(
 + call *_initializeExtension(setToken, _delegatedManager)*
 + call *_initializeModule(_delegatedManager.setToken(), _delegatedManager, _settings)*
 + emit *StreamingFeeSplitExtensionInitialized* event
+
+----
+
+> removeExtension
+
+Remove an existing SetToken and DelegatedManager tracked by the StreamingFeeSplitExtension
+
+```solidity
+function removeExtension() external override
+```
+
++ Extract DelegatedManager *IDelegatedManager(msg.sender)*
++ Extract SetToken *delegatedManager.setToken()*
++ call *_removeExtension(setToken, delegatedManager*
 
 ### Internal functions
 
@@ -1501,14 +1631,14 @@ function _initializeModule(
     ISetToken _setToken,
     IDelegatedManager _delegatedManager,
     IStreamingFeeModule.FeeState memory _settings
-) 
+)
     internal
 ```
 
 + Formulate call to initialize module from manager
     ```solidity
     bytes memory callData = abi.encodeWithSignature(
-        "initialize(address,(address,uint256,uint256,uint256))", 
+        "initialize(address,(address,uint256,uint256,uint256))",
         _setToken,
         _settings);
     );
