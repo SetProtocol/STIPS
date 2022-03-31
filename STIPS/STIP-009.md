@@ -1656,5 +1656,6 @@ Before we move onto the implementation phase we want to make sure that we are al
 ## Documentation
 [Link to Documentation on feature]()
 ## Deployment
-[Link to Deployment script PR]()
-[Link to Deploy outputs PR]()
++ [Ethereum](https://github.com/SetProtocol/set-v2-strategies-deployments/pull/30)
++ [Polygon](https://github.com/SetProtocol/set-v2-strategies-deployments/pull/28)
++ [Optimism](https://github.com/SetProtocol/set-v2-strategies-deployments/pull/32)
