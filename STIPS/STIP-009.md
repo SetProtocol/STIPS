@@ -1654,7 +1654,13 @@ Before we move onto the implementation phase we want to make sure that we are al
 ## Implementation
 [Link to implementation PR]()
 ## Documentation
-[Link to Documentation on feature]()
++ [Delegated Manager System Docs](https://docs.tokensets.com/developers/contracts/strategies/delegatedmanager-system)
+    + [DelegatedManager](https://docs.tokensets.com/developers/contracts/strategies/delegatedmanager-system/delegatedmanager)
+    + [DelegatedManagerFactory](https://docs.tokensets.com/developers/contracts/strategies/delegatedmanager-system/delegatedmanagerfactory)
+    + [Global Extensions](https://docs.tokensets.com/developers/contracts/strategies/delegatedmanager-system/global-extensions)
+    + [TradeExtension](https://docs.tokensets.com/developers/contracts/strategies/delegatedmanager-system/global-extensions/trade-extension)
+    + [StreamingFeeSplitExtension](https://docs.tokensets.com/developers/contracts/strategies/delegatedmanager-system/global-extensions/streamingfeesplitextension)
+    + [IssuanceExtension](https://docs.tokensets.com/developers/contracts/strategies/delegatedmanager-system/global-extensions/issuance-extension)
 ## Deployment
 + [Ethereum](https://github.com/SetProtocol/set-v2-strategies-deployments/pull/30)
 + [Polygon](https://github.com/SetProtocol/set-v2-strategies-deployments/pull/28)
