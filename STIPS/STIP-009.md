@@ -1652,7 +1652,7 @@ Before we move onto the implementation phase we want to make sure that we are al
 **Reviewer**:
 
 ## Implementation
-[Link to implementation PR]()
++ [Final Implementation PR](https://github.com/SetProtocol/set-v2-strategies/pull/23)
 ## Documentation
 + [Delegated Manager System Docs](https://docs.tokensets.com/developers/contracts/strategies/delegatedmanager-system)
     + [DelegatedManager](https://docs.tokensets.com/developers/contracts/strategies/delegatedmanager-system/delegatedmanager)
