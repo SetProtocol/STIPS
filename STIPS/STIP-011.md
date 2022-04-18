@@ -107,9 +107,9 @@ Reviewer: []
 | Name  | Caller  | Description     |
 |------	|------	|-------------	|
 |initializeModule|owner|Initializes TradeModule on the SetToken associated with the DelegatedManager|
-|initializeExtension|owner|Initialize the TradeExtension on the DelegatedManager|
-|initializeExtensionAndModule|owner|Initialize the StreamingFeeModule on the SetToken and the StreamingFeeExtension on the DelegatedManager|
-|removeExtension|manager|Remove an existing SetToken and DelegatedManager tracked by the TradeExtension|
+|initializeExtension|owner|Initialize the BatchTradeExtension on the DelegatedManager|
+|initializeExtensionAndModule|owner|Initialize the TradeModule on the SetToken and the BatchTradeExtension on the DelegatedManager|
+|removeExtension|manager|Remove an existing SetToken and DelegatedManager tracked by the BatchTradeExtension|
 |batchTrade|operator|Executes a batch of trades between whitelisted assets on a DEX|
 
 ----
@@ -135,7 +135,7 @@ function initializeModule(address _delegatedManager) external onlyOwnerAndValidM
 
 > initializeExtension
 
-Initialize the TradeExtension on the DelegatedManager
+Initialize the BatchTradeExtension on the DelegatedManager.
 
 ```solidity
 function initializeExtension(address _delegatedManager) external onlyOwnerAndValidManager(_delegatedManager)
@@ -149,7 +149,7 @@ function initializeExtension(address _delegatedManager) external onlyOwnerAndVal
 
 > initializeModuleAndExtension
 
-Initializes TradeExtension to the DelegatedManager and TradeModule to the SetToken.
+Initializes BatchTradeExtension to the DelegatedManager and TradeModule to the SetToken.
 
 ```solidity
 function initializeModuleAndExtension(IDelegatedManager _delegatedManager) external onlyOwnerAndValidManager(_delegatedManager)
@@ -165,7 +165,7 @@ function initializeModuleAndExtension(IDelegatedManager _delegatedManager) exter
 
 > removeExtension
 
-Remove an existing SetToken and DelegatedManager tracked by the TradeExtension
+Remove an existing SetToken and DelegatedManager tracked by the BatchTradeExtension.
 
 ```solidity
 function removeExtension() external override
