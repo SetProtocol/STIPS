@@ -70,11 +70,11 @@ Before more in depth design of the contract flows lets make sure that all the wo
 An `operator` wants to execute a batch of trades on a DEX.
 
 1. The operator calls `batchTrade` passing in the parameters for each call to the `TradeModule`
-2. Each trade in the batch is executed
+2. Each `receiveToken` is validated to be on the asset whitelist
+3. Each trade in the batch is executed
 
     - Trade `callData` is encoded using the provided inputs
-    - The BatchTradeExtension invokes the DelegatedManager, performing `tradeModule.functionCallWithValue(callData, 0)`
-    - Events are emitted if the call fails
+    - Try call to `DelegatedManager.interactManager`, events are emitted if errors are caught
 
 ## Checkpoint 2
 Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
@@ -90,6 +90,44 @@ Reviewer: []
 
 - BaseGlobalExtension
 
+#### Events
+
+##### BatchTradeExtensionInitialized
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|_setToken|Address of SetToken with BatchTradeExtension initialized|
+|address|_delegatedManager|Address of DelegatedManager with BatchTradeExtension initialized|
+
+##### StringTradeFailed
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|_setToken|Address of SetToken targetted with trade|
+|uint256|_delegatedManager|Index of trade in the batch|
+|string|_reason|String reason for trade failure|
+
+##### BytesTradeFailed
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|_setToken|Address of SetToken targetted with trade|
+|uint256|_delegatedManager|Index of trade in the batch|
+|bytes|_reason|Bytes reason for trade failure|
+
+#### Structs
+
+##### TradeInfo
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|string|exchangeName|Human readable name of the exchange in the integrations registry|
+|address|sendToken|Address of the token to be sent to the exchange|
+|uint256|sendQuantity|Units of token in SetToken sent to the exchange|
+|address|receiveToken|Address of the token that will be received from the exchange|
+|uint256|minReceiveQuantity|Min units of token in SetToken to be received from the exchange|
+|bytes|data|Arbitrary bytes to be used to construct trade call data|
+
 #### Global Variables
 
 | Type 	| Name 	| Description 	|
@@ -101,6 +139,17 @@ Reviewer: []
 | Type 	| Name 	| Description 	|
 |------	|------	|-------------	|
 |mapping(address => IDelegatedManager)|setManagers|Mapping from SetToken to DelegatedManager|
+
+#### Modifiers
+
+```solidity
+modifier onlyAllowedAssets(ISetToken _setToken, TradeInfo[] memory _trades) {
+    for(uint256 i = 0; i < _trades.length; i++) {
+        require(_manager(_setToken).isAllowedAsset(_trades[i].receiveToken), "Must be allowed asset");
+    }
+    _;
+}
+```
 
 #### Functions
 
@@ -119,6 +168,26 @@ Reviewer: []
 > batchTrade
 
 Executes a batch of trades between whitelisted assets on a DEX.
+
+```solidity
+function batchTrade(
+        ISetToken _setToken,
+        TradeInfo[] memory _trades
+    )
+        external
+        onlyOperator(_setToken)
+        onlyAllowedAssets(_setToken, _trades)
+```
+
++ require that the operator state in delegatedManager's *operatorAllowList* is `true`
++ require that each `receiveToken` state is an allowed asset on the delegatedManager
++ for each trade  in  _trades
+    + encode the TradeInfo into callData
+    + try to call the TradeModule through the DelegatedManager
+    + catch string errors
+        + emit *StringTradeFailed* event
+    + catch byte errors
+        + emit *ByteTradeFailed* event
 
 > initializeModule
 
@@ -143,7 +212,7 @@ function initializeExtension(address _delegatedManager) external onlyOwnerAndVal
 
 + require that extension state in delegatedManager's *extensionAllowlist* is *PENDING*
 + call *_initializeExtension(_delegatedManager.setToken(), _delegatedManager)*
-+ emit *TradeExtensionInitialized* event
++ emit *BatchTradeExtensionInitialized* event
 
 ----
 
@@ -159,7 +228,7 @@ function initializeModuleAndExtension(IDelegatedManager _delegatedManager) exter
 + extract SetToken from DelegatedManager *ISetToken setToken = _delegatedManager.setToken()*
 + call *_initializeExtension(setToken, _delegatedManager)*
 + call *_initializeModule(setToken, _delegatedManager)*
-+ emit *TradeExtensionInitialized* event
++ emit *BatchTradeExtensionInitialized* event
 
 ----
 
@@ -200,7 +269,7 @@ Before we move onto the implementation phase we want to make sure that we are al
 **Reviewer**:
 
 ## Implementation
-[Link to implementation PR]()
+[Implementation PR](https://github.com/SetProtocol/set-v2-strategies/pull/30)
 ## Documentation
 [Link to Documentation on feature]()
 ## Deployment
