@@ -74,7 +74,8 @@ An `operator` wants to execute a batch of trades on a DEX.
 3. Each trade in the batch is executed
 
     - Trade `callData` is encoded using the provided inputs
-    - Try call to `DelegatedManager.interactManager`, events are emitted if errors are caught
+    - Try call to `DelegatedManager.interactManager`
+    - Catch string errors and emit events
 
 ## Checkpoint 2
 Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
@@ -104,16 +105,8 @@ Reviewer: []
 | Type  | Name  | Description   |
 |------ |------ |-------------  |
 |address|_setToken|Address of SetToken targetted with trade|
-|uint256|_delegatedManager|Index of trade in the batch|
+|uint256|_index|Index of trade in the batch|
 |string|_reason|String reason for trade failure|
-
-##### BytesTradeFailed
-
-| Type  | Name  | Description   |
-|------ |------ |-------------  |
-|address|_setToken|Address of SetToken targetted with trade|
-|uint256|_delegatedManager|Index of trade in the batch|
-|bytes|_reason|Bytes reason for trade failure|
 
 #### Structs
 
@@ -186,8 +179,6 @@ function batchTrade(
     + try to call the TradeModule through the DelegatedManager
     + catch string errors
         + emit *StringTradeFailed* event
-    + catch byte errors
-        + emit *ByteTradeFailed* event
 
 > initializeModule
 
