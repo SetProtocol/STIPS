@@ -100,7 +100,7 @@ Reviewer: []
 |address|_setToken|Address of SetToken with BatchTradeExtension initialized|
 |address|_delegatedManager|Address of DelegatedManager with BatchTradeExtension initialized|
 
-##### StringTradeFailed
+##### TradeFailed
 
 | Type  | Name  | Description   |
 |------ |------ |-------------  |
@@ -178,7 +178,7 @@ function batchTrade(
     + encode the TradeInfo into callData
     + try to call the TradeModule through the DelegatedManager
     + catch string errors
-        + emit *StringTradeFailed* event
+        + emit *TradeFailed* event
 
 > initializeModule
 
