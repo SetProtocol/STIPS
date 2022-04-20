@@ -68,6 +68,8 @@ controtie: Approved
 
 ### BatchTradeExtension.batchTrade()
 
+![batchTradeFlow](../assets/stip-011/image2.png "")
+
 An `operator` wants to execute a batch of trades on a DEX.
 
 1. The operator calls `batchTrade` passing in the parameters for each call to the `TradeModule`
@@ -75,8 +77,8 @@ An `operator` wants to execute a batch of trades on a DEX.
 3. Each trade in the batch is executed
 
     - Trade `callData` is encoded using the provided inputs
-    - Try call to `DelegatedManager.interactManager`
-    - Catch string errors and emit events
+    - Try to route the `callData` to the `TradeModule` through the `DelegatedManager`
+    - Catch string and byte errors and emit corresponding events
 
 ## Checkpoint 2
 Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
