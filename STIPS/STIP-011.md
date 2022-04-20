@@ -2,17 +2,17 @@
 *Using template v0.1*
 ## Abstract
 
-Rebalancing Set Token indicies is a complicated process which involves managers and operators executing multiple transactions. Making this process simpler improves the experience of current asset managers and makes index management more approachable for new asset managers.
+Rebalancing Set Token indices is a complicated process which involves managers and operators executing multiple transactions. Making this process simpler improves the experience of current asset managers and makes index management more approachable for new asset managers.
 
 ## Motivation
 
-This STIP proposes we provide infrastrcuture to batch trade calls together into one transaction. This will make Set Token index rebalancing less cumbersome for asset managers by reducing the number of transactions necessary to rebalance an index.
+This STIP proposes we provide infrastructure to batch trade calls together into one transaction. This will make Set Token index rebalancing less cumbersome for asset managers by reducing the number of transactions necessary to rebalance an index.
 
 ## Background Information
 
 [TradeModule](https://github.com/SetProtocol/set-protocol-v2/blob/master/contracts/protocol/modules/v1/TradeModule.sol) with [TradeExtension](https://github.com/SetProtocol/set-v2-strategies/blob/master/contracts/extensions/TradeExtension.sol) - This module and accompanying extension allow managers to make individual swaps. A complete index rebalance could be done by executing multiple transactions through the `TradeExtension`.
 
-[GeneralIndexModule](https://github.com/SetProtocol/set-protocol-v2/blob/master/contracts/protocol/modules/v1/GeneralIndexModule.sol) - This module is tailored to the complete rebalance of Set Token indicies. The manager begins the rebalance by specifying a target allocation in `startRebalance()`. Once this allocation is passed in, allowed traders can submit rebalance transactions by calling `trade()` and specifying the component they wish to rebalance.
+[GeneralIndexModule](https://github.com/SetProtocol/set-protocol-v2/blob/master/contracts/protocol/modules/v1/GeneralIndexModule.sol) - This module is tailored to the complete rebalance of Set Token indices. The manager begins the rebalance by specifying a target allocation in `startRebalance()`. Once this allocation is passed in, allowed traders can submit rebalance transactions by calling `trade()` and specifying the component they wish to rebalance.
 
 [Multicall2](https://github.com/makerdao/multicall/blob/master/src/Multicall2.sol) - This contract aggregates results from multiple contract constant function calls. This reduces the number of separate JSON RPC requests and guarantees that all values returned are from the same block. `Multicall2` allows calls within the batch to fail.
 
@@ -44,10 +44,11 @@ We recommend implementing the `BatchTradeExtension`. This solution requires less
 | Auditors              |   4/22     |
 | Launch                |   4/29     |
 
-## Checkpoint 1
-Before more in depth design of the contract flows lets make sure that all the work done to this point has been exhaustive. It should be clear what we're doing, why, and for who. All necessary information on external protocols should be gathered and potential solutions considered. At this point we should be in alignment with product on the non-technical requirements for this feature. It is up to the reviewer to determine whether we move onto the next step.
 
 **Reviewer**:
+
+cgewecke: Approved
+controtie: Approved
 
 ## Proposed Architecture Changes
 
@@ -100,13 +101,21 @@ Reviewer: []
 |address|_setToken|Address of SetToken with BatchTradeExtension initialized|
 |address|_delegatedManager|Address of DelegatedManager with BatchTradeExtension initialized|
 
-##### TradeFailed
+##### StringTradeFailed
 
 | Type  | Name  | Description   |
 |------ |------ |-------------  |
-|address|_setToken|Address of SetToken targetted with trade|
+|address|_setToken|Address of SetToken targeted with trade|
 |uint256|_index|Index of trade in the batch|
 |string|_reason|String reason for trade failure|
+
+##### BytesTradeFailed
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|_setToken|Address of SetToken targeted with trade|
+|uint256|_index|Index of trade in the batch|
+|bytes|_reason|Bytes encoding custom error thrown during trade failure|
 
 #### Structs
 
@@ -178,7 +187,9 @@ function batchTrade(
     + encode the TradeInfo into callData
     + try to call the TradeModule through the DelegatedManager
     + catch string errors
-        + emit *TradeFailed* event
+        + emit *StringTradeFailed* event
+    + catch bytes errors
+        + emit *BytesTradeFailed* event
 
 > initializeModule
 
@@ -255,9 +266,10 @@ function _initializeModule(ISetToken _setToken, IDelegatedManager _delegatedMana
 + call *_invokeManager(_delegatedManager, address(tradeModule), callData)*
 
 ## Checkpoint 3
-Before we move onto the implementation phase we want to make sure that we are aligned on the spec. All contracts should be specced out, their state and external function signatures should be defined. For more complex contracts, internal function definition is preferred in order to align on proper abstractions. Reviewer should take care to make sure that all stake holders (product, app engineering) have their needs met in this stage.
 
 **Reviewer**:
+
+cgewecke: Approved
 
 ## Implementation
 [Implementation PR](https://github.com/SetProtocol/set-v2-strategies/pull/30)
