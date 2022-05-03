@@ -62,24 +62,43 @@ Before more in depth design of the contract flows lets make sure that all the wo
 **Reviewer**:
 
 ## Proposed Architecture Changes
-A diagram would be helpful here to see where new feature slot into the system. Additionally a brief description of any new contracts is helpful.
+
+![ProductiveAssetExtensions](../assets/stip-012/image1.png "")
+
+**ClaimExtension**: Global extension which provides privileged `operator`(s) the ability to `claimAndAbsorb` rewards from external protocols and the `owner` the ability to restrict the `operator`(s) permissions with an asset whitelist.
+
+**WrapExtension**: Global extension which provides privileged `operator`(s) the ability to `wrap` and `unwrap` ERC20 and Ether positions on external protocols and the `owner` the ability to restrict the `operator`(s) permissions with an asset whitelist.
+
 ## Requirements
 
 ### WrapExtension
 
 - Allow `owner` to enable functionality of WrapModuleV2 with only a state change and no contract deployment
 - Allow privileged `operator`(s) to wrap and unwrap ERC20 and ether positions via third party protocols
+- Allow `owner` to restrict assets the privileged `operator`(s) can wrap and unwrap into with an asset whitelist
+- Allow `owner` to control SetToken's configuration on the WrapModuleV2
 
 ### ClaimExtension
+
 - Allow `owner` to enable functionality of ClaimModule and AirdropModule with only a state change and no contract deployment
-- Use ClaimModule to claim external protocol rewards and AirdropModule to absorb them into SetToken positions in a single transaction
+- Allow privileged `operator`(s) the ability to claim external protocol rewards and absorb them into SetToken positions in a single transaction
+- Allow privileged `operator`(s) the ability to absorb tokens them into SetToken positions
+- Allow `owner` to restrict assets the privileged `operator`(s) can absorb with an asset whitelist
+- Allow `owner` to control SetToken's configuration on the AirdropModule
+- Allow `owner` to control SetToken's configuration on the ClaimModule
 
 ## User Flows
-<!-- - Highlight *each* external flow enabled by this feature. It's helpful to use diagrams (add them to the `assets` folder). Examples can be very helpful, make sure to highlight *who* is initiating this flow, *when* and *why*. A reviewer should be able to pick out what requirements are being covered by this flow. -->
 
 ### ClaimExtension.claimAndAbsorb()
 
+![claimAndAbsorbFlow](../assets/stip-012/image2.png "")
 
+An `operator` wants to claim rewards from an external protocol and absorb those rewards into the SetToken's positions.
+
+1. The operator calls `claimAndAbsorb` passing in the the `rewardsPool` and `integrationName` from which they would like to claim
+2. The rewardsToken is validated to be on the asset whitelist
+3. Claim `callData` is encoded and the `ClaimModule` is invoked through the `DelegatedManager`
+4. Absorb `callData` is encoded and the `AirdropModule` is invoked through the `DelegatedManager`
 
 ## Checkpoint 2
 Before we spec out the contract(s) in depth we want to make sure that we are aligned on all the technical requirements and flows for contract interaction. Again the who, what, when, why should be clearly illuminated for each flow. It is up to the reviewer to determine whether we move onto the next step.
