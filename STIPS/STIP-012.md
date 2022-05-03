@@ -52,7 +52,7 @@ We recommend implementing the `WrapExtension` and the `ClaimExtension` which cal
 |  Action               |  End Date  |
 |---                    |---         |
 | Technical Spec        |   4/25     |
-| Implementation        |   4/29     |
+| Implementation        |   5/4      |
 | Auditors              |   TBD      |
 | Launch                |   TBD      |
 
@@ -141,6 +141,7 @@ function wrap(
 )
     external
     onlyOperator(_setToken)
+    onlyAllowedAsset(_setToken, _wrappedToken)
 ```
 + Formulate call to wrap asset from manager
     ```solidity
@@ -172,6 +173,7 @@ function wrapWithEther(
 )
     external
     onlyOperator(_setToken)
+    onlyAllowedAsset(_setToken, _wrappedToken)
 ```
 + Formulate call to wrap Ether from manager
     ```solidity
@@ -203,6 +205,7 @@ function unwrap(
 )
     external
     onlyOperator(_setToken)
+    onlyAllowedAsset(_setToken, _underlyingToken)
 ```
 + Formulate call to unwrap asset from manager
     ```solidity
@@ -234,6 +237,7 @@ function unwrapWithEther(
 )
     external
     onlyOperator(_setToken)
+    onlyAllowedAsset(_setToken, address(wrapModule.weth()))
 ```
 + Formulate call to unwrap Ether from manager
     ```solidity
@@ -256,6 +260,88 @@ function unwrapWithEther(
 
 - BaseGlobalExtension
 
+#### Events
+
+##### ClaimExtensionInitialized
+
+| Type  | Name  | Description   |
+|------ |------ |-------------  |
+|address|_setToken|Address of SetToken with ClaimExtension initialized|
+|address|_delegatedManager|Address of DelegatedManager with ClaimExtension initialized|
+
+#### Global Variables
+
+| Type 	| Name 	| Description 	|
+|------	|------	|-------------	|
+|IAirdropModule|airdropModule|Instance of AirdropModule|
+|IClaimModule|claimModule|Instance of ClaimModule|
+|IIntegrationRegistry|integrationRegistry|Instance of IntegrationRegistry|
+
+#### Functions
+| Name  | Caller  | Description 	|
+|------	|------	|-------------	|
+|initializeAirdropModule|owner|Initializes AirdropModule on the SetToken associated with the DelegatedManager|
+|initializeClaimModule|owner|Initializes ClaimModule on the SetToken associated with the DelegatedManager|
+|initializeExtension|owner|Initializes ClaimExtension to the DelegatedManager|
+|initializeModulesAndExtension|owner|Initializes ClaimExtension to the DelegatedManager and AirdropModule and ClaimModule to the SetToken|
+|removeExtension|manager|Remove an existing SetToken and DelegatedManager tracked by the ClaimExtension|
+|batchAbsorb|validAbsorbCaller|Absorb passed tokens into respective positions|
+|absorb|validAbsorbCaller|Absorb specified token into position|
+|addAirdrop|owner|Adds new tokens to be added to positions when absorb is called|
+|removeAirdrop|owner|Removes tokens from list to be absorbed|
+|updateAnyoneAbsorb|owner|Update whether manager allows other addresses to call absorb|
+|updateAirdropFeeRecipient|owner|Update address AirdropModule manager fees are sent to|
+|updateAirdropFee|owner|Update airdrop fee percentage|
+|claimAndAbsorb|validClaimAndAbsorbCaller|Claim the rewards available on the rewardPool for the specified claim integration and absorb the reward token into position|
+|batchClaimAndAbsorb|validClaimAndAbsorbCaller|Claims rewards on all the passed rewardPool/claim integration pairs and absorb the reward tokens into positions|
+|updateAnyoneClaim|owner|Update whether manager allows other addresses to call claim|
+|addClaim|owner|Adds a new claim integration for an existent rewardPool|
+|batchAddClaim|owner|Adds a new rewardPool to the list to perform claims for the SetToken indicating the list of claim integrations|
+|removeClaim|owner|Removes a claim integration from an existent rewardPool|
+|batchRemoveClaim|owner|Batch removes claims from SetToken's settings|
+
+---
+
+> claimAndAbsorb
+
+ONLY VALID CLAIM AND ABSORB CALLER: Claim the rewards available on the rewardPool for the specified claim integration and absorb the reward token into position.
+
+```solidity
+function claimAndAbsorb(
+    ISetToken _setToken,
+    address _rewardPool,
+    string calldata _integrationName
+)
+    external
+    onlyValidClaimAndAbsorbCaller(_setToken)
+```
++ Get rewards token from the rewards pool and verify it is an allowed asset
+    ```solidity
+    IClaimAdapter adapter = IClaimAdapter(integrationRegistry.getIntegrationAdapter(address(claimModule), _integrationName));
+    IERC20 rewardsToken = adapter.getTokenAddress(_rewardPool);
+    require(_manager(_setToken).isAllowedAsset(address(rewardsToken)), "Must be allowed asset");
+    ```
++ Claim the rewards available on the rewardPool
+    ```solidity
+    bytes memory callData = abi.encodeWithSelector(
+        IClaimModule.claim.selector,
+        _setToken,
+        _rewardPool,
+        _integrationName
+    );
+    _invokeManager(_manager(_setToken), address(claimModule), callData);
+    ```
++ Absorb the reward token into position
+    ```solidity
+    bytes memory callData = abi.encodeWithSelector(
+        IAirdropModule.absorb.selector,
+        _setToken,
+        _token
+    );
+    _invokeManager(_manager(_setToken), address(airdropModule), callData);
+    ```
+
+---
 
 ## Checkpoint 3
 Before we move onto the implementation phase we want to make sure that we are aligned on the spec. All contracts should be specced out, their state and external function signatures should be defined. For more complex contracts, internal function definition is preferred in order to align on proper abstractions. Reviewer should take care to make sure that all stake holders (product, app engineering) have their needs met in this stage.
